@@ -9,6 +9,8 @@ import { loadJsPDF } from '../lib/pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 
 
@@ -527,14 +529,14 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
           <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>CSV</button>
-          <button className="btn btn-gold" style={{fontSize:11,background:'#1A1525',color:'#C8A84B',border:'1px solid #C8A84B'}} onClick={exportPDF}>PDF Report</button>
+          <button className="btn btn-gold" style={{fontSize:11,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}`}} onClick={exportPDF}>PDF Report</button>
           {onImport&&(()=>{
             // Show import button if ANY selected company has feature_statements enabled
             const hasFeature = selectedCompany==='all'
               ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
               : (companySettings[selectedCompany]||{}).feature_statements
             return hasFeature ? (
-              <button className="btn btn-gold" style={{fontSize:11,background:'#0D2B1F',color:'#2ECC8A',border:'1px solid #2ECC8A'}} onClick={onImport}>Import Statement</button>
+              <button className="btn btn-gold" style={{fontSize:11,background:T.green+'15',color:T.green,border:`1px solid ${T.green}`}} onClick={onImport}>Import Statement</button>
             ) : null
           })()}
         </div>
@@ -563,7 +565,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         <div className="card" style={{padding:'18px 20px'}}>
           <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Property P&L — {selectedYear}</div>
           <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontFamily:MONO,fontSize:11}}>
+            <table className="table-stack" style={{width:'100%',borderCollapse:'collapse',fontFamily:MONO,fontSize:11}}>
               <thead>
                 <tr style={{borderBottom:`1px solid ${T.border}`}}>
                   {['Property','Rent','Expenses','Net','Yield'].map(h=>(
@@ -574,11 +576,11 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
               <tbody>
                 {propPnL.map((p,i)=>(
                   <tr key={p.id} style={{borderBottom:`1px solid ${T.border}22`,background:i%2===0?'transparent':T.bg}}>
-                    <td style={{padding:'8px 8px',color:T.text,fontSize:11,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</td>
-                    <td style={{padding:'8px 8px',textAlign:'right',color:T.green}}>{p.annualRent>0?fmt(p.annualRent):'—'}</td>
-                    <td style={{padding:'8px 8px',textAlign:'right',color:p.expenses>0?T.red:T.faint}}>{p.expenses>0?fmt(p.expenses):'—'}</td>
-                    <td style={{padding:'8px 8px',textAlign:'right',fontWeight:700,color:p.netProfit>=0?T.green:T.red}}>{p.annualRent>0?fmt(p.netProfit):'—'}</td>
-                    <td style={{padding:'8px 8px',textAlign:'right',color:T.goldText}}>{p.yield>0?p.yield.toFixed(1)+'%':'—'}</td>
+                    <td data-label="Property" style={{padding:'8px 8px',color:T.text,fontSize:11,maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</td>
+                    <td data-label="Rent" style={{padding:'8px 8px',textAlign:'right',color:T.green}}>{p.annualRent>0?fmt(p.annualRent):'—'}</td>
+                    <td data-label="Expenses" style={{padding:'8px 8px',textAlign:'right',color:p.expenses>0?T.red:T.faint}}>{p.expenses>0?fmt(p.expenses):'—'}</td>
+                    <td data-label="Net" style={{padding:'8px 8px',textAlign:'right',fontWeight:700,color:p.netProfit>=0?T.green:T.red}}>{p.annualRent>0?fmt(p.netProfit):'—'}</td>
+                    <td data-label="Yield" style={{padding:'8px 8px',textAlign:'right',color:T.goldText}}>{p.yield>0?p.yield.toFixed(1)+'%':'—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -762,9 +764,9 @@ export function ContractorsPage({companies, showToast}) {
       </div>}
 
       {loading
-        ? <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>Loading…</div>
+        ? <SkeletonRows rows={3} height={72}/>
         : contractors.length===0
-          ? <div style={{fontFamily:MONO,fontSize:12,color:T.faint,textAlign:'center',padding:40,background:T.card,borderRadius:12}}>No contractors added yet. Add your plumber, electrician and other regular trades here.</div>
+          ? <EmptyState compact icon="wrench" title="No contractors added yet" body="Add your plumber, electrician and other regular trades here."/>
           : Object.entries(byTrade).sort().map(([trade,list])=>(
             <div key={trade} style={{marginBottom:20}}>
               <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>{trade}</div>
@@ -774,14 +776,14 @@ export function ContractorsPage({companies, showToast}) {
                     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:6}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,marginBottom:1}}>
-                          {c.preferred&&<span style={{marginRight:4}}>⭐</span>}{c.name}
+                          {c.preferred&&<span style={{display:'inline-flex',verticalAlign:'-2px',marginRight:4,color:T.goldText}} title="Preferred"><Icon name="star" size={13}/></span>}{c.name}
                         </div>
                         <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{c.trade}</div>
                       </div>
-                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
+                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:T.red+'15',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
                     </div>
-                    {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}>📞 {c.phone}</a>}
-                    {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}>✉ {c.email}</a>}
+                    {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}><Icon name="phone" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.phone}</a>}
+                    {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}><Icon name="mail" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.email}</a>}
                     {c.notes&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
                     {(()=>{
                       const ids = c.company_ids_json ? JSON.parse(c.company_ids_json) : (c.company_id ? [c.company_id] : [])
@@ -874,19 +876,19 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
     // end date — so it gets the same date-based classification as a
     // regular rented property. let_agreed / vacant / etc are "vacant"
     // from a tenancy-expiry perspective.
-    if (!isPropertyOccupied(p.status)) return { label: 'Vacant',        color: T.green, dot: '🟢' }
-    if (!p.tenancy_end)                return { label: 'No end date',   color: T.muted, dot: '⚪' }
+    if (!isPropertyOccupied(p.status)) return { label: 'Vacant',        color: T.green }
+    if (!p.tenancy_end)                return { label: 'No end date',   color: T.muted }
     const today = new Date()
     const end = new Date(p.tenancy_end)
     // The property modal accepts free-text dates ("31st March 2026") which
     // Date() can't parse → Invalid Date → previously rendered as
     // "Fixed to Invalid Date". Fall back to showing the raw input so the
     // user at least sees what they typed.
-    if (isNaN(end.getTime())) return { label: `Fixed to ${p.tenancy_end}`, color: T.muted, dot: '⚪' }
+    if (isNaN(end.getTime())) return { label: `Fixed to ${p.tenancy_end}`, color: T.muted }
     const diffDays = Math.round((end - today) / (1000 * 60 * 60 * 24))
-    if (diffDays < 0)   return { label: 'Expired',                              color: T.green, dot: '🟢' }
-    if (diffDays <= 90) return { label: `Ends in ${diffDays}d`,                 color: T.amber, dot: '🟡' }
-    return { label: `Fixed to ${end.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`, color: T.red, dot: '🔴' }
+    if (diffDays < 0)   return { label: 'Expired',                              color: T.green }
+    if (diffDays <= 90) return { label: `Ends in ${diffDays}d`,                 color: T.amber }
+    return { label: `Fixed to ${end.toLocaleDateString('en-GB',{month:'short',year:'numeric'})}`, color: T.red }
   }
 
   // Per-property computed row
@@ -1141,7 +1143,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
         <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.faint, marginTop:16, lineHeight:1.6 }}>
           Yield calculated {yieldBasis === 'value' ? 'on current property value' : 'on purchase + refurb cost'}.
-          Tenancy badges based on tenancy end dates: 🟢 expired or vacant · 🟡 ends within 90 days · 🔴 fixed term &gt; 90 days remaining.
+          Tenancy badges based on tenancy end dates: green, expired or vacant · amber, ends within 90 days · red, fixed term &gt; 90 days remaining.
           This tool is for scenario modelling — actual rent increases must follow legal notice requirements (Section 13 etc.).
         </div>
       </div>

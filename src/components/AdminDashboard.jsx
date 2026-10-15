@@ -10,6 +10,9 @@ import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 import { pressable } from '../lib/pressable'
+import { Button, EmptyState } from './ui'
+import { Icon } from '../lib/icons'
+import { SkeletonRows, SkeletonTiles } from '../lib/Skeleton'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const mono = MONO
@@ -30,13 +33,13 @@ function userInitial(user) {
   return (user?.email?.[0] || '?').toUpperCase()
 }
 
-const STATUS_CFG = {
-  active:    { label:'Active',    bg:'#2ECC8A22', color:'#2ECC8A' },
-  trialing:  { label:'Trialing',  bg:'#4B8FE022', color:'#4B8FE0' },
-  past_due:  { label:'Past due',  bg:'#E0943A22', color:'#E0943A' },
-  canceled:  { label:'Cancelled', bg:'#E0555522', color:'#E05555' },
-  free_tier: { label:'Free tier', bg:'#C8A84B22', color:'#C8A84B' },
-}
+const statusCfg = T => ({
+  active:    { label:'Active',    bg:T.green+'22', color:T.green },
+  trialing:  { label:'Trialing',  bg:T.blue+'22',  color:T.blue },
+  past_due:  { label:'Past due',  bg:T.amber+'22', color:T.amber },
+  canceled:  { label:'Cancelled', bg:T.red+'22',   color:T.red },
+  free_tier: { label:'Free tier', bg:T.gold+'22',  color:T.goldText },
+})
 
 export default function AdminDashboard({ onClose, user }) {
   const { T } = useTheme()
@@ -174,7 +177,7 @@ export default function AdminDashboard({ onClose, user }) {
     ...(accent?{borderLeft:`3px solid ${accent}`}:{})
   })
   const pill = (status) => {
-    const cfg=STATUS_CFG[status]||{label:status,bg:T.border,color:T.muted}
+    const cfg=statusCfg(T)[status]||{label:status,bg:T.border,color:T.muted}
     return <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 10px',borderRadius:20,background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
   }
 
@@ -188,7 +191,7 @@ export default function AdminDashboard({ onClose, user }) {
             <ChromeLogo height={26}/>
             <div style={{width:1,height:24,background:T.border}}/>
             <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
-            {metrics.flagged>0&&<span style={{fontFamily:mono,fontSize:FS.xs,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}>⚑ {metrics.flagged} flagged</span>}
+            {metrics.flagged>0&&<span style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:mono,fontSize:FS.xs,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}><Icon name="flag" size={11}/> {metrics.flagged} flagged</span>}
           </div>
           <button onClick={onClose} style={{fontFamily:mono,fontSize:12,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 16px',cursor:'pointer'}}>← Back to app</button>
         </div>
@@ -203,7 +206,7 @@ export default function AdminDashboard({ onClose, user }) {
 
       <div style={{flex:1,padding:'28px 32px',maxWidth:1300,margin:'0 auto',width:'100%'}}>
         {loading
-          ? <div style={{textAlign:'center',padding:60,fontFamily:mono,fontSize:12,color:T.muted}}>Loading platform data…</div>
+          ? <div aria-busy="true" aria-label="Loading platform data"><SkeletonTiles count={4}/><div style={{marginTop:20}}><SkeletonRows rows={6}/></div></div>
           : <>
 
             {/* ═══ REVENUE TAB ═══ */}
@@ -251,7 +254,7 @@ export default function AdminDashboard({ onClose, user }) {
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
           <div style={{background:T.surface,border:`2px solid ${T.red}44`,borderRadius:18,width:'100%',maxWidth:440,padding:'32px 28px'}}>
             <div style={{textAlign:'center',marginBottom:24}}>
-              <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:12,color:T.red}}><Icon name="alert-triangle" size={40}/></div>
               <h2 style={{fontSize:18,fontWeight:700,color:T.red,marginBottom:8}}>Delete user account</h2>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
                 Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.
@@ -264,11 +267,10 @@ export default function AdminDashboard({ onClose, user }) {
               style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
             {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:16}}>{deleteError}</div>}
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setDeleteTarget(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={handleDeleteUser} disabled={deleting||!deletePassword}
-                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:deleting||!deletePassword?T.border:T.red,color:'white',cursor:'pointer'}}>
+              <Button variant="secondary" onClick={()=>setDeleteTarget(null)} style={{flex:1}}>Cancel</Button>
+              <Button variant="danger" onClick={handleDeleteUser} disabled={deleting||!deletePassword} style={{flex:2}}>
                 {deleting?'Deleting…':'Delete permanently'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -286,7 +288,7 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
     {label:'MRR (by properties)',   value:fmt(metrics.mrrProps),  sub:'£2 × all properties',       color:T.green},
     {label:'ARR (est.)',            value:fmt(metrics.mrrStripe*12), sub:'annualised run rate',     color:T.text},
     {label:'Active accounts',       value:metrics.active,         sub:'paying subscribers',         color:T.green},
-    {label:'On trial',              value:metrics.trialing,       sub:'not yet paying',             color:'#4B8FE0'},
+    {label:'On trial',              value:metrics.trialing,       sub:'not yet paying',             color:T.blue},
     {label:'Free tier',             value:metrics.free,           sub:'manually granted',           color:T.goldText},
     {label:'Past due',              value:metrics.pastDue,        sub:'payment failed',             color:T.red},
     {label:'Total accounts',        value:metrics.total,          sub:'all companies',              color:T.text},
@@ -349,7 +351,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
           style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="all">All statuses</option>
-          {Object.entries(STATUS_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(statusCfg(T)).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
         <span style={{fontFamily:mono,fontSize:11,color:T.muted,display:'flex',alignItems:'center'}}>{filtered.length} of {companies.length}</span>
       </div>
@@ -375,8 +377,8 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
               <div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
-                  {co.flagged&&<span style={{fontSize:12,color:T.red}}>⚑</span>}
-                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>
+                  {co.flagged&&<span style={{display:'inline-flex',color:T.red}} title="Flagged"><Icon name="flag" size={12}/></span>}
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
                 </div>
                 <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{co.owner_email||'—'}</div>
@@ -526,7 +528,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   }
 
   const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
-  const sc = STATUS_CFG[status]||{label:status,bg:T.border,color:T.muted}
+  const sc = statusCfg(T)[status]||{label:status,bg:T.border,color:T.muted}
   const props = co.subscriptions?.[0]?.property_count||0
 
   return (
@@ -535,7 +537,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid '+T.border,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>Back</button>
         {co.flagged&&<span style={{fontFamily:mono,fontSize:11,background:T.red+'22',color:T.red,padding:'4px 12px',borderRadius:8}}>Flagged</span>}
         <div style={{flex:1,display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>
+          <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>
           <span style={{fontSize:18,fontWeight:700,color:T.text}}>{co.name}</span>
           <span style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'3px 12px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
         </div>
@@ -639,7 +641,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             {addingNote?'…':'Add'}
           </button>
         </div>
-        {notes.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted}}>No notes yet.</div>}
+        {notes.length===0&&<EmptyState compact icon="file-text" title="No notes yet" body="Add an internal note about this company above."/>}
         {notes.map(n=>(
           <div key={n.id} style={{padding:'12px 0',borderBottom:'1px solid '+T.border,display:'flex',gap:12,alignItems:'flex-start'}}>
             <div style={{flex:1}}>
@@ -666,12 +668,10 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
                 style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
             </div>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setShowRename(false)}
-                style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={handleAdminRename} disabled={renameSaving}
-                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:T.gold,color:'#1A2530',cursor:'pointer'}}>
+              <Button variant="secondary" onClick={()=>setShowRename(false)} style={{flex:1}}>Cancel</Button>
+              <Button onClick={handleAdminRename} disabled={renameSaving} style={{flex:2}}>
                 {renameSaving?'Saving...':'Save'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -681,7 +681,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
           <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
             <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{fontSize:36,marginBottom:10}}>{adminAction.danger?'⚠️':'🔒'}</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
             </div>
@@ -694,13 +694,10 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={confirmAdminAction} disabled={adminRunning||!adminPw}
-                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',
-                  background:adminRunning||!adminPw?T.border:adminAction.danger?T.red:T.gold,
-                  color:adminAction.danger?'white':'#1A2530',cursor:adminRunning?'wait':'pointer'}}>
+              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
+              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
                 {adminRunning?'Verifying...':'Confirm'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -910,7 +907,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             </button>
           ))}
         </div>
-        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>Merge companies</button>
+        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>Merge companies</button>
         <button onClick={exportCSV} style={btnSm()}>↓ Export CSV</button>
       </div>
 
@@ -935,7 +932,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
             const isOpen = expandedCompanies.has(co.id)
             const props = co.real_property_count || 0
             const mrr = (co.subscriptions?.[0]?.status==='active') ? props * 2 : 0
-            const coColor = co.color || '#C8A84B'
+            const coColor = co.color || T.gold
 
             return (
               <div key={co.id} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:12,overflow:'hidden',borderLeft:`4px solid ${coColor}`}}>
@@ -960,7 +957,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     {statusPill(co)}
-                    {co.flagged && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.red}}>⚑</span>}
+                    {co.flagged && <span style={{display:'inline-flex',color:T.red}} title="Flagged"><Icon name="flag" size={11}/></span>}
                     {shared.length>0 && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:T.bg,padding:'2px 8px',borderRadius:10}}>+{shared.length}</span>}
                   </div>
                 </div>
@@ -1019,7 +1016,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                           const d = await confirmDialog({ title:'Extend trial by how many days?', prompt:true, defaultValue:'30', confirmLabel:'Extend' })
                           if(d&&!isNaN(+d)) doExtendTrial(co,+d)
                         }} style={btnSm()}>Extend trial</button>
-                        <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.gold:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
+                        <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.goldText:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
                           {co.is_free_tier ? 'Free tier' : 'Grant free tier'}
                         </button>
                         <button onClick={()=>doToggleFlag(co)} style={btnSm(co.flagged?T.red:T.muted, co.flagged?T.red+'11':'transparent', co.flagged?T.red+'44':T.border)}>
@@ -1062,7 +1059,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     </div>
                   </div>
                   <div style={{display:'flex',gap:6}}>
-                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>+ Create company</button>
+                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>+ Create company</button>
                     <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
                     {u.id!==currentUser?.id && <button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
                   </div>
@@ -1113,7 +1110,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                   </div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {userCos.length===0?<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>None</span>
-                      :userCos.slice(0,4).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B'}}>{co.abbr}</span>)}
+                      :userCos.slice(0,4).map(co=><span key={co.id} style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>)}
                     {userCos.length>4&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>+{userCos.length-4}</span>}
                   </div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
@@ -1142,8 +1139,8 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                       }).then(()=>{})
                       window.location.href = '/#/dashboard'
                       window.location.reload()
-                    }} style={btnSm('#8B1F1F', '#8B1F1F11', '#8B1F1F44')}>Impersonate</button>
-                    <button onClick={()=>setAccessTarget(u)} style={btnSm(T.gold, T.gold+'11', T.gold+'44')}>Manage access</button>
+                    }} style={btnSm(T.red, T.red+'11', T.red+'44')}>Impersonate</button>
+                    <button onClick={()=>setAccessTarget(u)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>Manage access</button>
                     <button onClick={()=>setCreateCoTarget(u)} style={btnSm()}>+ Company</button>
                     <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
                     {!isMe&&<button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
@@ -1162,7 +1159,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
           <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
             <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{fontSize:36,marginBottom:10}}>{adminAction.danger?'⚠️':'🔒'}</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
             </div>
@@ -1175,13 +1172,10 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
             </div>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={confirmAdminAction} disabled={adminRunning||!adminPw}
-                style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',
-                  background:adminRunning||!adminPw?T.border:adminAction.danger?T.red:T.gold,
-                  color:adminAction.danger?'white':'#1A2530',cursor:adminRunning?'wait':'pointer'}}>
+              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
+              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
                 {adminRunning?'Verifying...':'Confirm'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1192,15 +1186,15 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
         <div onClick={()=>setResetConfirm(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
           <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
             <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{fontSize:32,marginBottom:10}}>🔑</div>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:T.goldText}}><Icon name="key" size={32}/></div>
               <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
               <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
                 {"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.
               </p>
             </div>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setResetConfirm(null)} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-              <button onClick={()=>sendReset(resetConfirm.email)} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:T.gold,color:'#1A2530',cursor:'pointer'}}>Send reset email</button>
+              <Button variant="secondary" onClick={()=>setResetConfirm(null)} style={{flex:1}}>Cancel</Button>
+              <Button onClick={()=>sendReset(resetConfirm.email)} style={{flex:2}}>Send reset email</Button>
             </div>
           </div>
         </div>
@@ -1259,8 +1253,8 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
   const phone = user?.profile?.phone
   const roleLower = typeof role === 'string' ? role.toLowerCase() : 'editor'
   const isOwner = roleLower === 'owner'
-  const ROLE_COLORS = { owner: T.gold, admin: T.gold, editor: T.blue, viewer: '#7B68EE', shared: T.blue }
-  const ROLE_ICONS = { owner: '👑', admin: '👑', editor: '✎', viewer: '👁', shared: '✎' }
+  const ROLE_COLORS = { owner: T.gold, admin: T.gold, editor: T.blue, viewer: T.purple, shared: T.blue }
+  const ROLE_ICONS = { owner: 'star', admin: 'star', editor: 'file-text', viewer: 'eye', shared: 'file-text' }
   const pillColor = ROLE_COLORS[roleLower] || T.blue
   return (
     <div style={{display:'grid',gridTemplateColumns:'auto 1fr auto',gap:12,padding:'10px 14px',background:T.bg,borderRadius:8,marginBottom:6,alignItems:'center'}}>
@@ -1272,8 +1266,8 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
           <span style={{fontSize:13,color:T.text,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {name || user.email}
           </span>
-          <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pillColor+'22',color:pillColor,textTransform:'capitalize'}}>
-            {ROLE_ICONS[roleLower] || '●'} {roleLower}
+          <span style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:pillColor+'22',color:pillColor,textTransform:'capitalize'}}>
+            {ROLE_ICONS[roleLower] ? <Icon name={ROLE_ICONS[roleLower]} size={11}/> : '●'} {roleLower}
           </span>
         </div>
         <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -1349,8 +1343,8 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
           {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
         </div>
         <div style={{display:'flex',gap:10}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={submit} disabled={saving||!name.trim()||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!name.trim()||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Creating...':'Create company'}</button>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button onClick={submit} disabled={saving||!name.trim()||!pw} style={{flex:2}}>{saving?'Creating...':'Create company'}</Button>
         </div>
       </div>
     </div>
@@ -1384,7 +1378,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
       <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:520,padding:'28px',border:`2px solid ${T.red}44`}}>
         <div style={{textAlign:'center',marginBottom:16}}>
-          <div style={{fontSize:36,marginBottom:8}}>⚡</div>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:8,color:T.red}}><Icon name="zap" size={36}/></div>
           <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:6}}>Merge companies</h3>
           <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>All properties and shared access from source will move into target. The source company will be permanently deleted.</p>
         </div>
@@ -1424,8 +1418,8 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         </div>
 
         <div style={{display:'flex',gap:10}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={submit} disabled={saving||!sourceId||!targetId||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!sourceId||!targetId||!pw?T.border:T.red,color:'white',cursor:saving?'wait':'pointer'}}>{saving?'Merging...':'Merge and delete source'}</button>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button variant="danger" onClick={submit} disabled={saving||!sourceId||!targetId||!pw} style={{flex:2}}>{saving?'Merging...':'Merge and delete source'}</Button>
         </div>
       </div>
     </div>
@@ -1496,8 +1490,8 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         </div>
 
         <div style={{display:'flex',gap:10}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!selectedUser||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Transferring...':'Transfer ownership'}</button>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Transferring...':'Transfer ownership'}</Button>
         </div>
       </div>
     </div>
@@ -1587,8 +1581,8 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         </div>
 
         <div style={{display:'flex',gap:10}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'10px',borderRadius:9,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px',borderRadius:9,border:'none',background:saving||!selectedUser||!pw?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>{saving?'Adding...':'Grant access'}</button>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Adding...':'Grant access'}</Button>
         </div>
       </div>
     </div>
@@ -1664,24 +1658,24 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
                 style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:`1px solid ${T.border}`,cursor:isOwner?'not-allowed':'pointer',opacity:isOwner?0.75:1}}>
                 <input type="checkbox" checked={isChecked} disabled={isOwner} readOnly
                   style={{width:18,height:18,accentColor:co.color||T.gold,margin:0,cursor:isOwner?'not-allowed':'pointer'}}/>
-                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',minWidth:40,textAlign:'center'}}>{co.abbr}</span>
+                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText,minWidth:40,textAlign:'center'}}>{co.abbr}</span>
                 <span style={{flex:1,fontSize:13,color:T.text}}>{co.name}</span>
                 {isOwner && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.green,background:T.green+'22',padding:'2px 6px',borderRadius:4,fontWeight:700}}>OWNER</span>}
               </label>
             )
           })}
           {companies.length === 0 && (
-            <div style={{padding:24,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No companies yet.</div>
+            <EmptyState compact icon="building" title="No companies yet"/>
           )}
         </div>
 
         {error && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:12}}>{error}</div>}
 
         <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-          <button onClick={onClose} style={{fontFamily:mono,fontSize:12,padding:'9px 20px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:10,border:'none',background:saving?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>
             {saving ? 'Saving…' : 'Save access'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1717,7 +1711,7 @@ function BillingTab({ companies, T, fmt, pill }) {
             {pastDue.map(co=>(
               <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px',gap:8,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                 <div>
-                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
+                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText,marginRight:8}}>{co.abbr}</span>
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{co.name}</span>
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>{co.owner_email}</div>
                 </div>
@@ -1741,7 +1735,7 @@ function BillingTab({ companies, T, fmt, pill }) {
         {active.map(co=>(
           <div key={co.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 130px',gap:8,padding:'12px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
             <div>
-              <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||'#C8A84B')+'22',color:co.color||'#C8A84B',marginRight:8}}>{co.abbr}</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText,marginRight:8}}>{co.abbr}</span>
               <span style={{fontSize:13,color:T.text}}>{co.name}</span>
             </div>
             <div>{pill('active')}</div>
@@ -1749,7 +1743,7 @@ function BillingTab({ companies, T, fmt, pill }) {
             <div style={{fontFamily:mono,fontSize:12,color:T.green,fontWeight:700}}>{fmt(co.subscriptions?.[0]?.property_count||0)}/mo</div>
           </div>
         ))}
-        {active.length===0&&<div style={{padding:24,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No active subscriptions yet</div>}
+        {active.length===0&&<EmptyState compact icon="receipt" title="No active subscriptions yet"/>}
         </div>
         </div>
       </div>
@@ -1808,7 +1802,7 @@ function PlatformTab({ user, companies, T }) {
     } catch(e) {}
   }
 
-  const typeColors = { info:'#4B8FE0', warning:'#E0943A', success:'#2ECC8A' }
+  const typeColors = { info:T.blue, warning:T.amber, success:T.green }
 
   return (
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,alignItems:'start'}}>

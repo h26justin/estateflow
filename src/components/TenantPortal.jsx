@@ -330,7 +330,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
 
       {/* Alert banners */}
       {arrears > 0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('bad').text}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('bad').text}}>
           <Icon name="alert-triangle" size={15} style={{flexShrink:0}}/><span>You have outstanding arrears of <strong>{fmt(arrears)}</strong> — please make payment as soon as possible.</span>
         </div>
       )}
@@ -340,7 +340,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
         </div>
       )}
       {endDays!=null && endDays<=90 && endDays>0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:'#E0943A18',border:'1px solid #E0943A44',borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('warn').text}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:S('warn').bg,border:`1px solid ${S('warn').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('warn').text}}>
           <Icon name="calendar" size={15} style={{flexShrink:0}}/><span>Your tenancy expires in {endDays} days. Please contact your landlord about renewal.</span>
         </div>
       )}
@@ -352,7 +352,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
           <div style={{fontSize:28,fontWeight:700,color:'#2D3C4A'}}>{fmt(property?.rent_pcm)}</div>
           <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>per calendar month</div>
         </Card>
-        <Card style={{borderLeft:`3px solid ${arrears>0?'#E05555':'#2ECC8A'}`}}>
+        <Card style={{borderLeft:`3px solid ${arrears>0?S('bad').text:S('ok').text}`}}>
           <SectionLabel>Current balance</SectionLabel>
           <div style={{fontSize:28,fontWeight:700,color:arrears>0?S('bad').text:S('ok').text}}>{arrears>0?`-${fmt(arrears)}`:'All clear'}</div>
           <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
@@ -381,7 +381,7 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
 
       {/* Bank payment details */}
       {(bankDetails?.bank_account_no || bankDetails?.bank_sort_code) && (
-        <Card style={{marginBottom:16,borderLeft:'3px solid #4B8FE0'}}>
+        <Card style={{marginBottom:16,borderLeft:`3px solid ${S('info').text}`}}>
           <SectionLabel>Pay your rent by bank transfer</SectionLabel>
           {[
             ['Bank name',      bankDetails.bank_name||'—'],
@@ -407,8 +407,8 @@ function TenantHome({ property, company, user, contactInfo, brandColor, bankDeta
           <>
             <div style={{fontSize:15,fontWeight:700,color:'#2D3C4A',marginBottom:10}}>{contactInfo.name||'—'}</div>
             {/* Link hue: old #4B8FE0 was 3.3:1 on white; info text is 4.6:1 (AA) */}
-            {contactInfo.phone&&<div style={{fontFamily:mono,fontSize:12,color:'#666',marginBottom:6}}>📞 <a href={`tel:${contactInfo.phone}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.phone}</a></div>}
-            {contactInfo.email&&<div style={{fontFamily:mono,fontSize:12,color:'#666'}}>✉ <a href={`mailto:${contactInfo.email}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.email}</a></div>}
+            {contactInfo.phone&&<div style={{fontFamily:mono,fontSize:12,color:'#666',marginBottom:6,display:'flex',alignItems:'center',gap:6}}><Icon name="phone" size={13} color={TENANT_MUTED}/><a href={`tel:${contactInfo.phone}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.phone}</a></div>}
+            {contactInfo.email&&<div style={{fontFamily:mono,fontSize:12,color:'#666',display:'flex',alignItems:'center',gap:6}}><Icon name="mail" size={13} color={TENANT_MUTED}/><a href={`mailto:${contactInfo.email}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.email}</a></div>}
           </>
         ) : (
           <div style={{fontFamily:mono,fontSize:12,color:'#666',lineHeight:1.7}}>Use the Messages tab to contact your landlord, or the Repairs tab to report a maintenance issue.</div>
@@ -463,7 +463,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
 
       {/* Arrears alert */}
       {totalArrears > 0 && (
-        <div style={{background:'#E0555518',border:'1px solid #E0555544',borderRadius:12,padding:'14px 18px',marginBottom:20}}>
+        <div style={{background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:12,padding:'14px 18px',marginBottom:20}}>
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:S('bad').text,marginBottom:4}}>Outstanding arrears: {fmt(totalArrears)}</div>
           <div style={{fontFamily:mono,fontSize:11,color:S('bad').text,lineHeight:1.6}}>Please make payment as soon as possible. See bank details below.</div>
         </div>
@@ -512,7 +512,7 @@ function TenantRent({ property, user, bankDetails, brandColor }) {
 
       {/* Bank transfer details */}
       {(bankDetails?.bank_account_no||bankDetails?.bank_sort_code) && (
-        <Card style={{marginBottom:20,borderLeft:'3px solid #4B8FE0'}}>
+        <Card style={{marginBottom:20,borderLeft:`3px solid ${S('info').text}`}}>
           <SectionLabel>Pay by bank transfer</SectionLabel>
           <div style={{display:'grid',gap:0}}>
             {[
@@ -656,7 +656,7 @@ function TenantMaintenance({ property, user, brandColor }) {
       </div>
 
       {success && (
-        <div style={{background:'#2ECC8A18',border:'1px solid #2ECC8A44',borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:S('ok').text}}>
+        <div style={{background:S('ok').bg,border:`1px solid ${S('ok').text}44`,borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:S('ok').text}}>
           Repair request submitted — your landlord has been notified.
         </div>
       )}
@@ -760,7 +760,7 @@ function TenantMaintenance({ property, user, brandColor }) {
                 )}
                 <div style={{display:'flex',gap:16,fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,flexWrap:'wrap'}}>
                   <span>Reported {new Date(job.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span>
-                  {job.priority&&job.priority!=='normal'&&<span style={{color:job.priority==='urgent'?S('bad').text:S('warn').text}}>⚑ {job.priority}</span>}
+                  {job.priority&&job.priority!=='normal'&&<span style={{display:'inline-flex',alignItems:'center',gap:4,color:job.priority==='urgent'?S('bad').text:S('warn').text}}><Icon name="flag" size={11}/> {job.priority}</span>}
                 </div>
               </Card>
             )
@@ -792,8 +792,7 @@ function TenantDocuments({ property, user, brandColor }) {
     setOpeningId(null)
   }
 
-  const getIcon = name => ({ pdf:'📄', jpg:'🖼', jpeg:'🖼', png:'🖼', doc:'📝', docx:'📝' })[(name||'').split('.').pop()?.toLowerCase()] || '📎'
-
+  
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Documents</h2>
@@ -806,7 +805,7 @@ function TenantDocuments({ property, user, brandColor }) {
       : <div style={{display:'grid',gap:10}}>
           {docs.map(doc=>(
             <Card key={doc.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px'}}>
-              <span style={{fontSize:24,flexShrink:0}}>{getIcon(doc.name)}</span>
+              <span style={{display:'flex',flexShrink:0}}><Icon name="file-text" size={24} color={TENANT_MUTED}/></span>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:600,color:'#2D3C4A',marginBottom:3}}>{doc.name}</div>
                 <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT}}>

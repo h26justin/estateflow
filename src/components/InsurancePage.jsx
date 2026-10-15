@@ -24,6 +24,8 @@ import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
 import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { Button, EmptyState } from './ui'
+import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
 
@@ -259,9 +261,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
 
       {/* Body */}
       {loading ? (
-        <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>Loading policies…</div>
-        </div>
+        <div aria-busy="true" aria-label="Loading policies"><SkeletonRows rows={4} height={64}/></div>
       ) : view === 'by_property' ? (
         <ByPropertyView
           properties={properties}
@@ -281,21 +281,16 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           T={T}
         />
       ) : filtered.length === 0 ? (
-        <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-          <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="shield-check" size={30} color={T.gold}/></div>
+        <div style={card}>
           {policies.length === 0 ? (
-            <>
-              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 12 }}>
-                No policies yet. Add your first insurance policy to start tracking renewals.
-              </div>
-              <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setEditing({})}>+ Add Policy</button>
-            </>
+            <EmptyState compact icon="shield-check" title="No policies yet"
+              body="Add your first insurance policy to start tracking renewals."
+              action={<Button size="sm" icon="plus" onClick={() => setEditing({})}>Add Policy</Button>}/>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-              {view === 'expiring' ? 'No policies expiring in the next 90 days.'
+            <EmptyState compact icon="shield-check"
+              title={view === 'expiring' ? 'No policies expiring in the next 90 days.'
                 : view === 'expired' ? 'No expired policies.'
-                : 'No policies match the current filters.'}
-            </div>
+                : 'No policies match the current filters.'}/>
           )}
         </div>
       ) : (
@@ -598,13 +593,10 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
   // Empty state
   if (groups.length === 0) {
     return (
-      <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon name="home" size={30} color={T.faint}/></div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-          {properties.length === 0
-            ? 'No properties yet. Add properties to start tracking insurance coverage.'
-            : 'No properties match the current filter.'}
-        </div>
+      <div style={card}>
+        {properties.length === 0
+          ? <EmptyState compact icon="home" title="No properties yet" body="Add properties to start tracking insurance coverage."/>
+          : <EmptyState compact icon="home" title="No properties match the current filter."/>}
       </div>
     )
   }
@@ -623,14 +615,14 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
       <div style={card}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
-            { l: 'Insured',     v: insuredCount,    c: T.green,  i: '✅' },
-            { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: '⚠'  },
-            { l: 'Expired',     v: expiredCount,    c: T.red,    i: '🔴' },
-            { l: 'Not insured', v: notInsuredCount, c: T.red,    i: '❌' },
+            { l: 'Insured',     v: insuredCount,    c: T.green,  i: 'check-circle' },
+            { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: 'alert-triangle' },
+            { l: 'Expired',     v: expiredCount,    c: T.red,    i: 'alert-circle' },
+            { l: 'Not insured', v: notInsuredCount, c: T.red,    i: 'x' },
           ].map(item => (
             <div key={item.l} style={{ padding: '10px 12px', background: T.bg, borderRadius: 8, borderLeft: `3px solid ${item.c}` }}>
-              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-                {item.i} {item.l}
+              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Icon name={item.i} size={12} color={item.c}/> {item.l}
               </div>
               <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: item.v > 0 && (item.l === 'Not insured' || item.l === 'Expired') ? item.c : T.text }}>
                 {item.v}
@@ -734,11 +726,8 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
 
   if (allPolicies.length === 0) {
     return (
-      <div style={{ ...card, textAlign: 'center', padding: '40px 20px' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>
-          No policies to show history for. Add and renew a policy to build year-over-year history.
-        </div>
+      <div style={card}>
+        <EmptyState compact icon="pie-chart" title="No policy history yet" body="Add and renew a policy to build year-over-year history."/>
       </div>
     )
   }
@@ -1061,8 +1050,8 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
               {propertyIds.length > 0 && ` · ${propertyIds.length} selected`}
             </div>
             {availableProps.length === 0 ? (
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '12px', background: T.bg, borderRadius: 6 }}>
-                No properties in this company yet.
+              <div style={{ background: T.bg, borderRadius: 6 }}>
+                <EmptyState compact icon="home" title="No properties in this company yet"/>
               </div>
             ) : (
               <div style={{
