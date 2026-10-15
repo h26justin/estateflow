@@ -6,6 +6,7 @@ import { activePlan } from '../../lib/paymentPlans'
 import * as api from '../../lib/api'
 import { MONO, CV, FS } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
+import { Button } from '../ui'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -185,11 +186,9 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
           {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
         </div>
         {onDayTracker
-          ? <button onClick={()=>{onClose();onDayTracker()}}
-              style={{width:'100%',fontFamily:mono,fontSize:11,fontWeight:700,padding:'9px 0',borderRadius:8,
-                border:'none',background:T.gold,color:CV.onGold,cursor:'pointer'}}>
+          ? <Button size="sm" fullWidth onClick={()=>{onClose();onDayTracker()}}>
               View full day tracker →
-            </button>
+            </Button>
           : <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
       </div>
     </div>

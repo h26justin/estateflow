@@ -4,6 +4,7 @@ import { naturalCompare } from '../../lib/addressUtils'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { pressable } from '../../lib/pressable'
+import { Button } from '../ui'
 
 // ── TENANT PORTAL SETTINGS ────────────────────────────────────────────────────
 export function TenantPortalSettings({ companies, companySettings, setCompanySettings, showToast, T }) {
@@ -166,9 +167,9 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             </div>
           </div>
         )}
-        <button onClick={saveContact} disabled={saving} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
+        <Button onClick={saveContact} disabled={saving}>
           {saving?'Saving…':'Save contact & subdomain settings'}
-        </button>
+        </Button>
       </div>
 
       {/* Bank details */}
@@ -190,9 +191,9 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
             </div>
           </div>
         </div>
-        <button onClick={saveBank} disabled={savingBank} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
+        <Button onClick={saveBank} disabled={savingBank}>
           {savingBank?'Saving…':'Save bank details'}
-        </button>
+        </Button>
       </div>
 
       {/* Notification email */}
@@ -205,10 +206,9 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
           <input value={notifyEmail} onChange={e=>setNotifyEmail(e.target.value)} type="email"
             placeholder="e.g. justin@jvhammond.com"
             style={{...inp, flex:1}}/>
-          <button onClick={saveNotifyEmail} disabled={savingNotify}
-            style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer', flexShrink:0 }}>
+          <Button onClick={saveNotifyEmail} disabled={savingNotify} style={{flexShrink:0}}>
             {savingNotify?'Saving…':'Save'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -225,9 +225,9 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
           </select>
         </div>
         <div style={{ display:'flex', gap:10, marginBottom: inviteLink ? 14 : 0, flexWrap:'wrap' }}>
-          <button onClick={generateInviteLink} disabled={!inviteProperty} style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'10px 22px', borderRadius:8, border:'none', background:T.gold, color:CV.onGold, cursor:'pointer' }}>
+          <Button onClick={generateInviteLink} disabled={!inviteProperty}>
             Generate invite link
-          </button>
+          </Button>
           {inviteLink && (
             <div style={{ display:'flex', gap:8, alignItems:'center', flex:1, minWidth:240 }}>
               <input

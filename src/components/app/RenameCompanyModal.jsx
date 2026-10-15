@@ -1,4 +1,5 @@
 import { MONO, CV, FS } from '../../lib/styles'
+import { Button } from '../ui'
 
 // Rename-company dialog. Moved verbatim from App.jsx; every value it
 // reads is passed in explicitly.
@@ -31,14 +32,12 @@ export function RenameCompanyModal({
           </div>
         </div>
         <div style={{display:'flex',gap:10}}>
-          <button onClick={()=>setRenameCoTarget(null)}
-            style={{flex:1,fontFamily:MONO,fontSize:12,padding:'11px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+          <Button variant="secondary" onClick={()=>setRenameCoTarget(null)} style={{flex:1}}>
             Cancel
-          </button>
-          <button onClick={handleRenameCompany} disabled={renameCoSaving}
-            style={{flex:2,fontFamily:MONO,fontSize:12,fontWeight:700,padding:'11px',borderRadius:10,border:'none',background:renameCoSaving?T.border:T.gold,color:CV.onGold,cursor:'pointer'}}>
+          </Button>
+          <Button onClick={handleRenameCompany} disabled={renameCoSaving} style={{flex:2}}>
             {renameCoSaving?'Saving…':'Save new name'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

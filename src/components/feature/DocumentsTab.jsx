@@ -9,7 +9,7 @@ import { logError } from '../../lib/logError'
 import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { EmptyState, Button } from '../ui'
 
 // ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = [
@@ -439,12 +439,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                               <div style={{fontFamily:MONO,fontSize:11,color:T.text,lineHeight:1.5}}>
                                 Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{candidate.expiry_date}</strong>.
                               </div>
-                              <button onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id}
-                                style={{fontFamily:MONO,fontSize:11,padding:'6px 14px',
-                                  background:T.gold,color:CV.onGold,border:'none',borderRadius:8,
-                                  cursor:complianceBusy===doc.id?'wait':'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
-                                {complianceBusy===doc.id ? 'Adding…' : '+ Add to Compliance'}
-                              </button>
+                              <Button size="sm" icon={complianceBusy===doc.id ? undefined : 'plus'} onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id} style={{whiteSpace:'nowrap'}}>
+                                {complianceBusy===doc.id ? 'Adding…' : 'Add to Compliance'}
+                              </Button>
                             </div>
                           )
                         })()}
