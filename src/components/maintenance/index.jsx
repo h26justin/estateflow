@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
-import { NotesTimeline } from '../FeatureComponents'
+import { NotesTimeline } from '../feature/NotesTimeline'
 import MoneyInput from '../../lib/MoneyInput'
 import TriageButton from './TriageButton'
 

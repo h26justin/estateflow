@@ -13,7 +13,8 @@ import { rentMonthSnapshot, monthRate } from './lib/rentForecast'
 import { resolveWidgetPrefs } from './lib/dashboardPrefs'
 import RentIncomePanel from './components/RentIncomePanel'
 import { activePlan } from './lib/paymentPlans'
-// FeatureComponents (4k+ lines, pulls in HelpCenter) and the tenancy/
+// The property-detail tabs (components/feature/*), Settings
+// (components/settings/*, pulls in HelpCenter) and the tenancy/
 // maintenance tab modules (which pull in NoticeGenerator) only render on
 // the property-detail / settings / companies views — lazy-load them so
 // they drop out of the entry chunk. Logged-out marketing visitors and the
@@ -21,16 +22,15 @@ import { activePlan } from './lib/paymentPlans'
 // named export to React.lazy's default-export contract; repeated imports
 // of the same module share one chunk/fetch.
 const lazyNamed = (loader, name) => lazy(() => loader().then(m => ({ default: m[name] })))
-const featureModule = () => import('./components/FeatureComponents')
-const ComplianceTab       = lazyNamed(featureModule, 'ComplianceTab')
-const TenancyTab          = lazyNamed(featureModule, 'TenancyTab')
-const ExpensesTab         = lazyNamed(featureModule, 'ExpensesTab')
-const SettingsPage        = lazyNamed(featureModule, 'SettingsPage')
-const NotesTimeline       = lazyNamed(featureModule, 'NotesTimeline')
-const OverviewTab         = lazyNamed(featureModule, 'OverviewTab')
-const FinancialsTab       = lazyNamed(featureModule, 'FinancialsTab')
-const DocumentsTab        = lazyNamed(featureModule, 'DocumentsTab')
-const CompanyDocumentsTab = lazyNamed(featureModule, 'CompanyDocumentsTab')
+const ComplianceTab       = lazyNamed(() => import('./components/feature/ComplianceTab'), 'ComplianceTab')
+const TenancyTab          = lazyNamed(() => import('./components/feature/TenancyTab'), 'TenancyTab')
+const ExpensesTab         = lazyNamed(() => import('./components/feature/ExpensesTab'), 'ExpensesTab')
+const SettingsPage        = lazyNamed(() => import('./components/settings/SettingsPage'), 'SettingsPage')
+const NotesTimeline       = lazyNamed(() => import('./components/feature/NotesTimeline'), 'NotesTimeline')
+const OverviewTab         = lazyNamed(() => import('./components/feature/OverviewTab'), 'OverviewTab')
+const FinancialsTab       = lazyNamed(() => import('./components/feature/FinancialsTab'), 'FinancialsTab')
+const DocumentsTab        = lazyNamed(() => import('./components/feature/DocumentsTab'), 'DocumentsTab')
+const CompanyDocumentsTab = lazyNamed(() => import('./components/feature/CompanyDocumentsTab'), 'CompanyDocumentsTab')
 const maintenanceModule = () => import('./components/maintenance')
 const MaintenanceTab = lazyNamed(maintenanceModule, 'MaintenanceTab')
 const tenancyModule = () => import('./components/tenancy')
