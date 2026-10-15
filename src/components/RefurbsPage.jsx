@@ -261,6 +261,9 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const days = daysLeft(project, today)
   const tone = toneFor(project, t, today)
   const [form, setForm] = useState(() => detailForm(project))
+  // Re-seed the form only when the project row itself changes (switch or a
+  // saved update); `project` is a fresh object on every parent render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setForm(detailForm(project)) }, [project.id, project.updated_at])
   const [milestones, setMilestones] = useState(null)
   const [suggest, setSuggest] = useState(null)
@@ -752,6 +755,9 @@ const loadFilters = () => {
   catch (_) { return { type: 'residential', q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '', archived: false } }
 }
 
+// List sort: live work first, finished last.
+const LIST_STAGE_ORDER = { in_progress: 0, snagging: 1, planned: 2, on_hold: 3, complete: 4 }
+
 export default function RefurbsPage({ user, companies = [], properties = [], permissionsMap, devModeActive = false, showToast, openDetail, onPropertyPatch }) {
   const { T } = useTheme()
   const isMobile = useIsMobile(769)
@@ -866,9 +872,8 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const openInvoice = inv => { setSelectedId(null); setImporting(false); setSub('invoices'); setInvoiceId(inv.id) }
   const openProject = (p, sec = 'overview') => { setSelectedId(p.id); setSection(sec); setStageId(null) }
 
-  const stageOrder = { in_progress: 0, snagging: 1, planned: 2, on_hold: 3, complete: 4 }
   const listed = useMemo(() => [...filtered]
-    .sort((a, b) => (stageOrder[a.stage] - stageOrder[b.stage]) || String(a.target_end_date || '9999').localeCompare(String(b.target_end_date || '9999'))), [filtered])
+    .sort((a, b) => (LIST_STAGE_ORDER[a.stage] - LIST_STAGE_ORDER[b.stage]) || String(a.target_end_date || '9999').localeCompare(String(b.target_end_date || '9999'))), [filtered])
 
   async function handleCreate(propertyId, fields, template) {
     const created = await createWithJourney(mutations, propertyId, fields, template, showToast)
@@ -1091,6 +1096,9 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
   const active = projects.filter(isActiveProject)
   const [selectedId, setSelectedId] = useState(active[0]?.id || projects[0]?.id || null)
   const [creating, setCreating] = useState(false)
+  // `projects`/`active` are re-derived every render; only a project being
+  // added or removed can orphan the selection, so key on the count.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (selectedId && !projects.find(p => p.id === selectedId)) setSelectedId(active[0]?.id || projects[0]?.id || null) }, [projects.length])
   const selected = projects.find(p => p.id === selectedId) || null
   const payees = useMemo(() => knownPayees(projectsFromProperties(properties)), [properties])

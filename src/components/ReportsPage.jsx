@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment, useCallback } from 'react'
 import { MONO } from '../lib/styles'
 import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
@@ -98,6 +98,33 @@ const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance'
 const CAT_COLORS_DARK  = { tax:'#4B8FE0', performance:'#2ECC8A', finance:'#C8A84B', compliance:'#B98AD0', maintenance:'#E0943A' }
 const CAT_COLORS_LIGHT = { tax:'#2D6FA8', performance:'#167A4C', finance:'#7A5E1C', compliance:'#7B3FA0', maintenance:'#A34A12' }
 
+// Internal yearType is 'tax' | 'calendar' | 'custom'. The settings table
+// stores the longer vocabulary ('tax_year' | 'calendar_year' | 'custom'),
+// and some legacy rows hold the short form — normalise both on the way in.
+function normType(t) {
+  if (t === 'tax_year' || t === 'tax') return 'tax'
+  if (t === 'calendar_year' || t === 'calendar') return 'calendar'
+  if (t === 'custom') return 'custom'
+  return 'tax'
+}
+const STORE_TYPE = { tax: 'tax_year', calendar: 'calendar_year', custom: 'custom' }
+
+// "All companies" has no settings row of its own, so its default period
+// type comes from what the companies themselves are set to: the majority
+// of saved year_type values (custom ranges are per-company dates, so they
+// don't vote). Null when no company has a saved type — leave the default.
+function consensusYearType(companies, companySettings) {
+  const votes = { tax: 0, calendar: 0 }
+  companies.forEach(c => {
+    const t = companySettings?.[c.id]?.year_type
+    if (!t) return
+    const n = normType(t)
+    if (n !== 'custom') votes[n]++
+  })
+  if (!votes.tax && !votes.calendar) return null
+  return votes.calendar > votes.tax ? 'calendar' : 'tax'
+}
+
 export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
   const { T, darkMode } = useTheme()
   const CAT_COLORS = darkMode ? CAT_COLORS_DARK : CAT_COLORS_LIGHT
@@ -160,10 +187,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
 
-  // Load all data once on mount
-  useEffect(() => { loadAll() }, [])
-
-  async function loadAll() {
+  // Load all data once on mount (user.id is fixed for the session)
+  const loadAll = useCallback(async () => {
     setLoading(true)
     // Each dataset is fetched independently so one failure doesn't blank
     // every report — failures are surfaced instead of swallowed.
@@ -186,34 +211,9 @@ export default function ReportsPage({ properties, companies, companySettings, us
     setLoadErrors(failed)
     setDataLoaded(true)
     setLoading(false)
-  }
+  }, [user.id])
+  useEffect(() => { loadAll() }, [loadAll])
 
-  // Internal yearType is 'tax' | 'calendar' | 'custom'. The settings table
-  // stores the longer vocabulary ('tax_year' | 'calendar_year' | 'custom'),
-  // and some legacy rows hold the short form — normalise both on the way in.
-  function normType(t) {
-    if (t === 'tax_year' || t === 'tax') return 'tax'
-    if (t === 'calendar_year' || t === 'calendar') return 'calendar'
-    if (t === 'custom') return 'custom'
-    return 'tax'
-  }
-  const STORE_TYPE = { tax: 'tax_year', calendar: 'calendar_year', custom: 'custom' }
-
-  // "All companies" has no settings row of its own, so its default period
-  // type comes from what the companies themselves are set to: the majority
-  // of saved year_type values (custom ranges are per-company dates, so they
-  // don't vote). Null when no company has a saved type — leave the default.
-  function consensusYearType() {
-    const votes = { tax: 0, calendar: 0 }
-    companies.forEach(c => {
-      const t = companySettings?.[c.id]?.year_type
-      if (!t) return
-      const n = normType(t)
-      if (n !== 'custom') votes[n]++
-    })
-    if (!votes.tax && !votes.calendar) return null
-    return votes.calendar > votes.tax ? 'calendar' : 'tax'
-  }
   // A manual period pick while on "All companies" can't be persisted
   // anywhere, so remember it in-session and stop re-applying the consensus.
   const [allPeriodTouched, setAllPeriodTouched] = useState(false)
@@ -228,10 +228,10 @@ export default function ReportsPage({ properties, companies, companySettings, us
         setCustomEnd(cs.custom_period_end || '')
       }
     } else if (!allPeriodTouched) {
-      const t = consensusYearType()
+      const t = consensusYearType(companies, companySettings)
       if (t) setYearType(t)
     }
-  }, [selectedCompany, companySettings, allPeriodTouched])
+  }, [selectedCompany, companies, companySettings, allPeriodTouched])
 
   // Persist the current selection back to the company (no-op for "all").
   async function persistPeriod(internalType, start, end) {

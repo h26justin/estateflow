@@ -18,6 +18,9 @@ export default function StageDrawer({ ws, stageId, onClose }) {
   const confirm = useConfirm()
   const stage = data.stages.find(s => s.id === stageId)
   const [form, setForm] = useState(() => formOf(stage))
+  // Re-seed only when the stage itself changes (switch or saved update), not
+  // on every new `stage` object identity from the workspace data.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setForm(formOf(stage)) }, [stageId, stage?.updated_at])
   const children = useMemo(() => data.stages.filter(s => s.parent_id === stageId && !s.deleted_at && !s.archived_at).sort((a, b) => a.sort_order - b.sort_order), [data.stages, stageId])
   const tasks = data.tasks.filter(t => t.stage_id === stageId)
