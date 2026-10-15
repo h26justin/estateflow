@@ -17,11 +17,11 @@ import { SkeletonRows } from '../lib/Skeleton'
 const mono = "'DM Mono', monospace"
 
 const STATUS_META = {
-  new:        { label: 'New',        color: '#4B8FE0' },
-  triaged:    { label: 'Triaged',    color: '#C8A84B' },
-  replied:    { label: 'Replied',    color: '#2ECC8A' },
-  rejected:   { label: 'Rejected',   color: '#E05555' },
-  archived:   { label: 'Archived',   color: '#9095B0' },
+  new:        { label: 'New',        tone: 'blue' },
+  triaged:    { label: 'Triaged',    tone: 'goldText' },
+  replied:    { label: 'Replied',    tone: 'green' },
+  rejected:   { label: 'Rejected',   tone: 'red' },
+  archived:   { label: 'Archived',   tone: 'muted' },
 }
 
 const SCREEN_ROWS = [
@@ -32,21 +32,21 @@ const SCREEN_ROWS = [
 ]
 
 function statusColor(status, T) {
-  return (STATUS_META[status] || { color: T.muted }).color
+  return T[(STATUS_META[status] || { tone: 'muted' }).tone]
 }
 
-function scoreColor(score) {
-  if (score == null) return '#9095B0'
-  if (score >= 70) return '#2ECC8A'
-  if (score >= 40) return '#E0943A'
-  return '#E05555'
+function scoreColor(score, T) {
+  if (score == null) return T.muted
+  if (score >= 70) return T.green
+  if (score >= 40) return T.amber
+  return T.red
 }
 
-function screenColor(status) {
-  if (status === 'pass' || status === 'ready') return '#2ECC8A'
-  if (status === 'fail') return '#E05555'
-  if (status === 'needs_check') return '#E0943A'
-  return '#9095B0'
+function screenColor(status, T) {
+  if (status === 'pass' || status === 'ready') return T.green
+  if (status === 'fail') return T.red
+  if (status === 'needs_check') return T.amber
+  return T.muted
 }
 
 export default function LettingsAssistantPanel({ properties = [], companies = [] }) {
@@ -273,7 +273,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                         {(STATUS_META[e.status] || { label: e.status }).label}
                       </span>
                       {e.ai_score != null && (
-                        <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: scoreColor(e.ai_score) }}>
+                        <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: scoreColor(e.ai_score, T) }}>
                           {e.ai_score}/100
                         </span>
                       )}
@@ -319,7 +319,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
 
                   {selected.ai_score != null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                      <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 700, color: scoreColor(selected.ai_score) }}>{selected.ai_score}</div>
+                      <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 700, color: scoreColor(selected.ai_score, T) }}>{selected.ai_score}</div>
                       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>lead score / 100{screening.confidence ? ` · ${screening.confidence} confidence` : ''}</div>
                     </div>
                   )}
@@ -334,7 +334,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                           <div key={key} style={{ padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{label}</span>
-                              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: screenColor(row.status), textTransform: 'uppercase' }}>{row.status}</span>
+                              <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: screenColor(row.status, T), textTransform: 'uppercase' }}>{row.status}</span>
                             </div>
                             {row.note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>{row.note}</div>}
                           </div>

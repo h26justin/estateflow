@@ -3,6 +3,7 @@ import { MONO, FS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import Modal from '../../lib/Modal'
 import { COPY_OPTIONS, DEFAULT_COPY_OPTIONS, isCopyOptionActive } from '../../lib/dealCopy'
+import { Button } from '../ui'
 
 // Asks what to carry over before a deal is copied. Everything not ticked is
 // left behind, so a copy can be anything from a full clone to a bare shell
@@ -69,13 +70,9 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" style={{ flex: 1 }} disabled={busy} onClick={onClose}>Cancel</button>
-          <button disabled={busy} onClick={() => onConfirm(opts)}
-            style={{
-              flex: 1, fontFamily: MONO, fontWeight: 600, background: T.gold, color: '#1C2830',
-              border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, cursor: busy ? 'wait' : 'pointer',
-            }}>
+          <Button disabled={busy} onClick={() => onConfirm(opts)} style={{ flex: 1 }}>
             {busy ? 'Copying…' : 'Copy deal'}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

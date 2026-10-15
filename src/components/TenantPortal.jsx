@@ -792,7 +792,6 @@ function TenantDocuments({ property, user, brandColor }) {
     setOpeningId(null)
   }
 
-  
   return (
     <div>
       <h2 style={{fontSize:20,fontWeight:700,color:'#2D3C4A',marginBottom:8}}>Documents</h2>

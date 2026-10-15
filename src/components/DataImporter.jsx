@@ -22,6 +22,7 @@ import {
   parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn, summarise,
 } from '../lib/csvImport'
 import { pressable } from '../lib/pressable'
+import { Icon } from '../lib/icons'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(n || 0)
 
@@ -316,7 +317,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                 border: `2px dashed ${T.border}`, borderRadius: 12, padding: '36px 20px',
                 textAlign: 'center', cursor: 'pointer', marginBottom: 18,
               }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: T.muted }}><Icon name="upload" size={28} /></div>
               <div style={{ fontSize: 13, color: T.text, marginBottom: 4 }}>
                 {busy ? 'Reading…' : `Choose a ${kind} CSV`}
               </div>
@@ -342,14 +343,14 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
             {batches.length > 0 && (
               <>
                 <div style={{ ...label, marginBottom: 6 }}>Previous imports</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <tbody>
                     {batches.slice(0, 8).map(b => (
                       <tr key={b.id}>
-                        <td style={cell}>{new Date(b.created_at).toLocaleDateString('en-GB')}</td>
-                        <td style={cell}>{b.kind}</td>
-                        <td style={{ ...cell, color: T.muted }}>{b.filename || '—'}</td>
-                        <td style={cell}>+{b.rows_created} ~{b.rows_updated}</td>
+                        <td data-label="Date" style={cell}>{new Date(b.created_at).toLocaleDateString('en-GB')}</td>
+                        <td data-label="Type" style={cell}>{b.kind}</td>
+                        <td data-label="File" style={{ ...cell, color: T.muted }}>{b.filename || '—'}</td>
+                        <td data-label="Rows" style={cell}>+{b.rows_created} ~{b.rows_updated}</td>
                         <td style={{ ...cell, textAlign: 'right' }}>
                           {b.reverted_at
                             ? chip('muted', 'reverted')
@@ -464,7 +465,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
             </div>
 
             <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Line', '', 'Label / property', kind === 'rent' ? 'Period' : 'Date', 'Amount', 'Detail'].map((h, i) => (
@@ -480,8 +481,8 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                       const meta = ACTION_META[r.action]
                       return (
                         <tr key={r.line} style={out ? { opacity: 0.45 } : undefined}>
-                          <td style={{ ...cell, color: T.muted }}>{r.line}</td>
-                          <td style={cell}>
+                          <td data-label="Line" style={{ ...cell, color: T.muted }}>{r.line}</td>
+                          <td data-label="Action" style={cell}>
                             {/* Inline and unstyled rather than a button class: as a padded
                                 block on its own line this doubled the height of all 792
                                 rows for a control that most of them never need. */}
@@ -498,7 +499,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                               </button>
                             </div>
                           </td>
-                          <td style={cell}>
+                          <td data-label="Label / property" style={cell}>
                             <div>{r.propertyName || <span style={{ color: T.red }}>unmatched</span>}</div>
                             <div style={{ color: T.muted, fontSize: FS.xs }}>{r.label}</div>
                             {!r.propertyId && (
@@ -509,12 +510,12 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                               </select>
                             )}
                           </td>
-                          <td style={cell}>
+                          <td data-label={kind === 'rent' ? 'Period' : 'Date'} style={cell}>
                             {kind === 'rent'
                               ? (r.period_start ? `${r.period_start} → ${r.period_end}` : '—')
                               : (r.date || '—')}
                           </td>
-                          <td style={cell}>
+                          <td data-label="Amount" style={cell}>
                             {r.amount == null ? '—' : fmt(r.amount)}
                             {r.action === 'update' && r.before && (
                               <div style={{ color: T.muted, fontSize: FS.xs }}>
@@ -523,7 +524,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                             )}
                             {kind === 'rent' && <div style={{ color: T.muted, fontSize: FS.xs }}>{r.status}</div>}
                           </td>
-                          <td style={cell}>
+                          <td data-label="Detail" style={cell}>
                             {r.errors.map((e, i) => <div key={i} style={{ color: T.red }}>{e}</div>)}
                             {r.warnings.map((w, i) => <div key={i} style={{ color: T.amber }}>{w}</div>)}
                           </td>
@@ -539,7 +540,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
         {/* ── STEP 4: result ─────────────────────────────────────────── */}
         {step === 'done' && result && (
           <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ fontSize: 34, marginBottom: 10 }}>{result.failed.length ? '⚠️' : '✅'}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, color: result.failed.length ? T.amber : T.green }}><Icon name={result.failed.length ? 'alert-triangle' : 'check-circle'} size={34} /></div>
             <div style={{ fontFamily: MONO, fontSize: 13, color: T.text, marginBottom: 16 }}>
               {result.created} created · {result.updated} updated · {result.skipped} skipped
             </div>

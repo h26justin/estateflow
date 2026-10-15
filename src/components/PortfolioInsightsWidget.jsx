@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, statusColors } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import { SkeletonTiles } from '../lib/Skeleton'
@@ -11,11 +11,12 @@ import { SkeletonTiles } from '../lib/Skeleton'
 // button that calls the edge function and refreshes. Rate limiting is
 // enforced server-side (one per 30 min per user).
 
-const SEVERITY_COLOR = {
-  critical:    { bg: '#FEF2F2', border: '#FECACA', fg: '#B91C1C', dark: '#2B1010' },
-  warning:     { bg: '#FFF8E1', border: '#F2D17A', fg: '#8A6A00', dark: '#2B1A0A' },
-  opportunity: { bg: '#F0FDF4', border: '#BBF7D0', fg: '#15803D', dark: '#0D2B1F' },
-  info:        { bg: '#EFF6FF', border: '#BFDBFE', fg: '#1E40AF', dark: '#0A1A2B' },
+// Severity → shared status palette key (styles.js STATUS, AA in both themes).
+const SEVERITY_STATUS = {
+  critical:    'bad',
+  warning:     'warn',
+  opportunity: 'ok',
+  info:        'info',
 }
 
 const CATEGORY_ICON = {
@@ -127,12 +128,13 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {(row.insights || []).map((it, i) => {
-            const palette = SEVERITY_COLOR[it.severity] || SEVERITY_COLOR.info
-            const cardBg = darkMode ? palette.dark : palette.bg
+            const sc = statusColors(SEVERITY_STATUS[it.severity] || 'info', darkMode)
+            const palette = { fg: sc.text, border: sc.text }
+            const cardBg = sc.bg
             return (
               <div key={i} style={{
                 background: cardBg,
-                border: `1px solid ${palette.border}55`,
+                border: `1px solid ${palette.border}33`,
                 borderLeft: `3px solid ${palette.fg}`,
                 borderRadius: 12,
                 padding: '14px 16px',

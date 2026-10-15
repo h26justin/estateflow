@@ -4,23 +4,25 @@ import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
+import { Button } from './ui'
+import { Icon } from '../lib/icons'
 
 const mono = MONO
 
 const ROLE_INFO = {
   admin: {
-    icon: '👑',
-    color: '#C8A84B',
+    icon: 'star',
+    tone: 'goldText',
     description: 'Full read/write access. Can invite users and manage all data. Cannot delete company or change billing.',
   },
   editor: {
-    icon: '✎',
-    color: '#4B8FE0',
+    icon: 'file-text',
+    tone: 'blue',
     description: 'Can add and edit properties, tenancies, rent, compliance, and maintenance. Cannot view financial data or invite users by default.',
   },
   viewer: {
-    icon: '👁',
-    color: '#7B68EE',
+    icon: 'eye',
+    tone: 'purple',
     description: 'Read-only access to properties, rent, and compliance. Cannot edit anything. Tenant personal data is hidden by default. Turn on "Edit rent records" under Advanced to make a Rent Tracker Editor.',
   },
 }
@@ -94,7 +96,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Role</div>
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             {['admin','editor','viewer'].map(r => {
-              const info = ROLE_INFO[r]
+              const info = { ...ROLE_INFO[r], color: T[ROLE_INFO[r].tone] }
               const selected = role === r
               return (
                 <button key={r} onClick={()=>{setRole(r);setOverrides({})}}
@@ -104,7 +106,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                     background: selected?info.color+'15':'transparent',
                     display:'flex', gap:12, alignItems:'flex-start'
                   }}>
-                  <span style={{fontSize:22,flexShrink:0}}>{info.icon}</span>
+                  <span style={{display:'flex',flexShrink:0,color:info.color}}><Icon name={info.icon} size={22}/></span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:selected?info.color:T.text,marginBottom:2,textTransform:'capitalize'}}>{r}</div>
                     <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.5}}>{info.description}</div>
@@ -177,11 +179,10 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
 
         {/* Actions */}
         <div style={{display:'flex',gap:10,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <button onClick={onClose} style={{flex:1,fontFamily:mono,fontSize:12,padding:'12px',borderRadius:9,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>Cancel</button>
-          <button onClick={save} disabled={saving}
-            style={{flex:2,fontFamily:mono,fontSize:12,fontWeight:700,padding:'12px',borderRadius:9,border:'none',background:saving?T.border:T.gold,color:'#1A2530',cursor:saving?'wait':'pointer'}}>
+          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
+          <Button onClick={save} disabled={saving} style={{flex:2}}>
             {saving?'Saving...':'Save changes'}
-          </button>
+          </Button>
         </div>
       </div>
       </FocusTrap>

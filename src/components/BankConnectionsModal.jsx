@@ -26,12 +26,13 @@ const STATUS_LABEL = {
   expired:     'Re-authorise to keep syncing (PSD2 · 90 days)',
   revoked:     'Connection removed',
 }
-const STATUS_COLOR = {
-  requested:   '#888EA8',
-  pending:     '#E0943A',
-  active:      '#2ECC8A',
-  expired:     '#E0943A',
-  revoked:     '#888EA8',
+// Theme token key per status.
+const STATUS_TONE = {
+  requested:   'muted',
+  pending:     'amber',
+  active:      'green',
+  expired:     'amber',
+  revoked:     'muted',
 }
 
 export default function BankConnectionsModal({ onClose }) {
@@ -271,8 +272,8 @@ export default function BankConnectionsModal({ onClose }) {
                     <span style={{
                       fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
-                      background: (STATUS_COLOR[r.status] || T.muted) + '22',
-                      color: STATUS_COLOR[r.status] || T.muted,
+                      background: (T[STATUS_TONE[r.status]] || T.muted) + '22',
+                      color: T[STATUS_TONE[r.status]] || T.muted,
                     }}>{STATUS_LABEL[r.status] || r.status}</span>
                     {r.last_synced_at && (
                       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>

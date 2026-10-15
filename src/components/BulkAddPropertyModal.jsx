@@ -577,7 +577,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 
       {/* Grid */}
       <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: T.bg }}>
               <th style={cellStyle(T, 'header', 'left')}>Name</th>
@@ -601,26 +601,26 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
           <tbody>
             {units.map((u, i) => (
               <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                <td style={cellStyle(T, 'cell', 'left')}>
+                <td data-label="Name" style={cellStyle(T, 'cell', 'left')}>
                   <input value={u.name} onChange={e => setRow(i, { name: e.target.value })}
                     style={cellInput(T)}/>
                 </td>
-                <td style={cellStyle(T, 'cell')}>
+                <td data-label="Status" style={cellStyle(T, 'cell')}>
                   <select value={u.status} onChange={e => setRow(i, { status: e.target.value })} style={cellInput(T)}>
                     {STATUSES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                   </select>
                 </td>
-                <td style={cellStyle(T, 'cell')}>
+                <td data-label="Rent £/mo" style={cellStyle(T, 'cell')}>
                   <MoneyInput value={u.rent} onChange={v => setRow(i, { rent: v })}
                     style={cellInput(T)}/>
                 </td>
                 {pricingMode === 'per_unit' && (
                   <>
-                    <td style={cellStyle(T, 'cell')}>
+                    <td data-label="Purchase £" style={cellStyle(T, 'cell')}>
                       <MoneyInput value={u.purchase} onChange={v => setRow(i, { purchase: v })}
                         style={cellInput(T)}/>
                     </td>
-                    <td style={cellStyle(T, 'cell')}>
+                    <td data-label="Mortgage £" style={cellStyle(T, 'cell')}>
                       <MoneyInput value={u.mortgage} onChange={v => setRow(i, { mortgage: v })}
                         style={cellInput(T)}/>
                     </td>

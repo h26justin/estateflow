@@ -30,12 +30,12 @@ const fmtDate = (d) => {
 //   T           — theme passthrough
 
 const STATUS_META = {
-  draft:    { label: 'Draft',    tone: '#9ca3af' },
-  sent:     { label: 'Sent',     tone: '#3b82f6' },
-  signed:   { label: 'Signed',   tone: '#22c55e' },
-  declined: { label: 'Declined', tone: '#ef4444' },
-  voided:   { label: 'Voided',   tone: '#9ca3af' },
-  error:    { label: 'Error',    tone: '#ef4444' },
+  draft:    { label: 'Draft',    tone: 'muted' },
+  sent:     { label: 'Sent',     tone: 'blue' },
+  signed:   { label: 'Signed',   tone: 'green' },
+  declined: { label: 'Declined', tone: 'red' },
+  voided:   { label: 'Voided',   tone: 'muted' },
+  error:    { label: 'Error',    tone: 'red' },
 }
 
 export default function ESignPanel({ propertyId, companyId, documents = [], T }) {
@@ -167,7 +167,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
           <input value={signerEmail} onChange={e => setSignerEmail(e.target.value)}
             placeholder="jane@example.com" type="email" style={fieldStyle} />
           {signerEmail && !emailValid && (
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: '#ef4444' }}>Enter a valid email</span>
+            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>Enter a valid email</span>
           )}
         </label>
         <button onClick={createAndSend} disabled={!canCreate}
@@ -175,7 +175,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
             fontFamily: MONO, fontSize: 12, padding: '9px 14px',
             borderRadius: 6, border: `1px solid ${theme.gold}`,
             background: canCreate ? theme.gold + '22' : theme.surface,
-            color: canCreate ? theme.gold : theme.muted,
+            color: canCreate ? theme.goldText : theme.muted,
             cursor: canCreate ? 'pointer' : 'not-allowed', fontWeight: 700,
             justifySelf: 'start',
           }}>
@@ -193,7 +193,8 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
           {envelopes.map(env => {
-            const meta = STATUS_META[env.status] || { label: env.status, tone: theme.muted }
+            const m = STATUS_META[env.status] || { label: env.status, tone: 'muted' }
+            const meta = { ...m, tone: theme[m.tone] || theme.muted }
             const canAct = env.status === 'draft' || env.status === 'error'
             return (
               <div key={env.id} style={{
@@ -219,7 +220,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                       style={{
                         fontFamily: MONO, fontSize: 11, padding: '6px 10px',
                         borderRadius: 6, border: `1px solid ${theme.gold}`,
-                        background: theme.gold + '22', color: theme.gold,
+                        background: theme.gold + '22', color: theme.goldText,
                         cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
                       }}>
                       {busyId === env.id ? '…' : 'Send'}
@@ -236,7 +237,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                   </>
                 )}
                 {env.error_message && (
-                  <div style={{ flex: '1 1 100%', fontFamily: MONO, fontSize: FS.xs, color: '#ef4444' }}>
+                  <div style={{ flex: '1 1 100%', fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>
                     {env.error_message}
                   </div>
                 )}

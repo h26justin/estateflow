@@ -6,6 +6,7 @@ import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { fmt } from '../../lib/format'
 import FocusTrap from '../../lib/FocusTrap'
+import { Button } from '../ui'
 
 export default function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const confirmDiscard = useConfirm()
@@ -69,10 +70,9 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
           )}
           <div style={{display:'flex',gap:10}}>
             <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
-            <button disabled={busy||!numPrice||!date} onClick={handleConfirm}
-              style={{flex:1,fontFamily:MONO,fontWeight:600,background:T.gold,color:'#1C2830',border:'none',borderRadius:8,padding:'10px',fontSize:13,cursor:busy?'wait':'pointer',opacity:(!numPrice||!date)?0.5:1}}>
+            <Button disabled={busy||!numPrice||!date} onClick={handleConfirm} style={{flex:1}}>
               {busy?'Saving…':'Mark as sold'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
