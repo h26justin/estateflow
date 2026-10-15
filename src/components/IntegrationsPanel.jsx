@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { showAppToast } from '../lib/toast'
@@ -133,7 +133,10 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
   const [lastSync, setLastSync] = useState(null)           // result of the last manual sync
 
   // Parent reload replaces savedMappings; mirror it unless mid-edit.
-  useEffect(() => { if (!hostawayProps) setMappings(savedMappings) /* eslint-disable-next-line */ }, [savedMappings])
+  // Keyed to savedMappings only: hostawayProps is a mid-edit guard, not a
+  // trigger — a change to it alone must not reset the mapping draft.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!hostawayProps) setMappings(savedMappings) }, [savedMappings])
 
   async function connect() {
     if (!accountId.trim() || !apiSecret.trim()) { showAppToast('Enter your Hostaway Account ID and API secret first', 'error'); return }
@@ -381,7 +384,10 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
   const [lastSync, setLastSync] = useState(null)         // result of the last manual sync
 
   // Parent reload replaces savedMappings; mirror it unless mid-edit.
-  useEffect(() => { if (!lodgifyProps) setMappings(savedMappings) /* eslint-disable-next-line */ }, [savedMappings])
+  // Keyed to savedMappings only: lodgifyProps is a mid-edit guard, not a
+  // trigger — a change to it alone must not reset the mapping draft.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!lodgifyProps) setMappings(savedMappings) }, [savedMappings])
 
   async function connect() {
     if (!apiKey.trim()) { showAppToast('Paste your Lodgify API key first', 'error'); return }
@@ -751,9 +757,8 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const [saving, setSaving] = useState(false)
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [company.id])
 
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -774,7 +779,8 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       showAppToast(e.message, 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, company.id])
+  useEffect(() => { load() }, [load])
 
   function patch(key, value) { setSettings(s => ({ ...s, [key]: value })) }
   function patchPropBank(propId, bankAccountId) {

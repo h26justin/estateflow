@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO } from '../lib/styles'
 import { fmt } from '../lib/format'
@@ -48,7 +48,7 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
   const [nPriority, setNPriority] = useState(100)
   const [saving, setSaving]     = useState(false)
 
-  async function reload() {
+  const reload = useCallback(async () => {
     if (!companyId) return
     setLoading(true)
     try {
@@ -57,9 +57,9 @@ export default function BookkeepingRules({ companyId, properties = [] }) {
       showAppToast(e.message || 'Failed to load rules', 'error')
     }
     setLoading(false)
-  }
+  }, [companyId])
 
-  useEffect(() => { reload() /* eslint-disable-next-line */ }, [companyId])
+  useEffect(() => { reload() }, [reload])
 
   async function addRule(e) {
     e?.preventDefault?.()

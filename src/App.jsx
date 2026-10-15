@@ -1785,7 +1785,7 @@ export default function App({ initialLoginMode = null } = {}) {
         default:             return 0
       }
     })
-  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived])
+  },[properties,coFilter,statusFilter,searchQ,sortBy,showArchived,yieldBasis])
 
   // Reset the drag ("Custom Order") positions back to the canonical default:
   // company, then building cluster, then natural unit order ("Room 2" before

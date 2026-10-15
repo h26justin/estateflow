@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -47,25 +47,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
   const quarters = useMemo(() => quartersForTaxYear(taxYear), [taxYear])
 
   const beginLoad = useLoadGuard()
-  useEffect(() => { load() /* eslint-disable-next-line */ }, [taxYear])
-
-  // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
-  // bounces them back to /?hmrc_connected=1. Show a toast + scrub the
-  // URL so a refresh doesn't re-fire it.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('hmrc_connected') === '1') {
-      showAppToast('HMRC connected — you can now file real submissions')
-      params.delete('hmrc_connected')
-      const q = params.toString()
-      window.history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash)
-      // Re-fetch so the "Connected ✓" badge appears immediately.
-      load()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function load() {
+  const load = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
     try {
@@ -85,7 +67,24 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
       showAppToast('Could not load MTD data: ' + e.message, 'error')
     }
     setLoading(false)
-  }
+  }, [beginLoad, taxYear])
+  useEffect(() => { load() }, [load])
+
+  // OAuth return-handler: after the user finishes the gov.uk dance, HMRC
+  // bounces them back to /?hmrc_connected=1. Show a toast + scrub the
+  // URL so a refresh doesn't re-fire it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('hmrc_connected') === '1') {
+      showAppToast('HMRC connected — you can now file real submissions')
+      params.delete('hmrc_connected')
+      const q = params.toString()
+      window.history.replaceState({}, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash)
+      // Re-fetch so the "Connected ✓" badge appears immediately.
+      load()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function previewQ(q) {
     setBusy(`preview-${q.quarter}`)
