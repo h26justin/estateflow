@@ -4731,8 +4731,12 @@ function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield, setPr
                 {p.managed_by&&<span style={{marginLeft:8,color:T.faint,display:'inline-flex',alignItems:'center',gap:4,verticalAlign:'middle'}}><Icon name="building" size={11}/> {p.managed_by}</span>}
               </div>
             </div>
-            {/* Stats */}
-            <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} onClick={()=>openDetail(p)}>
+            {/* Stats — same action as the name block, via pressable() so it
+                carries role=button and Enter/Space handling. Kept out of the
+                tab order (tabIndex -1): the name block above is already the
+                row's focusable "open property" control, and two tab stops per
+                row doubled the keyboard path through a long portfolio. */}
+            <div style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap',cursor:'pointer'}} {...pressable(()=>openDetail(p), { tabIndex: -1 })}>
               {/* Compliance status pill — only renders for properties
                   that have something expired/expiring/missing. Silently
                   absent for fully-compliant or unoccupied properties so

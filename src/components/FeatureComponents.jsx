@@ -25,6 +25,7 @@ import ApiAccessPanel from './ApiAccessPanel'
 // Exports: ComplianceTab, TenancyTab, ExpensesTab, SettingsPage, NotesTimeline, OverviewTab, FinancialsTab
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
+import { copyToClipboard } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -3083,13 +3084,14 @@ function ShareableLinksTab({ companies, showToast, T }) {
   }
 
   async function copy(text, id) {
-    try {
-      await navigator.clipboard.writeText(text)
+    if (await copyToClipboard(text)) {
       setCopiedId(id)
       setTimeout(() => setCopiedId(c => c === id ? null : c), 1500)
-    } catch(e) {
-      // Fallback for older browsers / restricted contexts: show in a prompt
-      window.prompt('Copy this:', text)
+      showAppToast('Copied to clipboard')
+    } else {
+      // Clipboard blocked (restricted context / old browser). The code and
+      // URL are both on screen, so point the user at them instead of a prompt.
+      showAppToast('Could not copy automatically — select the invite link or code and copy it manually.', 'error')
     }
   }
 
@@ -4935,11 +4937,14 @@ function ReferralPanel({ user, T, showToast }) {
   const referralUrl = `https://www.ownproperly.com?ref=${code}`
   const paying = referrals.filter(r => r.status === 'paying' || r.status === 'rewarded').length
 
-  function copy() {
-    navigator.clipboard.writeText(referralUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    showToast('Referral link copied!')
+  async function copy() {
+    if (await copyToClipboard(referralUrl)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      showToast('Referral link copied!')
+    } else {
+      showToast('Could not copy automatically — select the link and copy it manually.', 'error')
+    }
   }
 
   return (
