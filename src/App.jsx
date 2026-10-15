@@ -1526,7 +1526,6 @@ export default function App({ initialLoginMode = null } = {}) {
         if (visibleCos.length === 0 && suspendedCollabCos.length === 0) {
           setShowOnboarding(true)
         }
-        try { api.sendOnboardingEmail(user.email, '', 'welcome').catch(()=>{}) } catch(e) {}
         // Drop trial-expiring notifications into the bell (deduped daily
         // per company via localStorage). Fire-and-forget; failure is fine.
         api.maybeWarnTrialsExpiring(visibleCos).catch(() => {})

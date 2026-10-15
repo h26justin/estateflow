@@ -1154,7 +1154,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             {key:'lease_expiry',      label:'Lease Expiry',      desc:'Alert when tenancy agreements are expiring'},
             {key:'compliance_expiry', label:'Compliance Expiry', desc:'Alert for gas, electrical, EPC certificates nearing expiry'},
             {key:'vacant_properties', label:'Vacant Properties', desc:'Alert when properties are sitting vacant'},
-            {key:'weekly_summary',    label:'Weekly Summary',    desc:'Receive a weekly portfolio summary email (coming soon)'},
+            {key:'weekly_summary',    label:'Weekly Summary',    desc:'Email every Monday morning: rent in vs expected, arrears, certificates due and tenancies ending'},
           ].map(item=>(
             <div key={item.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${T.border}`}}>
               <div>

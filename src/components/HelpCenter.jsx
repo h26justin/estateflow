@@ -610,7 +610,7 @@ const GUIDES = [
       "Go to Settings > Account > Notifications.",
       "Toggle each alert type on or off: Rent Arrears, Lease Expiry, Compliance Expiry, Vacant Properties, and Weekly Summary.",
       "These control which alerts appear in the Smart Alerts panel on your Dashboard.",
-      "The Weekly Summary sends a portfolio overview email every Monday (coming soon).",
+      "Weekly Summary emails you every Monday morning with last week's rent expected vs received, month-to-date collection, arrears and the properties owing most, certificates expiring or overdue in the next 30 days, tenancies ending in the next 60 days and how many properties are empty. It goes to your login email and covers only the companies you can access.",
       "Click \"Save Preferences\" to apply your changes.",
     ]},
   { id: 68, cat: 'settings', title: 'Managing user access (multi-user)', tags: ['access','user','multi','team','permission'],
