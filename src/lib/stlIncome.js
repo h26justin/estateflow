@@ -32,6 +32,20 @@ export const ADJUSTMENT_KINDS = Object.freeze([
 
 export const KNOWN_CHANNELS = Object.freeze(['Airbnb', 'Booking.com', 'Vrbo', 'Expedia', 'Direct', 'Other'])
 
+// One fixed colour per channel, so Airbnb is the same colour in every bar
+// whatever its share. Unknown channels fall back to grey.
+export const CHANNEL_COLORS = Object.freeze({
+  'Airbnb': '#E0565B',
+  'Booking.com': '#2F6FB5',
+  'Direct': STL_COLOR,
+  'Vrbo': '#2A9D8F',
+  'Expedia': '#D4A017',
+  'TripAdvisor': '#3E9B5C',
+})
+export function channelColor(channel) {
+  return CHANNEL_COLORS[channel] || '#9AA0A6'
+}
+
 // ── Dates (ISO 'YYYY-MM-DD' strings, UTC arithmetic so DST never bites) ─────
 export function parseISO(d) {
   if (!d) return null
