@@ -456,6 +456,7 @@ function arrearsSummary(property, opts = {}) {
 }
 
 // src/lib/stlIncome.js
+var STL_COLOR = "#9B6FDE";
 var REVENUE_STATUSES = Object.freeze(/* @__PURE__ */ new Set(["new", "modified", "confirmed", "booked"]));
 var ADJUSTMENT_KINDS = Object.freeze([
   { v: "refund", l: "Refund", negative: true, hint: "Money returned to the guest" },
@@ -465,6 +466,14 @@ var ADJUSTMENT_KINDS = Object.freeze([
   { v: "adjustment", l: "Other adjustment", negative: false, hint: "Anything else, either sign" }
 ]);
 var KNOWN_CHANNELS = Object.freeze(["Airbnb", "Booking.com", "Vrbo", "Expedia", "Direct", "Other"]);
+var CHANNEL_COLORS = Object.freeze({
+  "Airbnb": "#E0565B",
+  "Booking.com": "#2F6FB5",
+  "Direct": STL_COLOR,
+  "Vrbo": "#2A9D8F",
+  "Expedia": "#D4A017",
+  "TripAdvisor": "#3E9B5C"
+});
 function parseISO(d) {
   if (!d) return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));

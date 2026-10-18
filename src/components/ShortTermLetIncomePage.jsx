@@ -17,7 +17,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { Icon } from '../lib/icons'
 import { canDo } from '../lib/permissions'
 import {
-  STL_COLOR, STL_STATUS, ADJUSTMENT_KINDS, KNOWN_CHANNELS,
+  STL_COLOR, STL_STATUS, ADJUSTMENT_KINDS, KNOWN_CHANNELS, channelColor,
   isRevenueBooking, isCancelled, channelLabel, bookingNights, bookingReference, guestDisplayName,
   bookingStatusLabel, unitCount, summariseStl, periodRange, toISO, bookingMatches, bookingFees, bookingNetAfterFees, managerPayouts, observedChannelRates, effectiveFees,
   roomBreakdown, forwardLook, findPaidPayout, payoutSnapshot, payoutCorrections, snapshotRooms, snapshotCorrections,
@@ -178,6 +178,15 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const carriedFor = mid => Math.round(correctionsFor(mid).reduce((sum, c) => sum + c.outstanding, 0) * 100) / 100
   const payTotal = r => Math.round((r.amount + carriedFor(r.manager.id)) * 100) / 100
   const netToOwner = Math.round((summary.netAfterFees - managerFees) * 100) / 100
+  // Manager fees per calendar month of the year table, worked out the same way
+  // as the tiles so a month's Net to owner ties to the tiles for that month.
+  const monthMgrFees = useMemo(() => yearSummary.months.map(m => {
+    const last = new Date(Date.UTC(yearShown, m.month, 0)).getUTCDate()
+    const mm = String(m.month).padStart(2, '0')
+    const rows = managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { from: `${yearShown}-${mm}-01`, to: `${yearShown}-${mm}-${last}`, rates })
+    return Math.round(rows.reduce((acc, r) => acc + r.amount, 0) * 100) / 100
+  }), [yearSummary.months, yearShown, scopedBookings, scopedAdjustments, selectedProps, managers, rates])
+  const yearMgrFees = Math.round(monthMgrFees.reduce((a, b) => a + b, 0) * 100) / 100
 
   // Per-room rows and the sort the table is showing them in.
   const rooms = useMemo(() => roomBreakdown(scopedBookings, scopedAdjustments, selectedProps, { from: range.from, to: range.to, rates, mappings }), [scopedBookings, scopedAdjustments, selectedProps, range.from, range.to, rates, mappings])
@@ -335,8 +344,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     downloadCsv(`stl-bookings-${slug()}.csv`, [head, ...rows])
   }
   const exportMonthsCsv = () => {
-    const head = ['Month', 'Bookings', 'Nights', 'Nights slept', 'Occupancy %', 'ADR', 'RevPAR', 'Gross', 'Platform fees', 'Adjustments', 'Net after fees']
-    const rows = yearSummary.months.map(m => [`${yearShown}-${String(m.month).padStart(2, '0')}`, m.bookings, m.nights, m.occupiedNights, m.occupancy ?? '', m.adr ?? '', m.revpar ?? '', m.gross, m.fees, m.adjustments, m.net])
+    const head = ['Month', 'Bookings', 'Nights', 'Nights slept', 'Occupancy %', 'ADR', 'RevPAR', 'Gross', 'Platform fees', 'Adjustments', 'Net after fees', 'Manager fees', 'Net to owner']
+    const rows = yearSummary.months.map((m, i) => [`${yearShown}-${String(m.month).padStart(2, '0')}`, m.bookings, m.nights, m.occupiedNights, m.occupancy ?? '', m.adr ?? '', m.revpar ?? '', m.gross, m.fees, m.adjustments, m.net, monthMgrFees[i], Math.round((m.net - monthMgrFees[i]) * 100) / 100])
     downloadCsv(`stl-months-${yearShown}.csv`, [head, ...rows])
   }
   const exportRoomsCsv = () => {
@@ -561,13 +570,13 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   ) : summary.byChannel.map(c => (
                     <div key={c.channel} style={{ marginBottom: 10 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 12, marginBottom: 4 }}>
-                        <span style={{ color: T.text }}>{c.channel} <span style={{ color: T.faint, fontSize: FS.xs }}>· {c.bookings} · {c.nights} nt</span></span>
+                        <span style={{ color: T.text }}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: channelColor(c.channel), marginRight: 6 }} />{c.channel} <span style={{ color: T.faint, fontSize: FS.xs }}>· {c.bookings} · {c.nights} nt</span></span>
                         <span style={{ color: T.text, textAlign: 'right' }}>{fmtMoney(c.gross)} <span style={{ color: T.faint, fontSize: FS.xs }}>{(c.share * 100).toFixed(0)}%</span>
                           <div style={{ color: c.fees ? T.red : T.faint, fontSize: FS.xs }}>fee {fmtMoney(c.fees)}{c.fees ? ` (${c.feeRate}%)` : ''} · {c.deductedAtSource ? 'taken before payout' : 'invoiced separately'} · net {fmtMoney(c.net)}</div>
                         </span>
                       </div>
                       <div style={{ height: 6, borderRadius: 3, background: T.border }}>
-                        <div style={{ width: `${Math.max(2, c.share * 100)}%`, height: '100%', borderRadius: 3, background: STL_COLOR }} />
+                        <div style={{ width: `${Math.max(2, c.share * 100)}%`, height: '100%', borderRadius: 3, background: channelColor(c.channel) }} />
                       </div>
                     </div>
                   ))}
@@ -583,10 +592,12 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                     <thead><tr>
                       <th style={th}>Month</th><th style={{ ...th, textAlign: 'right' }}>Bookings</th><th style={{ ...th, textAlign: 'right' }}>Nights</th>
                       <th style={{ ...th, textAlign: 'right' }} title="Nights slept that month over the month's room-nights">Occ.</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Gross</th><th style={{ ...th, textAlign: 'right' }}>Fees</th><th style={{ ...th, textAlign: 'right' }}>Adj.</th><th style={{ ...th, textAlign: 'right' }}>Net</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Gross</th><th style={{ ...th, textAlign: 'right' }}>Fees</th><th style={{ ...th, textAlign: 'right' }}>Adj.</th>
+                      <th style={{ ...th, textAlign: 'right' }} title="Short-let manager fees for the month">Mgr</th>
+                      <th style={{ ...th, textAlign: 'right' }} title="After platform fees, adjustments and manager fees">Net to owner</th>
                     </tr></thead>
                     <tbody>
-                      {yearSummary.months.map(m => {
+                      {yearSummary.months.map((m, i) => {
                         const inRange = range.from && range.to && m.key >= range.from.slice(0, 7) && m.key <= range.to.slice(0, 7)
                         const dim = m.bookings === 0 && m.adjustments === 0
                         return (
@@ -600,7 +611,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                             <td style={{ ...tdR, color: dim ? T.faint : T.text }}>{m.gross ? fmtMoney(m.gross) : '·'}</td>
                             <td style={{ ...tdR, color: m.fees ? T.red : T.faint }}>{m.fees ? fmtMoney(-m.fees) : '·'}</td>
                             <td style={{ ...tdR, color: m.adjustments < 0 ? T.red : m.adjustments > 0 ? T.green : T.faint }}>{m.adjustments ? fmtMoney(m.adjustments) : '·'}</td>
-                            <td style={{ ...tdR, fontWeight: 600, color: dim ? T.faint : T.text }}>{m.net || m.gross ? fmtMoney(m.net) : '·'}</td>
+                            <td style={{ ...tdR, color: monthMgrFees[i] ? T.amber : T.faint }}>{monthMgrFees[i] ? fmtMoney(-monthMgrFees[i]) : '·'}</td>
+                            <td style={{ ...tdR, fontWeight: 600, color: dim ? T.faint : T.text }}>{m.net || m.gross ? fmtMoney(m.net - monthMgrFees[i]) : '·'}</td>
                           </tr>
                         )
                       })}
@@ -614,7 +626,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{fmtMoney(yearSummary.gross)}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none', color: yearSummary.platformFees ? T.red : T.text }}>{fmtMoney(-yearSummary.platformFees)}</td>
                         <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none', color: yearSummary.adjustmentsTotal < 0 ? T.red : T.text }}>{fmtMoney(yearSummary.adjustmentsTotal)}</td>
-                        <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{fmtMoney(yearSummary.net)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none', color: yearMgrFees ? T.amber : T.text }}>{fmtMoney(-yearMgrFees)}</td>
+                        <td style={{ ...tdR, fontWeight: 700, borderBottom: 'none' }}>{fmtMoney(yearSummary.net - yearMgrFees)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -670,9 +683,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                               {r.byChannel.length === 0 ? <span style={{ color: T.faint }}>·</span> : (
                                 <div title={r.byChannel.map(x => `${x.channel} ${(x.share * 100).toFixed(0)}% (${fmtMoney(x.gross)})`).join(' · ')}>
                                   <div style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden', background: T.border, marginBottom: 3 }}>
-                                    {r.byChannel.map((x, i) => <div key={x.channel} style={{ width: `${x.share * 100}%`, background: i === 0 ? STL_COLOR : i === 1 ? T.gold : i === 2 ? T.blue || T.muted : T.muted }} />)}
+                                    {r.byChannel.map(x => <div key={x.channel} style={{ width: `${x.share * 100}%`, background: channelColor(x.channel) }} />)}
                                   </div>
-                                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, whiteSpace: 'nowrap' }}>{r.byChannel.slice(0, 3).map(x => `${x.channel} ${(x.share * 100).toFixed(0)}%`).join(' · ')}</div>
+                                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, whiteSpace: 'nowrap' }}>{r.byChannel.slice(0, 3).map((x, i) => <Fragment key={x.channel}>{i > 0 && ' · '}<span style={{ color: channelColor(x.channel) }}>■</span> {x.channel} {(x.share * 100).toFixed(0)}%</Fragment>)}</div>
                                 </div>
                               )}
                             </td>
