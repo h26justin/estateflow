@@ -33,6 +33,17 @@ const STRIPE_PRICE_ID    = Deno.env.get('STRIPE_PRICE_ID')!
 // deploys keep working); Investor = STRIPE_PRICE_ID_INVESTOR.
 const STRIPE_PRICE_ID_INVESTOR = Deno.env.get('STRIPE_PRICE_ID_INVESTOR') || ''
 
+// £10/month minimum, mirroring calcMonthlyPrice in src/lib/tierGating.js.
+// Prices are per-property, so the floor is applied as a minimum billed
+// quantity: 5 properties on Starter (£2), 2 on Investor (£5). Previously
+// checkout billed max(1, count) — a 1-property Starter paid £2, not £10.
+const MONTHLY_FLOOR_GBP = 10
+const PRICE_PER_PROPERTY_GBP: Record<string, number> = { starter: 2, investor: 5 }
+function billedQuantity(propertyCount: number, tier: string): number {
+  const minQty = Math.ceil(MONTHLY_FLOOR_GBP / (PRICE_PER_PROPERTY_GBP[tier] ?? 2))
+  return Math.max(minQty, propertyCount || 0)
+}
+
 // Safe-list of origins we'll honour for return_url. Anything else
 // falls back to APEX_URL — defence against open-redirect via the
 // optional `return_origin` request param.
@@ -117,7 +128,8 @@ Deno.serve(async (req) => {
     }
 
     const propertyCount = await supabase
-      .from('properties').select('id', { count: 'exact' }).eq('company_id', company_id)
+      .from('properties').select('id', { count: 'exact', head: true }).eq('company_id', company_id)
+      .is('deleted_at', null) // soft-deleted (in Trash) properties aren't billable
       .then(r => r.count || 1)
 
     let customerId = sub?.stripe_customer_id
@@ -158,14 +170,16 @@ Deno.serve(async (req) => {
     const session = await stripe('POST', '/checkout/sessions', {
       customer: customerId,
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: Math.max(1, propertyCount) }],
+      line_items: [{ price: priceId, quantity: billedQuantity(propertyCount, tier) }],
       // Metadata at THREE levels:
       //   - session.metadata        → read by checkout.session.completed
       //   - subscription_data       → propagates to subscription.created
       //   - customer.metadata       → set when we created the customer above
       // This way any one of the webhook events can identify the company.
       metadata: { company_id, owner_id: user.id, tier },
-      subscription_data: { metadata: { company_id, owner_id: user.id, tier } },
+      // property_count is the real count; the line-item quantity may be
+      // higher because of the £10 floor. stripe-webhook prefers this.
+      subscription_data: { metadata: { company_id, owner_id: user.id, tier, property_count: propertyCount } },
       success_url: `${baseUrl}?billing=success`,
       cancel_url: `${baseUrl}?billing=cancelled`,
       allow_promotion_codes: true,

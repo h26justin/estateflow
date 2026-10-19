@@ -133,7 +133,7 @@ The four UK landlord compliance dates that catch people out:
 · EPC — every 10 years (or when re-let if E or below). Up to £5,000 fine.
 · Right to Rent — per tenant, ongoing for time-limited. Up to £20,000 per occupier.
 
-Properly emails you 90, 60, 30 and 7 days before each one expires. So you never have to remember.
+Properly emails you at 90, 60, 30 and 7 days before each one expires, and on the day. So you never have to remember.
 
 → Add your compliance dates: ${appUrl}/#/properties (click any property → Compliance tab)
 

@@ -132,7 +132,7 @@ const FEATURE_CATS = [
     icon: 'shield-check',
     color: '#E0943A',
     features: [
-      { icon: 'clipboard-check', title: 'Certificate tracking with EPC auto-sync', desc: 'Gas safety, EICR, smoke and CO, HMO licences and more with expiry alerts at 90, 60 and 30 days. EPC ratings and expiry pulled from the national register automatically.' },
+      { icon: 'clipboard-check', title: 'Certificate tracking with EPC auto-sync', desc: 'Gas safety, EICR, smoke and CO, HMO licences and more with staged expiry alerts at 90, 60, 30 and 7 days, on the day, then weekly if overdue. EPC ratings and expiry pulled from the national register automatically.' },
       { icon: 'id-card', title: 'Right to Rent and deposits', desc: 'Log document type, check date and expiry for every tenant; track which scheme protects each deposit, with dates and certificate numbers.' },
       { icon: 'scale', title: 'Renters Rights ready', desc: 'A portfolio checklist for the Renters Rights Act (PRS database, ombudsman, periodic tenancies) plus notice generation with the right grounds and periods.' },
       { icon: 'robot', title: 'Portfolio Autopilot', desc: 'A daily AI-drafted action list across arrears, compliance, insurance and vacancies. Every item is a suggestion with a ready-to-send draft; nothing goes out without you.' },

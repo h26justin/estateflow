@@ -32,7 +32,7 @@ const STEPS = [
   {
     icon: 'shield-check',
     title: 'Compliance & alerts',
-    desc: "Track gas certificates, EICRs, EPCs, licences, deposits and notices per property — with automatic alerts at 90, 60 and 30 days before anything expires.",
+    desc: "Track gas certificates, EICRs, EPCs, licences, deposits and notices per property — with staged alerts at 90, 60, 30 and 7 days before anything expires (you choose how early each one starts).",
     tip: "Deposit, notice and rent-increase records double as your evidence if a dispute ever reaches court.",
     tag: 'Compliance',
   },

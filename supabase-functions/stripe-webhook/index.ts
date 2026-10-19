@@ -245,7 +245,9 @@ Deno.serve(async (req) => {
           stripe_price_id: obj.items?.data?.[0]?.price?.id || null,
           status: obj.status,
           ...(subTier ? { tier: subTier } : {}),
-          property_count: obj.items?.data?.[0]?.quantity || 0,
+          // Real property count from checkout metadata — the billed quantity
+          // can be higher because of the £10 minimum (create-checkout).
+          property_count: Number(obj.metadata?.property_count) || obj.items?.data?.[0]?.quantity || 0,
           current_period_start: toIso(obj.current_period_start),
           current_period_end:   toIso(obj.current_period_end),
           cancel_at_period_end: obj.cancel_at_period_end ?? false,
