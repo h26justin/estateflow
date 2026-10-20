@@ -15,6 +15,8 @@ import { CompanyDocumentsTab, TenantInbox, PropertyMap, AutopilotWidget } from '
 import { fmt } from '../../lib/appFmt'
 import { StatCard } from './StatCard'
 import { HealthRing } from './HealthRing'
+import { KpiGrid } from './KpiGrid'
+import { portfolioHealthFor, refurbSummary } from '../../lib/dashboardKpis'
 import { PortfolioModellerWidget } from './PortfolioModellerWidget'
 import { EmptyState, Button, Card } from '../ui'
 
@@ -98,11 +100,18 @@ export function DashboardView({
               </>}
             </p>}
           </div>
-          {/* Portfolio health ring — average of per-property health
-              scores, consistent with the per-card HealthBadge. */}
+          {/* Portfolio health ring — per-property health scores (same as
+              the per-card HealthBadge), capped by the legal compliance
+              rollup the Portfolio Compliance card uses and by arrears, so
+              the ring can't read "Good standing" beside a red compliance
+              card. */}
           {dashProps.length > 0 && (() => {
-            const avg = dashProps.reduce((sum,p)=>sum+(api.calcPropertyHealthScore(p, p.compliance_items||[], tenanciesByProp[p.id]||p.tenancy||null, p.maintenance_jobs||[], p.rent_payments||[]).score||0),0)/dashProps.length
-            return <HealthRing score={avg}/>
+            const h = portfolioHealthFor(dashProps, {
+              baseScoreFor: p => api.calcPropertyHealthScore(p, p.compliance_items||[], tenanciesByProp[p.id]||p.tenancy||null, p.maintenance_jobs||[], p.rent_payments||[]).score||0,
+              settingsFor: p => companySettings[p.company_id] || {},
+              policies: insurancePolicies,
+            })
+            return <HealthRing score={h.score} reasons={h.reasons}/>
           })()}
         </div>
         {/* Company filter pills */}
@@ -192,7 +201,7 @@ export function DashboardView({
               if (!activeFlags.has('portfolio_autopilot')) return null
               const scopedId = dashCoFilter.length === 1 ? dashCoFilter[0] : null
               return (
-                <div style={{ marginTop: 28 }}>
+                <div style={{ marginTop: 20 }}>
                   <AutopilotWidget companyId={scopedId} companies={companies} onOpenFull={() => { window.location.hash = '#/autopilot' }}/>
                 </div>
               )
@@ -308,6 +317,10 @@ export function DashboardView({
         //    over dashProps/companies/etc lexically simple.
 
         function renderKpiGrid() {
+          // Refurb counts from every signal the app has — property status,
+          // the refurb_status mirror and live projects — so this card agrees
+          // with the property list and the Refurbs page.
+          const refurb = refurbSummary(dashProps)
           // Widget definitions — each returns a StatCard JSX element
           const WIDGET_DEFS = {
             portfolio_value: { icon:'home', label:'Portfolio Value', render: () => (
@@ -435,15 +448,18 @@ export function DashboardView({
               />
             )},
             refurb: { icon:'hammer', label:'In Refurbishment', render: () => (
-              <StatCard icon="hammer" label="In Refurbishment" value={stats.inRefurb} sub={`of ${stats.total} total`} accent={T.blue} onNavigate={()=>{setStatusFilter('refurb');setPortfolioTab('properties');setView('properties')}} navLabel="View"
+              <StatCard icon="hammer" label="In Refurbishment" value={refurb.count}
+                sub={`${refurb.count === 1 ? 'property' : 'properties'} · ${refurb.activeProjects} active ${refurb.activeProjects === 1 ? 'project' : 'projects'}`}
+                accent={T.blue} onNavigate={()=>setView('refurbs')} navLabel="Refurbs"
                 breakdown={[
                   // Same for live refurbs — straight to the Refurb tab
                   // for phases, costs and progress notes.
-                  ...dashProps.filter(p=>p.refurb_status==='in-progress').map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue,
+                  ...refurb.properties.map(p=>({label:p.name, value:p.company?.abbr||'', color:T.blue,
                     onClick:()=>openDetail(p,'refurb'), linkTitle:`Open ${p.name} — refurbishment`})),
-                  ...(stats.inRefurb===0?[{label:'No active refurbs', value:'✓', color:T.green}]:[]),
-                  {label:'Planned refurbs', value:dashProps.filter(p=>p.refurb_status==='planned').length},
-                  {label:'Completed refurbs', value:dashProps.filter(p=>p.refurb_status==='complete').length, color:T.green},
+                  ...(refurb.count===0?[{label:'No properties in refurbishment', value:'✓', color:T.green}]:[]),
+                  {label:'Active projects (Refurbs page)', value:refurb.activeProjects, separator:true, note:'Projects not yet complete, including planned and on hold'},
+                  {label:'Planned refurbs', value:refurb.planned},
+                  {label:'Completed refurbs', value:refurb.completed, color:T.green},
                 ]}
               />
             )},
@@ -581,7 +597,7 @@ export function DashboardView({
                   {label:'Total properties', value:stats.total},
                   {label:'Rented', value:stats.rented, color:T.green},
                   {label:'Vacant', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
-                  {label:'In refurbishment', value:stats.inRefurb, color:T.blue},
+                  {label:'In refurbishment', value:refurb.count, color:T.blue},
                   ...companyStats.map(c=>({label:c.name, value:c.count, color:c.color})),
                 ]}
               />
@@ -659,14 +675,15 @@ export function DashboardView({
           const enabledWidgets = currentWidgets.filter(w => w.enabled && WIDGET_DEFS[w.key])
           const count = enabledWidgets.length
           return (
-            <div style={{marginBottom:20}}>
-              {/* Rows stretch to even heights; a card's detail panel is an
+            <div style={{marginBottom:20,minWidth:0}}>
+              {/* Balanced columns (8 cards → 4 + 4, one column on a phone);
+                  rows stretch to even heights; a card's detail panel is an
                   overlay (see StatCard) so opening one never resizes the row. */}
-              <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':`repeat(${Math.min(count,5)},1fr)`,gap:10}}>
+              <KpiGrid count={count} isMobile={isMobile}>
                 {enabledWidgets.map(w => (
                   <div key={w.key} style={{display:'contents'}}>{WIDGET_DEFS[w.key].render()}</div>
                 ))}
-              </div>
+              </KpiGrid>
             </div>
           )
         }
@@ -678,18 +695,18 @@ export function DashboardView({
               {companies.length===0
                 ?<Card padding="md"><EmptyState compact icon="building" title="No companies yet" body="Add your first one to get started."
                     action={<Button icon="plus" onClick={()=>setShowAddCo(true)}>Add Company</Button>}/></Card>
-                :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:14,marginBottom:28}}>
+                :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(300px,100%),1fr))',gap:14,marginBottom:28}}>
                     {companyStats.map(c=>(
                       <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
                           <div style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:c.color,background:c.color+'22',padding:'3px 10px',borderRadius:4}}>{c.abbr}</div>
                           <div style={{fontSize:14,fontWeight:600}}>{c.name}</div>
                         </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}}>
                           {[{l:'Properties',v:c.count},{l:'Rented',v:`${c.rented}/${c.count}`},{l:'Monthly Income',v:fmt(c.monthlyRent)},{l:'Arrears',v:fmt(c.arrears),red:c.arrears>0}].map((item,i)=>(
-                            <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
-                              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3}}>{item.l}</div>
-                              <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.goldText}}>{item.v}</div>
+                            <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px',minWidth:0}}>
+                              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.l}</div>
+                              <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:item.red?T.red:T.goldText,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.v}</div>
                             </div>
                           ))}
                         </div>
