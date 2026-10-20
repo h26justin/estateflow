@@ -12,6 +12,7 @@ import { ChromeLogo } from './Logo'
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState, Modal } from './ui'
 import { Icon } from '../lib/icons'
+import { calcMonthlyPrice } from '../lib/tierGating'
 import { SkeletonRows, SkeletonTiles } from '../lib/Skeleton'
 import { ensureAal2, totpPrompt } from '../lib/mfaStepUp'
 
@@ -153,7 +154,13 @@ export default function AdminDashboard({ onClose, user }) {
     const trialing = companies.filter(c=>!c.is_free_tier&&(!c.subscriptions?.[0]?.status||c.subscriptions?.[0]?.status==='trialing'))
     const free     = companies.filter(c=>c.is_free_tier)
     const pastDue  = companies.filter(c=>c.subscriptions?.[0]?.status==='past_due')
-    const mrrStripe = active.reduce((s,c)=>s+(c.paid_property_count||c.subscriptions?.[0]?.property_count||0),0) * 2
+    // Tier-aware with the £10 minimum (property_count is the real count, not
+    // the billed quantity). Subscriptions from before the minimum are billed
+    // without it, so this can slightly overstate MRR for those.
+    const mrrStripe = active.reduce((s,c)=>{
+      const sub = c.subscriptions?.[0]
+      return s + calcMonthlyPrice(c.paid_property_count||sub?.property_count||0, sub?.tier||'starter')
+    },0)
     const mrrProps  = companies.reduce((s,c)=>s+(c.real_property_count||0),0) * 2
     const newThisMonth = companies.filter(c=>{
       const d=new Date(c.created_at); const n=new Date()

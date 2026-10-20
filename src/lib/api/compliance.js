@@ -90,7 +90,16 @@ export async function fetchComplianceForDocument(documentId) {
   return data?.[0] || null
 }
 export async function updateCompliance(id, updates) {
-  const { data, error } = await supabase.from('compliance_items').update(updates).eq('id', id).select().single()
+  // If the expiry date moves, restart the reminder schedule: the daily
+  // compliance-reminders job works out which stage was last sent from
+  // last_reminder_sent_at and the *current* expiry, so pulling the date
+  // earlier would otherwise skip a milestone email.
+  let patch = updates
+  if ('expiry_date' in updates) {
+    const { data: prev } = await supabase.from('compliance_items').select('expiry_date').eq('id', id).maybeSingle()
+    if ((prev?.expiry_date || null) !== (updates.expiry_date || null)) patch = { ...updates, last_reminder_sent_at: null }
+  }
+  const { data, error } = await supabase.from('compliance_items').update(patch).eq('id', id).select().single()
   if (error) throw error
   return data
 }

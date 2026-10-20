@@ -144,7 +144,7 @@ serve(async (req) => {
       // weekly for 30 days after expiry. See ./reminderStages.ts.
       return shouldRemind({
         days: daysUntil(item.expiry_date),
-        reminderDays: item.reminder_days ?? 30,
+        reminderDays: item.reminder_days || 30, // 0/null → default window, as before
         lastSentAt: item.last_reminder_sent_at,
         now,
       })

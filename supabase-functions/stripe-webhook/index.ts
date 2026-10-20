@@ -28,6 +28,7 @@
 //      not a silent fall-through (was already 200 but makes intent clear).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { countBillableProperties } from './billing.ts'
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 const SUPABASE_URL           = Deno.env.get('SUPABASE_URL')!
@@ -238,6 +239,9 @@ Deno.serve(async (req) => {
       case 'customer.subscription.created': {
         if (!companyId) { console.warn(`${event.type}: no company_id`); break }
         const subTier = resolveTier(obj)
+        // property_count is the company's real billable count, read live —
+        // the Stripe quantity can be higher because of the £10 minimum.
+        const liveCount = await countBillableProperties(supabase, companyId)
         await must(`${event.type} upsert`, supabase.from('subscriptions').upsert({
           company_id: companyId,
           stripe_customer_id: obj.customer,
@@ -245,9 +249,7 @@ Deno.serve(async (req) => {
           stripe_price_id: obj.items?.data?.[0]?.price?.id || null,
           status: obj.status,
           ...(subTier ? { tier: subTier } : {}),
-          // Real property count from checkout metadata — the billed quantity
-          // can be higher because of the £10 minimum (create-checkout).
-          property_count: Number(obj.metadata?.property_count) || obj.items?.data?.[0]?.quantity || 0,
+          property_count: liveCount ?? obj.items?.data?.[0]?.quantity ?? 0,
           current_period_start: toIso(obj.current_period_start),
           current_period_end:   toIso(obj.current_period_end),
           cancel_at_period_end: obj.cancel_at_period_end ?? false,

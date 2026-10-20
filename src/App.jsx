@@ -1481,6 +1481,8 @@ export default function App({ initialLoginMode = null } = {}) {
                   issue_date:  item.issue_date  || null,
                   reminder_days: item.reminder_days,
                   cert_name: item.cert_name,
+                  // New expiry → restart the staged reminders (see api.updateCompliance).
+                  ...((match.expiry_date || null) !== (item.expiry_date || null) ? { last_reminder_sent_at: null } : {}),
                 })
                 .eq('id', match.id)
             } else {
