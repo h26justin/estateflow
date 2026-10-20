@@ -37,14 +37,24 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
-export default function FocusTrap({ children, onEscape, initialFocusRef }) {
+// Open traps, innermost last. Only the top one handles Tab / Escape, so a
+// confirm opened over a modal doesn't also close the modal beneath it.
+const openTraps = []
+
+export default function FocusTrap({ children, onEscape, initialFocusRef, style, ...rest }) {
   const containerRef = useRef(null)
   const previousActiveRef = useRef(null)
+  // Latest onEscape without re-running the mount effect (which would steal
+  // focus back to the first field on every parent render).
+  const onEscapeRef = useRef(onEscape)
+  useEffect(() => { onEscapeRef.current = onEscape }, [onEscape])
 
   useEffect(() => {
     previousActiveRef.current = document.activeElement
     const container = containerRef.current
     if (!container) return
+    const token = {}
+    openTraps.push(token)
 
     // Move focus inside on next tick so any conditional children mount first
     const t = setTimeout(() => {
@@ -52,15 +62,20 @@ export default function FocusTrap({ children, onEscape, initialFocusRef }) {
         initialFocusRef.current.focus()
         return
       }
+      // Respect an autoFocus that already landed inside (e.g. a prompt input).
+      const active = document.activeElement
+      if (active && active !== container && container.contains(active)) return
       const first = container.querySelector(FOCUSABLE)
       if (first) first.focus()
       else container.focus() // fall back to the container itself
     }, 0)
 
     function handleKeyDown(e) {
-      if (e.key === 'Escape' && onEscape) {
+      if (openTraps[openTraps.length - 1] !== token) return
+      if (e.key === 'Escape') {
+        if (!onEscapeRef.current || e.defaultPrevented) return
         e.stopPropagation()
-        onEscape()
+        onEscapeRef.current()
         return
       }
       if (e.key !== 'Tab') return
@@ -82,6 +97,8 @@ export default function FocusTrap({ children, onEscape, initialFocusRef }) {
     return () => {
       clearTimeout(t)
       document.removeEventListener('keydown', handleKeyDown)
+      const i = openTraps.indexOf(token)
+      if (i !== -1) openTraps.splice(i, 1)
       // Restore focus to wherever the user came from. Wrap in try because
       // some elements (e.g. an element that was removed while the modal
       // was open) can't be re-focused.
@@ -96,7 +113,7 @@ export default function FocusTrap({ children, onEscape, initialFocusRef }) {
     // shrink-to-fit flex item, so `.modal`'s width:100% resolved against
     // content instead of the overlay — short-content modals rendered
     // narrower than their intended size.
-    <div ref={containerRef} tabIndex={-1} style={{ outline: 'none', width: '100%', display: 'flex', justifyContent: 'center' }}>
+    <div ref={containerRef} tabIndex={-1} style={{ outline: 'none', width: '100%', display: 'flex', justifyContent: 'center', ...style }} {...rest}>
       {children}
     </div>
   )

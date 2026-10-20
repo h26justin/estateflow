@@ -46,4 +46,25 @@ describe('Button', () => {
     render(<Button icon="plus">Add</Button>)
     expect(screen.getByRole('button').querySelector('svg')).not.toBeNull()
   })
+
+  it('icon-only: square class, aria-label as the name, no label span', () => {
+    render(<Button variant="ghost" icon="x" aria-label="Close" />)
+    const b = screen.getByRole('button', { name: 'Close' })
+    expect(b).toHaveClass('ui-btn--icon', 'ui-btn--ghost')
+    expect(b.querySelector('.ui-btn__label')).toBeNull()
+  })
+
+  it('accepts text as an alias of ghost', () => {
+    render(<Button variant="text">More</Button>)
+    expect(screen.getByRole('button')).toHaveClass('ui-btn--ghost')
+  })
+
+  it('stays type="button" inside a form unless told to submit', () => {
+    const onSubmit = vi.fn(e => e.preventDefault())
+    render(<form onSubmit={onSubmit}><Button>Preview</Button><Button type="submit">Save</Button></form>)
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
 })

@@ -1,8 +1,7 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { MONO, Z, SANS, FS } from './styles'
+import { createContext, useContext, useState, useCallback, useRef } from 'react'
+import { Z, SANS, FS, R } from './styles'
 import { useTheme } from './ThemeContext'
-import FocusTrap from './FocusTrap'
-import { Button } from '../components/ui'
+import { Button, Modal } from '../components/ui'
 
 // Promise-based themed confirmation dialog.
 //
@@ -83,39 +82,28 @@ export function useConfirm() {
 function ConfirmDialog({ state, onConfirm, onCancel }) {
   const { T } = useTheme()
   const [value, setValue] = useState(state.defaultValue)
-  const mono = MONO
+  // Land on the safe choice: the prompt's input, otherwise Cancel.
+  const cancelRef = useRef(null)
   return (
-    <div className="overlay" style={{ zIndex: Z.confirm }} onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
-      <FocusTrap onEscape={onCancel}>
-        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" style={{ maxWidth: 420 }}>
-        <div style={{ padding: '24px 28px 0' }}>
-          <h2 id="confirm-dialog-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: state.body ? 8 : 22, color: T.text }}>
-            {state.title}
-          </h2>
-          {state.body && (
-            <p style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 22, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-              {state.body}
-            </p>
-          )}
-          {state.prompt && (
-            <input value={value} autoFocus placeholder={state.placeholder}
-              onChange={e => setValue(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') onConfirm(value); if (e.key === 'Escape') onCancel() }}
-              style={{ width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: FS.base, padding: '10px 12px',
-                borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text,
-                marginBottom: 22 }}/>
-          )}
-        </div>
-        <div style={{ padding: '0 28px 28px', display: 'flex', gap: 10 }}>
-          <Button variant="secondary" onClick={onCancel} style={{ flex: 1 }}>
-            {state.cancelLabel}
-          </Button>
-          <Button variant={state.destructive ? 'danger' : 'primary'} onClick={() => onConfirm(value)} autoFocus={!state.prompt} style={{ flex: 1 }}>
-            {state.confirmLabel}
-          </Button>
-        </div>
-        </div>
-      </FocusTrap>
-    </div>
+    <Modal onClose={onCancel} size="sm" zIndex={Z.confirm} title={state.title}
+      initialFocusRef={state.prompt ? undefined : cancelRef}
+      description={state.body ? <span style={{ whiteSpace: 'pre-line' }}>{state.body}</span> : undefined}
+      bodyStyle={state.prompt ? undefined : { padding: 0 }}
+      footer={<>
+        <Button ref={cancelRef} variant="secondary" onClick={onCancel}>
+          {state.cancelLabel}
+        </Button>
+        <Button variant={state.destructive ? 'danger' : 'primary'} onClick={() => onConfirm(value)}>
+          {state.confirmLabel}
+        </Button>
+      </>}>
+      {state.prompt && (
+        <input value={value} autoFocus placeholder={state.placeholder} aria-label={state.title}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onConfirm(value) }}
+          style={{ width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: FS.base, padding: '10px 12px',
+            borderRadius: R.sm, border: `1px solid ${T.border}`, background: T.bg, color: T.text }}/>
+      )}
+    </Modal>
   )
 }

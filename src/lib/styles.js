@@ -44,8 +44,10 @@ export const SANS =
 //   md 15 · lead 16 spec body · lg 18 · h3 20 · xl 24 · xxl 30 H1
 export const FS = { xs: 11, sm: 12, base: 13, body: 14, md: 15, lead: 16, lg: 18, h3: 20, xl: 24, xxl: 30 }
 
-// Corner radius (px). `pill` for fully rounded chips.
-export const R = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 }
+// Corner radius (px) — design/redesign-2026 spec:
+//   sm 8 chips / inputs / small buttons · md 12 buttons / tiles
+//   lg 16 cards / modals · xl 18 hero cards · pill 999 fully rounded pills
+export const R = { sm: 8, md: 12, lg: 16, xl: 18, pill: 999 }
 
 // Spacing, 4-pt scale (px): SP[1] = 4, SP[2] = 8 … SP[12] = 48.
 export const SP = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48 }
@@ -137,7 +139,7 @@ export const card = (T) => ({
 export const modalInner = (T) => ({
   background: T.surface,
   border: `1px solid ${T.border}`,
-  borderRadius: 18,
+  borderRadius: R.lg,
   padding: '24px 28px',
 })
 
@@ -158,7 +160,7 @@ export const inp = (T) => ({
   background: T.bg,
   border: `1px solid ${T.border}`,
   color: T.text,
-  borderRadius: R.md,
+  borderRadius: R.sm,
   padding: '10px 14px',
   outline: 'none',
   width: '100%',
@@ -166,45 +168,52 @@ export const inp = (T) => ({
 })
 
 // ── BUTTONS ───────────────────────────────────────────────────────────────
-// Note: .btn / .btn-gold / .btn-ghost CSS classes live in src/styles/app.css,
-// and new code should prefer <Button> from src/components/ui. These
-// factories are for cases where inline styling is
-// needed (e.g. dynamic colours, or in components rendered before App mounts
-// like the marketing site).
-
-export const btnGold = (T) => ({
-  background: T.gold,
-  color: '#1A2530',
+// The button system is <Button> from src/components/ui (variants primary /
+// secondary / ghost / danger, sizes sm / md / lg). Its visuals live in
+// src/styles/app.css (.ui-btn*), and the legacy .btn / .btn-gold / .btn-ghost
+// / .btn-danger classes are aliased to the same rules.
+//
+// These inline factories exist only for places that cannot take a class (e.g.
+// rendered outside the app stylesheet). They mirror the Button md variants so
+// they render the same; prefer <Button> everywhere else. Hover states need
+// the class, so these have none.
+const btnBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: SP[2],
   fontFamily: SANS,
   fontSize: FS.base,
   fontWeight: 600,
-  padding: '11px 22px',
-  borderRadius: 10,
-  border: 'none',
+  lineHeight: 1.2,
+  padding: '10px 18px',
+  minHeight: 40,
+  borderRadius: R.md,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
+}
+
+// primary
+export const btnGold = (T) => ({
+  ...btnBase,
+  background: T.gold,
+  color: CV.onGold,
+  border: `1px solid ${T.gold}`,
 })
 
+// secondary (outline)
 export const btnGhost = (T) => ({
+  ...btnBase,
   background: 'transparent',
-  color: T.muted,
-  fontFamily: SANS,
-  fontSize: FS.base,
-  padding: '10px 22px',
-  borderRadius: 10,
+  color: T.text,
   border: `1px solid ${T.border}`,
-  cursor: 'pointer',
 })
 
 export const btnDanger = (T) => ({
+  ...btnBase,
   background: T.red,
-  color: 'white',
-  fontFamily: SANS,
-  fontSize: FS.base,
-  fontWeight: 600,
-  padding: '11px 22px',
-  borderRadius: 10,
-  border: 'none',
-  cursor: 'pointer',
+  color: '#FFFFFF',
+  border: `1px solid ${T.red}`,
 })
 
 // ── BADGES / PILLS ────────────────────────────────────────────────────────
@@ -215,7 +224,7 @@ export const pill = (accent) => ({
   alignItems: 'center',
   gap: 5,
   padding: '3px 10px',
-  borderRadius: 20,
+  borderRadius: R.pill,
   background: accent + '22',
   border: `1px solid ${accent}44`,
   color: accent,
