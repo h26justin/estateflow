@@ -74,9 +74,8 @@ export function AppHeader({
         <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <Button variant="primary" size="sm" onClick={()=>setShowNewMenu(m=>!m)}>
-                <span style={{fontSize:14,fontWeight:700}}>+</span> New
-                <span style={{fontSize:FS.xs,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
+              <Button variant="primary" size="sm" icon="plus" aria-haspopup="menu" aria-expanded={showNewMenu} onClick={()=>setShowNewMenu(m=>!m)}>
+                New
               </Button>
               {showNewMenu&&(
                 <>

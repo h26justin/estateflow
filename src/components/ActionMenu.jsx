@@ -54,7 +54,7 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
 
   return (
     <span ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <Button variant="secondary" size="sm" ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel} style={{borderColor: T.border}}>
+      <Button variant="secondary" size="sm" iconOnly ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel}>
         ⋯
       </Button>
       {open && (

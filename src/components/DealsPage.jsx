@@ -517,7 +517,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   )
 
   // ── UNIFIED SHELL (sub-nav always visible) ───────────────────────────────────
-  const newBtnLabel = dealView==='lettings' ? '+ New letting' : '+ New deal'
+  const newBtnLabel = dealView==='lettings' ? 'New letting' : 'New deal'
   function handleNewBtn() {
     if (dealView==='lettings') setTriggerNewLetting(true)
     else createNewDeal()
@@ -557,7 +557,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             ))}
           </div>
           {/* Action button — fixed width so tab bar never shifts */}
-          <Button variant="primary" onClick={handleNewBtn} style={{width:130, textAlign:'center'}}>
+          <Button variant="primary" icon="plus" onClick={handleNewBtn}>
             {newBtnLabel}
           </Button>
         </div>

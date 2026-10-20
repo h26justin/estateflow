@@ -88,7 +88,6 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
     <Modal onClose={onCancel} size="sm" zIndex={Z.confirm} title={state.title}
       initialFocusRef={state.prompt ? undefined : cancelRef}
       description={state.body ? <span style={{ whiteSpace: 'pre-line' }}>{state.body}</span> : undefined}
-      bodyStyle={state.prompt ? undefined : { padding: 0 }}
       footer={<>
         <Button ref={cancelRef} variant="secondary" onClick={onCancel}>
           {state.cancelLabel}

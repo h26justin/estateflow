@@ -27,7 +27,7 @@
 // pass labelledBy (id of your heading) or ariaLabel.
 //
 // Sizes: sm 420 · md 600 · lg 720 · xl 920.
-import { useEffect, useId } from 'react'
+import { Children, useEffect, useId } from 'react'
 import FocusTrap from '../../lib/FocusTrap'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import Button from './Button'
@@ -81,6 +81,7 @@ export default function Modal({
   const titleId = `${autoId}-title`
   const descId = `${autoId}-desc`
   const structured = title != null
+  const hasBody = Children.toArray(children).length > 0
 
   useEffect(() => {
     if (!open) return
@@ -122,7 +123,7 @@ export default function Modal({
         >
           {structured ? (
             <>
-              <div className="ui-modal__header">
+              <div className={hasBody ? 'ui-modal__header' : 'ui-modal__header ui-modal__header--only'}>
                 <div className="ui-modal__heading">
                   <h2 id={titleId} className="ui-modal__title">{title}</h2>
                   {description != null && <p id={descId} className="ui-modal__desc">{description}</p>}
@@ -131,7 +132,7 @@ export default function Modal({
                   <Button variant="ghost" size="sm" icon="x" aria-label="Close" className="ui-modal__close" onClick={requestClose} />
                 )}
               </div>
-              <div className="ui-modal__body" style={bodyStyle}>{children}</div>
+              {hasBody && <div className="ui-modal__body" style={bodyStyle}>{children}</div>}
               {footer != null && <div className="ui-modal__footer">{footer}</div>}
             </>
           ) : children}

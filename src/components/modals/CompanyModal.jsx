@@ -48,12 +48,15 @@ export default function CompanyModal({ onClose, onSave }) {
     return () => { cancelled = true; clearTimeout(handle) }
   }, [form.name])
 
-  return <Modal onClose={onClose} size="md" labelledBy="company-modal-title" isDirty={isDirty} confirmFn={confirmDiscard}>
-      <div style={{padding:'24px 28px 0'}}>
-        <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add company</h2>
-        <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:20}}>Create a new company to group properties under.</p>
-      </div>
-      <form onSubmit={e=>{e.preventDefault(); handleSave()}} style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
+  return <Modal onClose={onClose} size="md" isDirty={isDirty} confirmFn={confirmDiscard}
+      title="Add company" description="Create a new company to group properties under."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="company-modal-form">
+          {similarCompanies.length > 0 ? 'Create anyway' : 'Add company'}
+        </Button>
+      </>}>
+      <form id="company-modal-form" onSubmit={e=>{e.preventDefault(); handleSave()}} style={{display:'flex',flexDirection:'column',gap:12}}>
         <div>
           <label htmlFor="cm-name">Company name *</label>
           <input id="cm-name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Vale Property Group" style={triedSave && !form.name ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.name ? 'true' : undefined} aria-describedby={triedSave && !form.name ? 'cm-name-err' : undefined}/>
@@ -114,12 +117,6 @@ export default function CompanyModal({ onClose, onSave }) {
           const on = (form.color||'').toLowerCase()===hex.toLowerCase()
           return <div key={hex} {...pressable(()=>s('color',hex), { role: 'radio', 'aria-checked': on, 'aria-label': `Colour ${name}` })} title={name} style={{width:32,height:32,borderRadius:8,background:hex,cursor:'pointer',boxShadow:on?`0 0 0 2px ${T.surface}, 0 0 0 4px ${T.text}`:'none',transition:'box-shadow 0.15s'}}/>
         })}</div></div>
-        <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
-          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit">
-            {similarCompanies.length > 0 ? 'Create anyway' : 'Add company'}
-          </Button>
-        </div>
       </form>
     </Modal>
 }

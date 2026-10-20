@@ -1152,7 +1152,6 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       {resetConfirm && (
         <Modal onClose={()=>setResetConfirm(null)} size="sm" zIndex={700} title="Send password reset?"
           description={<>{"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.</>}
-          bodyStyle={{padding:0}}
           footer={<>
             <Button variant="secondary" onClick={()=>setResetConfirm(null)}>Cancel</Button>
             <Button onClick={()=>sendReset(resetConfirm.email)}>Send reset email</Button>
