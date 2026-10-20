@@ -81,7 +81,7 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
         {loading
           ? <SkeletonRows rows={3} height={36}/>
           : allNotes.length===0
-            ? <EmptyState compact icon="file-text" title="No notes yet" body="Add notes from any tab."/>
+            ? <EmptyState compact icon="file-text" title="No notes yet" body={isAdmin ? 'Add one below, or from any tab.' : 'Notes added on any tab appear here.'}/>
             : <div style={{display:'grid',gap:10}}>
                 {allNotes.map(n=>{
                   const cat = CATEGORIES[n.category||'general'] || CATEGORIES.general
@@ -110,10 +110,12 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
               </div>
         }
 
-        {/* Add a general note from overview */}
-        <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>
-          <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="general" compact={true}/>
-        </div>
+        {/* Add a general note from overview. Composer only — the list
+            above already shows every note (general ones included). */}
+        {isAdmin&&<div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>
+          <NotesTimeline propertyId={selected.id} isAdmin={isAdmin} user={user} showToast={showToast} category="general" composerOnly
+            onSaved={n=>{ if (n) setAllNotes(prev=>[n,...prev]) }}/>
+        </div>}
       </div>
     </div>
   )

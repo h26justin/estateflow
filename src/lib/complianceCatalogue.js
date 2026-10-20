@@ -178,6 +178,15 @@ export const MEES_DEADLINE_ISO = '2030-12-31'
 // F/G properties cannot legally be let today — that's a live breach, not a
 // 2030 problem, so surfaces treat it as red rather than an amber countdown.
 export const MEES_MIN_LEGAL_BAND = 'E'
+// Plain-English MEES deadline for an EPC chip: "C needed by 2030". Replaces
+// the old "1,533d to C" day countdown, which read like a code. Once the
+// deadline has passed the band is simply short of the target.
+export function meesTargetLabel(today = new Date()) {
+  const deadline = new Date(MEES_DEADLINE_ISO + 'T23:59:59')
+  return today > deadline
+    ? `below band ${MEES_TARGET_BAND}`
+    : `${MEES_TARGET_BAND} needed by ${MEES_DEADLINE_ISO.slice(0, 4)}`
+}
 // Normalised band letter for a property, or null when unknown/unsynced.
 export function epcBand(property) {
   const r = String(property?.epc_rating || '').trim().toUpperCase()

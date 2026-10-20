@@ -10,7 +10,7 @@ import PropertySearchBar from '../PropertySearchBar'
 // and the account controls. Moved verbatim from App.jsx; every value it
 // reads is passed in explicitly.
 export function AppHeader({
-  T, isMobile, view, selected, closeDetail, companies, setCoFilter, setStatusFilter,
+  T, isMobile, view, portfolioTab, selected, closeDetail, companies, setCoFilter, setStatusFilter,
   setPortfolioTab, setSelectedId, setView, navItems, activeProperties, openDetail, setShowNewMenu,
   showNewMenu, setEditProp, setShowAddProp, openWorkflow, setShowAddCo, setShowReceiptScan,
   setDetailTab, showToast, isPlatformAdmin, setShowAdmin, setShowMoreMenu, showMoreMenu,
@@ -49,8 +49,12 @@ export function AppHeader({
             is free for the property search — the most common thing anyone
             does on landing (dashboard → a specific property). It doubles as
             the spacer that pushes the action cluster right. "/" focuses it. */}
-        {!isMobile&&(
-          <div style={{flex:1,display:'flex',justifyContent:'center',minWidth:0,padding:'0 16px'}}>
+        {/* On the Portfolio list the page has its own search that filters
+            the list in place — two search boxes on one screen was confusing,
+            so the header one steps aside there (the spacer stays). */}
+        {!isMobile&&(view==='properties'&&portfolioTab==='properties'
+          ? <div style={{flex:1}}/>
+          : <div style={{flex:1,display:'flex',justifyContent:'center',minWidth:0,padding:'0 16px'}}>
             <PropertySearchBar
               properties={activeProperties}
               onOpen={p=>openDetail(p)}

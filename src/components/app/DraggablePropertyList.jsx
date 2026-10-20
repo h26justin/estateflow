@@ -6,7 +6,7 @@ import { complianceStatusFor, complianceBadge } from '../../lib/complianceStatus
 import { MONO, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
-import { plural } from '../../lib/format'
+import { plural, fmtYield, hasYield } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
@@ -209,7 +209,9 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
               })()}
               {p.arrears>0&&<div style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}><Icon name="alert-triangle" size={13}/> {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
+                {(()=>{ const gy = calcGrossYield(p, yieldBasis); return hasYield(gy)
+                  ? <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmtYield(gy)} yield</div>
+                  : <div title="No yield — no rent or no cost/value recorded" style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.muted}}>— <span style={{fontSize:FS.xs,fontWeight:400}}>yield</span></div> })()}
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>

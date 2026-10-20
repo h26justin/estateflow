@@ -7,6 +7,7 @@ import { MONO, FS } from '../../lib/styles'
 import { calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit } from '../../lib/propertyCalcs'
 import { ComplianceTab, TenancyTab, ExpensesTab, OverviewTab, FinancialsTab, DocumentsTab, MaintenanceTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert, TenancyPanel, RefurbPropertyTab, HmoRoomsPanel, EpcPlanner, RentCollectionPanel, ESignPanel, ReferencingPanel } from './lazyViews'
 import { fmt } from '../../lib/appFmt'
+import { fmtDate } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 import { RentDots } from './RentDots'
 import { RentTab } from './RentTab'
@@ -226,7 +227,7 @@ export function PropertyDetailView({
                             {pol.policy_name}
                             {isCompanyWide && <span style={{fontSize:FS.xs,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
                           </div>
-                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
+                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{pol.provider || '—'} · expires {fmtDate(pol.expiry_date)}</div>
                         </div>
                         <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:color}}>{status}</div>
                         <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>

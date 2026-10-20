@@ -979,7 +979,9 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     <div style={{ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>{label}</div>
     <div style={{ fontFamily: mono, fontSize: 19, fontWeight: 700, color: color || T.text, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
   </div>
-  const fsel = { ...inputStyle(T), width: 'auto', minWidth: 120 }
+  // On a phone the filter selects pair up two-per-row at equal widths
+  // instead of wrapping raggedly at their content widths.
+  const fsel = isMobile ? { ...inputStyle(T), width: 0, flex: '1 1 calc(50% - 4px)', minWidth: 0 } : { ...inputStyle(T), width: 'auto', minWidth: 120 }
   const activeFilters = ['q', 'contractor', 'manager', 'from', 'to'].some(k => filters[k] && filters[k] !== 'all') || filters.companyId !== 'all' || filters.status !== 'active'
 
   return <div className="fade">
@@ -1010,10 +1012,14 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       <select value={filters.manager} onChange={e => setFilter('manager', e.target.value)} style={fsel} aria-label="Project manager">
         <option value="all">All project managers</option>{managers.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
-      <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'inline-flex', gap: 4, alignItems: 'center' }}>Finish from
-        <input type="date" value={filters.from} onChange={e => setFilter('from', e.target.value)} style={{ ...inputStyle(T), width: 'auto' }} /></label>
-      <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'inline-flex', gap: 4, alignItems: 'center' }}>to
-        <input type="date" value={filters.to} onChange={e => setFilter('to', e.target.value)} style={{ ...inputStyle(T), width: 'auto' }} /></label>
+      {/* Finish-date range: one unit that wraps as a whole, so "to" never
+          ends up stranded on its own line. Full width on a phone. */}
+      <div role="group" aria-label="Target finish between" style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, alignItems: 'center', flex: isMobile ? '1 1 100%' : '0 0 auto', minWidth: 0 }}>
+        <span aria-hidden="true" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Finish</span>
+        <input type="date" aria-label="Finish from" value={filters.from} onChange={e => setFilter('from', e.target.value)} style={{ ...inputStyle(T), width: isMobile ? 0 : 'auto', flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0 }} />
+        <span aria-hidden="true" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>to</span>
+        <input type="date" aria-label="Finish to" value={filters.to} min={filters.from || undefined} onChange={e => setFilter('to', e.target.value)} style={{ ...inputStyle(T), width: isMobile ? 0 : 'auto', flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0 }} />
+      </div>
       <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
         <input type="checkbox" checked={filters.archived} onChange={e => setFilter('archived', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Archived only
       </label>

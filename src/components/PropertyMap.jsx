@@ -6,6 +6,7 @@ import * as api from '../lib/api'
 import { fmt } from '../lib/format'
 import { FLAT_PREFIX_RE, groupKeyForAddress } from '../lib/addressUtils'
 import { Skeleton } from '../lib/Skeleton'
+import { EmptyState } from './ui'
 
 /**
  * PropertyMap — a Mapbox-powered map of all visible properties.
@@ -67,7 +68,9 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   useEffect(() => {
     if (window.mapboxgl) { setLibReady(true); return }
     const token = api.getMapboxToken()
-    if (!token) { setLibError('Map provider token is not configured.'); return }
+    // The reason is developer detail (a missing build-time token, a chunk
+    // that failed to load) — it goes to the console, never on screen.
+    if (!token) { console.warn('[PropertyMap] Map provider token (VITE_MAPBOX_TOKEN) is not configured; set it in the Vercel project and redeploy.'); setLibError('no-token'); return }
 
     let cancelled = false
     import('../lib/mapbox')
@@ -75,7 +78,7 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
         if (!window.mapboxgl) window.mapboxgl = m.default
         if (!cancelled) setLibReady(true)
       })
-      .catch(() => { if (!cancelled) setLibError('Could not load map library.') })
+      .catch(err => { console.warn('[PropertyMap] Could not load the map library.', err); if (!cancelled) setLibError('load-failed') })
     return () => { cancelled = true }
   }, [])
 
@@ -399,12 +402,9 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
   // ─── Render ─────────────────────────────────────────────────────────────
   if (libError) {
     return (
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32, textAlign: 'center' }}>
-        <div style={{ fontFamily: mono, fontSize: 13, color: T.text, marginBottom: 8 }}>Map unavailable</div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{libError}</div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 14, lineHeight: 1.5 }}>
-          Make sure VITE_MAPBOX_TOKEN is set in your Vercel project settings, then redeploy.
-        </div>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+        <EmptyState icon="map" compact={compact} title="Map isn't available right now"
+          body="Your properties are all still in the list. Please try again later." />
       </div>
     )
   }

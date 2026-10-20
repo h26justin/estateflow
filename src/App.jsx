@@ -1845,7 +1845,7 @@ export default function App({ initialLoginMode = null } = {}) {
           as an unknown view and blank the screen. */}
       <a href='#main-content' className="skip-link" onClick={e=>{e.preventDefault(); const m=document.getElementById('main-content'); if(m){m.focus(); m.scrollIntoView()}}}>Skip to main content</a>
       <AppHeader
-        T={T} isMobile={isMobile} view={view} selected={selected} closeDetail={closeDetail}
+        T={T} isMobile={isMobile} view={view} portfolioTab={portfolioTab} selected={selected} closeDetail={closeDetail}
         companies={companies} setCoFilter={setCoFilter} setStatusFilter={setStatusFilter}
         setPortfolioTab={setPortfolioTab} setSelectedId={setSelectedId} setView={setView} navItems={navItems}
         activeProperties={activeProperties} openDetail={openDetail} setShowNewMenu={setShowNewMenu}

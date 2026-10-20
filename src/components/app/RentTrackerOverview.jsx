@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useId } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from '../../lib/rentStats'
@@ -26,29 +26,45 @@ import { EmptyState } from '../ui'
 // engine (Stage 3+). Short-term lets are excluded (own page). Pre-2026 months
 // keep their legacy status and amount but are counted so "All years" still
 // adds up.
-// Rent-square colour key. Ten entries wrap to five or six lines on a phone
-// and push the tracker itself below the fold, so on mobile it collapses
-// behind a "Key" toggle.
+// Rent-square colour key. Ten entries wrapped to two lines on desktop and
+// five or six on a phone, pushing the tracker below the fold. Desktop now
+// shows the four states you meet every month on one line with a "More"
+// toggle for the rest; on mobile the whole key sits behind a "Key" toggle.
+const RENT_LEGEND_PRIMARY = 4
 export function RentLegend({ small = false, collapsible = false }) {
   const { T } = useTheme()
   const [open, setOpen] = useState(false)
-  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.blue,l:'Pending review (set aside)'},{c:T.faint,l:'Not collectible (hatched)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:T.amber,l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
+  const [showAll, setShowAll] = useState(false)
+  const listId = useId()
+  const items = [{c:T.green,l:'Paid'},{c:T.amber,l:'Due / part paid'},{c:T.red,l:'Missed'},{c:T.faint,l:'Not collectible (hatched)'},{c:T.blue,l:'Pending review (set aside)'},{c:STL_COLOR,l:'Short-term let (stayed)'},{c:'#C4B3EA',l:'Short-term let (booked, not yet stayed)'},{c:T.amber,l:'Paid, amount needed (orange dot)'},{c:T.blue,l:'Payment plan (blue dot)'},{c:T.muted,l:'Pre-2026 legacy (dotted underline)'}]
   const sw = small ? 8 : 10
+  const fs = small ? FS.xs : 11
+  const toggleStyle = {display:'inline-flex',alignItems:'center',gap:4,minHeight:24,padding:'2px 8px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,fontFamily:MONO,fontSize:fs,cursor:'pointer'}
+  // Inline (desktop) mode trims to the primary states unless expanded; the
+  // mobile disclosure always lists everything once opened.
+  const shown = collapsible || showAll ? items : items.slice(0, RENT_LEGEND_PRIMARY)
   const list = (
-    <ul id={collapsible ? 'rent-legend-list' : undefined} aria-label="Rent colour key"
-      style={{display:'flex',gap:12,flexWrap:'wrap',listStyle:'none',margin:collapsible?'8px 0 0':0,padding:0}}>
-      {items.map(x=>(
-        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:small?FS.xs:11,color:T.muted}}>
+    <ul id={listId} aria-label="Rent colour key"
+      style={{display:'flex',gap:'6px 12px',flexWrap:'wrap',alignItems:'center',listStyle:'none',margin:collapsible?'8px 0 0':0,padding:0}}>
+      {shown.map(x=>(
+        <li key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:fs,color:T.muted,whiteSpace:'nowrap'}}>
           <span aria-hidden="true" style={{width:sw,height:sw,borderRadius:2,background:x.c,display:'inline-block'}}/>{x.l}
         </li>
       ))}
+      {!collapsible && (
+        <li>
+          <button type="button" onClick={()=>setShowAll(v=>!v)} aria-expanded={showAll} aria-controls={listId} style={toggleStyle}>
+            {showAll ? 'Less' : `More (${items.length - RENT_LEGEND_PRIMARY})`}
+          </button>
+        </li>
+      )}
     </ul>
   )
   if (!collapsible) return list
   return (
     <div>
-      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls="rent-legend-list"
-        style={{display:'inline-flex',alignItems:'center',gap:6,minHeight:28,padding:'4px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,fontFamily:MONO,fontSize:11,cursor:'pointer'}}>
+      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-controls={listId}
+        style={{...toggleStyle,minHeight:28,padding:'4px 10px',fontSize:11}}>
         <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12}/> Key
       </button>
       {open && list}

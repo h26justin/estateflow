@@ -19,7 +19,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import { fmt, plural } from '../lib/format'
+import { fmt, plural, fmtDate } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
 import FocusTrap from '../lib/FocusTrap'
@@ -353,7 +353,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{pol.policy_name}</div>
                       <div style={{ fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
-                        {TYPE_LABEL[pol.policy_type] || pol.policy_type} · expires {pol.expiry_date}
+                        {TYPE_LABEL[pol.policy_type] || pol.policy_type} · expires {fmtDate(pol.expiry_date)}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -440,7 +440,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
         </div>
         <div style={{ fontFamily: mono, fontSize: 11, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ color: T.muted }}>
-            {policy.start_date} → <span style={{ color: bucketStyle.color, fontWeight: 700 }}>{policy.expiry_date}</span>
+            {fmtDate(policy.start_date)} → <span style={{ color: bucketStyle.color, fontWeight: 700 }}>{fmtDate(policy.expiry_date)}</span>
           </span>
           <span style={{ color: bucketStyle.color, fontWeight: 700, padding: bucketStyle.bg !== 'transparent' ? '2px 8px' : 0, background: bucketStyle.bg, borderRadius: 4 }}>
             {bucketStyle.label}
@@ -780,7 +780,7 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
                   </div>
                   <div>
                     <div style={{ fontFamily: mono, fontSize: 11, color: T.text }}>
-                      {p.start_date} → {p.expiry_date}
+                      {fmtDate(p.start_date)} → {fmtDate(p.expiry_date)}
                     </div>
                     <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                       {p.provider || '—'} {p.policy_number ? `· #${p.policy_number}` : ''}

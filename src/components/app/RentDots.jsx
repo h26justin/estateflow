@@ -7,6 +7,7 @@ import * as api from '../../lib/api'
 import { MONO, CV, FS } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
 import { Button } from '../ui'
+import { fmtDate } from '../../lib/format'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -183,7 +184,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
               <span style={{color:T.muted}}> {l}</span>
             </div>
           ))}
-          {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
+          {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{fmtDate(payment.period_start)} → {fmtDate(payment.period_end)}</div>}
         </div>
         {onDayTracker
           ? <Button size="sm" fullWidth onClick={()=>{onClose();onDayTracker()}}>

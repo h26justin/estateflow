@@ -4,6 +4,7 @@ import { MONO, FS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { propTypeMeta } from '../../lib/propertyCalcs'
 import { pressable } from '../../lib/pressable'
+import { fmtYield, hasYield } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 
 // (ComplianceMatrix moved to components/CompliancePage.jsx — the matrix is
@@ -61,7 +62,7 @@ export function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldB
               </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{gy.toFixed(1)}%</div>
+                <div title={hasYield(gy)?undefined:'No yield — no rent or no cost/value recorded'} style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:hasYield(gy)?T.goldText:T.muted}}>{fmtYield(gy)}</div>
               </div>
               {compliancePill(cfg)}
             </div>

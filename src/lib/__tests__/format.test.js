@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney, fmtTimeAgo, plural } from '../format'
+import { fmt, fmtMoney2dp, fmtPct, fmtNum, parseMoney, fmtTimeAgo, plural, fmtYield, hasYield } from '../format'
 
 describe('fmt — GBP currency with no decimals', () => {
   it('formats whole pounds with thousand separators', () => {
@@ -126,5 +126,20 @@ describe('plural — count with a pluralised noun', () => {
     expect(plural(0, 'company', 'companies')).toBe('0 companies')
     expect(plural(2, 'unit')).toBe('2 units')
     expect(plural(1200, 'unit')).toBe('1,200 units')
+  })
+})
+
+describe('fmtYield / hasYield — portfolio card yield', () => {
+  it('formats a real yield to 1dp by default', () => {
+    expect(fmtYield(6.734)).toBe('6.7%')
+    expect(fmtYield(6.734, 2)).toBe('6.73%')
+    expect(hasYield(6.7)).toBe(true)
+  })
+
+  it('shows a dash, not "0.0%", when there is no meaningful yield (void / refurb / no basis)', () => {
+    for (const v of [0, -0, null, undefined, NaN, Infinity, '', -1]) {
+      expect(fmtYield(v)).toBe('—')
+      expect(hasYield(v)).toBe(false)
+    }
   })
 })
