@@ -2,6 +2,7 @@ import { Component } from 'react'
 import { reportClientError } from '../lib/errorReporter'
 import { CV, FS, MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
+import { Button } from './ui'
 
 // Used twice: at the root (main.jsx, full-screen fallback) and around the
 // signed-in page area in App.jsx with variant="panel" and a resetKey, so a
@@ -89,10 +90,10 @@ export class ErrorBoundary extends Component {
               : 'The rest of the app still works and your data is safe. Try again, or pick another page from the menu.'}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost" onClick={chunk ? () => window.location.reload() : this.reset}>
+            <Button variant="secondary" onClick={chunk ? () => window.location.reload() : this.reset}>
               {chunk ? 'Refresh' : 'Try again'}
-            </button>
-            <button className="btn btn-gold" onClick={this.goHome}>Go to dashboard</button>
+            </Button>
+            <Button variant="primary" onClick={this.goHome}>Go to dashboard</Button>
           </div>
         </div>
       )

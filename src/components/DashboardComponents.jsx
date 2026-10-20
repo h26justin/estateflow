@@ -528,15 +528,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           <select value={selectedYear} onChange={e=>setSelectedYear(+e.target.value)} style={{fontSize:11}}>
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={exportCSV}>CSV</button>
-          <button className="btn btn-gold" style={{fontSize:FS.sm,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}`}} onClick={exportPDF}>PDF Report</button>
+          <Button variant="primary" size="sm" onClick={exportCSV}>CSV</Button>
+          <Button variant="secondary" size="sm" onClick={exportPDF}>PDF Report</Button>
           {onImport&&(()=>{
             // Show import button if ANY selected company has feature_statements enabled
             const hasFeature = selectedCompany==='all'
               ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
               : (companySettings[selectedCompany]||{}).feature_statements
             return hasFeature ? (
-              <button className="btn btn-gold" style={{fontSize:FS.sm,background:T.green+'15',color:T.green,border:`1px solid ${T.green}`}} onClick={onImport}>Import statement</button>
+              <Button variant="secondary" size="sm" onClick={onImport}>Import statement</Button>
             ) : null
           })()}
         </div>
@@ -723,7 +723,7 @@ export function ContractorsPage({companies, showToast}) {
           <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Contractor directory</h1>
           <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>{contractors.length} contacts across {Object.keys(byTrade).length} trades</p>
         </div>
-        <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowForm(v=>!v)}>+ Add contractor</button>
+        <Button variant="primary" size="sm" onClick={()=>setShowForm(v=>!v)}>+ Add contractor</Button>
       </div>
 
       {showForm&&<div className="card" style={{padding:'18px 20px',marginBottom:20}}>
@@ -758,8 +758,8 @@ export function ContractorsPage({companies, showToast}) {
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>Save contractor</button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>Save contractor</Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
 

@@ -9,7 +9,7 @@ import { extractPdfTextFromFile } from '../lib/pdfExtract'
 import { useConfirm } from '../lib/ConfirmContext'
 import StatementImportReview from './StatementImportReview'
 import { pressable } from '../lib/pressable'
-import { Modal } from './ui'
+import { Button, Modal } from './ui'
 
 // ── MANAGING-AGENT STATEMENT IMPORT ─────────────────────────────────────────
 // Upload a PNE / RMS statement (or open one received by email), Properly
@@ -166,7 +166,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                           {co && <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
                           {done
                             ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
-                            : <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
+                            : <Button variant="primary" size="sm" onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</Button>}
                         </div>
                       )
                     })}
@@ -259,7 +259,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 </div>
               )}
               <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
-              <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={onClose}>Close &amp; refresh</button>
+              <Button variant="primary" size="sm" onClick={onClose}>Close &amp; refresh</Button>
             </div>
           )}
         </div>

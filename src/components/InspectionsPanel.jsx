@@ -7,6 +7,7 @@ import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
 // Embedded on a property's Compliance tab. Lists scheduled +
@@ -130,9 +131,9 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
           </span>
         </h3>
         {canEdit && !adding && (
-          <button onClick={startAdd} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+          <Button variant="secondary" size="sm" onClick={startAdd}>
             + Schedule inspection
-          </button>
+          </Button>
         )}
       </div>
 
@@ -206,10 +207,10 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-                <button onClick={cancel} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+                <Button variant="secondary" size="sm" onClick={cancel}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={save}>
                   {editingId ? 'Save changes' : 'Schedule'}
-                </button>
+                </Button>
               </div>
             </div>
           )}

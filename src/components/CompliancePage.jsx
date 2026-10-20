@@ -24,7 +24,7 @@ import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUnti
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -441,7 +441,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
             <div className="fade">
               {buildings.length > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-                  {!bulk && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={openBulk}>Log a certificate for a whole building</button>}
+                  {!bulk && <Button variant="primary" size="sm" onClick={openBulk}>Log a certificate for a whole building</Button>}
                 </div>
               )}
               {bulk && (
@@ -459,8 +459,8 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                   <div><label style={lbl}>Expires</label>
                     <input aria-label="Expires" type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
-                    <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>
+                    <Button variant="primary" size="sm" disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</Button>
                   </div>
                   <div style={{ gridColumn: '1 / -1', fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>
                     Units already in date for this certificate are skipped.{bulkTargets.length === 0 && bulk.building ? ' Every unit in this building is already covered.' : ''}

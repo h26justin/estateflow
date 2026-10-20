@@ -184,7 +184,7 @@ export default function OnboardingTour({ user, onComplete }) {
           {/* Footer */}
           <div style={{ padding: '18px 32px 28px', display: 'flex', gap: 10 }}>
             {!isFirst && (
-              <Button variant="secondary" size="lg" style={{ flex: 1 }} onClick={() => setStep(s => s - 1)}>← Back</Button>
+              <Button variant="secondary" size="lg" style={{flex: 1}} onClick={() => setStep(s => s - 1)}>← Back</Button>
             )}
             <Button size="lg" style={{ flex: isFirst ? 1 : 2 }}
               onClick={isLast ? finish : () => setStep(s => s + 1)}

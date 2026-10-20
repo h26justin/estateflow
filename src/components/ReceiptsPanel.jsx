@@ -11,7 +11,7 @@ import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
 import { currentTenancy, usesBenefit } from '../lib/tenancyUtils'
 import { activePlan } from '../lib/paymentPlans'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 const PAYERS = [
@@ -120,7 +120,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
     <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Receipts</div>
-        {canEdit && !adding && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={startAdd}>+ Record receipt</button>}
+        {canEdit && !adding && <Button variant="primary" size="sm" onClick={startAdd}>+ Record receipt</Button>}
       </div>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>Money actually received, with what it paid for. Bounces and refunds are recorded against the original, never deleted.</div>
 
@@ -149,11 +149,11 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
                   : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}
               </div>
               <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
-              <button className="btn" style={{ fontSize: FS.sm, color: T.red, height: 34 }} onClick={() => removeAlloc(i)} aria-label="Remove allocation" disabled={form.allocations.length === 1}>✕</button>
+              <Button variant="ghost" size="sm" onClick={() => removeAlloc(i)} aria-label="Remove allocation" disabled={form.allocations.length === 1} destructive icon="x" />
             </div>
           ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4, marginBottom: 12 }}>
-            <button className="btn" style={{ fontSize: FS.sm }} onClick={addAlloc}>+ Split</button>
+            <Button variant="secondary" size="sm" onClick={addAlloc}>+ Split</Button>
             <span style={{ fontFamily: MONO, fontSize: 11, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>
               {Math.abs(remainder) < 0.005 ? 'Fully allocated' : remainder > 0 ? `${money(remainder)} unallocated` : `${money(-remainder)} over-allocated`}
             </span>
@@ -164,8 +164,8 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save receipt'}</button>
-            <button className="btn" style={{ fontSize: FS.sm }} onClick={() => { setAdding(false); setForm(null) }}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save receipt'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => { setAdding(false); setForm(null) }}>Cancel</Button>
           </div>
         </div>
       )}
@@ -187,11 +187,11 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
               {r.review_status === 'needs_review' && <span style={{ fontFamily: MONO, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44` }}>Review</span>}
               {canEdit && r.kind === 'receipt' && r.amount > 0 && (
                 <>
-                  <button className="btn" style={{ fontSize: FS.xs }} onClick={() => reverse(r, 'bounce')}>Bounced</button>
-                  <button className="btn" style={{ fontSize: FS.xs }} onClick={() => reverse(r, 'refund')}>Refund</button>
+                  <Button variant="secondary" size="sm" onClick={() => reverse(r, 'bounce')}>Bounced</Button>
+                  <Button variant="secondary" size="sm" onClick={() => reverse(r, 'refund')}>Refund</Button>
                 </>
               )}
-              {canEdit && <button className="btn" style={{ fontSize: FS.sm, color: T.red }} onClick={() => remove(r)} aria-label="Delete receipt">✕</button>}
+              {canEdit && <Button variant="ghost" size="sm" onClick={() => remove(r)} aria-label="Delete receipt" destructive icon="x" />}
             </div>
           ))}
         </div>

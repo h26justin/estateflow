@@ -13,7 +13,7 @@ import {
   rollupRooms, daysUntilExpiry, setPropertyHmo,
   ROOM_STATUSES, LICENCE_TYPES, LICENCE_STATUSES,
 } from '../lib/api/hmoRooms'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // ── HMO ROOMS PANEL ──────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
           </span>
         </h3>
         {editable && !addingRoom && (
-          <button onClick={startAddRoom} className="btn btn-ghost" style={{ fontSize: FS.sm }}>+ Add room</button>
+          <Button variant="secondary" size="sm" onClick={startAddRoom}>+ Add room</Button>
         )}
       </div>
 
@@ -294,10 +294,10 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
             <textarea id="room-notes" value={roomForm.notes} onChange={e => setRoomForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button type="button" onClick={cancelRoom} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-            <button type="submit" disabled={savingRoom} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+            <Button variant="secondary" size="sm" type="button" onClick={cancelRoom}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" disabled={savingRoom}>
               {savingRoom ? 'Saving…' : editingRoomId ? 'Save changes' : 'Add room'}
-            </button>
+            </Button>
           </div>
           </form>
         </div>
@@ -324,7 +324,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
           </span>
         </h3>
         {editable && !addingLic && (
-          <button onClick={startAddLic} className="btn btn-ghost" style={{ fontSize: FS.sm }}>+ Add licence</button>
+          <Button variant="secondary" size="sm" onClick={startAddLic}>+ Add licence</Button>
         )}
       </div>
 
@@ -373,10 +373,10 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
             <textarea id="lic-notes" value={licForm.notes} onChange={e => setLicForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button type="button" onClick={cancelLic} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-            <button type="submit" disabled={savingLic} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+            <Button variant="secondary" size="sm" type="button" onClick={cancelLic}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" disabled={savingLic}>
               {savingLic ? 'Saving…' : editingLicId ? 'Save changes' : 'Add licence'}
-            </button>
+            </Button>
           </div>
           </form>
         </div>

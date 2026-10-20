@@ -5,6 +5,7 @@ import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import NotificationCentre from '../NotificationCentre'
 import PropertySearchBar from '../PropertySearchBar'
+import { Button } from '../ui'
 
 // Sticky top bar: logo/breadcrumb, search, notifications, quick-add menu
 // and the account controls. Moved verbatim from App.jsx; every value it
@@ -73,11 +74,10 @@ export function AppHeader({
         <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <button className="btn btn-gold" style={{fontSize:FS.sm,padding:'6px 14px',display:'flex',alignItems:'center',gap:6}}
-                onClick={()=>setShowNewMenu(m=>!m)}>
+              <Button variant="primary" size="sm" onClick={()=>setShowNewMenu(m=>!m)}>
                 <span style={{fontSize:14,fontWeight:700}}>+</span> New
                 <span style={{fontSize:FS.xs,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
-              </button>
+              </Button>
               {showNewMenu&&(
                 <>
                   {/* Backdrop to close */}
@@ -170,17 +170,15 @@ export function AppHeader({
             )
           })()}
           <NotificationCentre/>
-          {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:FS.sm,padding:'6px 12px',color:T.goldText,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
+          {isPlatformAdmin&&<Button variant="secondary" size="sm" onClick={()=>setShowAdmin(true)}>Admin</Button>}
           {/* "⋯ More" menu — houses pages that aren't worth their own tab
               (Feedback, Sign Out, etc.). Keeps primary nav focused on
               daily-use pages. */}
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <button className="btn btn-ghost" style={{fontSize:13,padding:'6px 11px',fontWeight:700,letterSpacing:'0.05em'}}
-                onClick={()=>setShowMoreMenu(m=>!m)}
-                aria-label="More options" aria-expanded={showMoreMenu}>
+              <Button variant="secondary" size="sm" onClick={()=>setShowMoreMenu(m=>!m)} aria-label="More options" aria-expanded={showMoreMenu}>
                 ⋯
-              </button>
+              </Button>
               {showMoreMenu&&(
                 <>
                   <div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowMoreMenu(false)}/>

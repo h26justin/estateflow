@@ -13,6 +13,7 @@ import { evaluateProperty, collectionStats, arrearsSummary } from '../lib/rentEn
 import { planProgress, activePlan, PLAN_STATUS_LABEL, PLAN_FREQUENCIES } from '../lib/paymentPlans'
 import { currentTenancy } from '../lib/tenancyUtils'
 import { SkeletonList } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const money = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -82,7 +83,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
     <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Arrears and payment plan</div>
-        {canEdit && !form && !plan && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => startPlan()}>+ Payment plan</button>}
+        {canEdit && !form && !plan && <Button variant="primary" size="sm" onClick={() => startPlan()}>+ Payment plan</Button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
         {tile(`Current rent outstanding · ${year}`, money(cs.outstanding), cs.outstanding > 0 ? T.red : T.green, `${money(cs.overdue)} overdue · ${money(cs.inWindow + cs.dueToday)} in payment window${cs.pendingReview > 0 ? ` · ${money(cs.pendingReview)} pending review` : ''}`)}
@@ -101,11 +102,11 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
             <span style={{ fontFamily: SANS, fontSize: FS.sm, padding: '2px 8px', borderRadius: 20, background: statusColor[prog.status] + '22', color: statusColor[prog.status], border: `1px solid ${statusColor[prog.status]}44` }}>{PLAN_STATUS_LABEL[prog.status]}</span>
             <span style={{ fontSize: 12, color: T.text }}>{money(plan.instalment_amount)} {PLAN_FREQUENCIES.find(f => f.v === plan.frequency)?.l.toLowerCase()} from {fmtDate(plan.start_date)}{plan.due_day ? `, due on the ${plan.due_day}` : ''}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-              {canEdit && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => startPlan(plan)}>Edit</button>}
-              {canEdit && prog.status !== 'paused' && prog.status !== 'completed' && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setOverride(plan, 'paused')}>Pause</button>}
-              {canEdit && prog.status === 'paused' && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setOverride(plan, null)}>Resume</button>}
-              {canEdit && prog.status !== 'completed' && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setOverride(plan, 'completed')}>Mark completed</button>}
-              {canEdit && <button className="btn" style={{ fontSize: FS.xs, color: T.red }} onClick={() => removePlan(plan)} aria-label="Delete plan">✕</button>}
+              {canEdit && <Button variant="secondary" size="sm" onClick={() => startPlan(plan)}>Edit</Button>}
+              {canEdit && prog.status !== 'paused' && prog.status !== 'completed' && <Button variant="secondary" size="sm" onClick={() => setOverride(plan, 'paused')}>Pause</Button>}
+              {canEdit && prog.status === 'paused' && <Button variant="secondary" size="sm" onClick={() => setOverride(plan, null)}>Resume</Button>}
+              {canEdit && prog.status !== 'completed' && <Button variant="secondary" size="sm" onClick={() => setOverride(plan, 'completed')}>Mark completed</Button>}
+              {canEdit && <Button variant="ghost" size="sm" onClick={() => removePlan(plan)} aria-label="Delete plan" destructive icon="x" />}
             </div>
           </div>
           <div style={{ height: 8, background: T.bg, borderRadius: 4, overflow: 'hidden', marginBottom: 6 }}>
@@ -132,8 +133,8 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
           </div>
           <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={savePlan} disabled={saving}>{saving ? 'Saving…' : 'Save plan'}</button>
-            <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setForm(null)}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={savePlan} disabled={saving}>{saving ? 'Saving…' : 'Save plan'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setForm(null)}>Cancel</Button>
           </div>
         </div>
       )}

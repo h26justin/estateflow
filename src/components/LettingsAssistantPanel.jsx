@@ -11,7 +11,7 @@ import {
 } from '../lib/api/lettingsAssistant'
 import { pressable } from '../lib/pressable'
 import { FS, SANS } from '../lib/styles'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = "'DM Mono', monospace"
@@ -167,9 +167,9 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
             Capture enquiries, draft replies, pre-screen and score — all drafts, nothing auto-sent.
           </div>
         </div>
-        <button className="btn btn-gold" onClick={() => setShowNew(v => !v)}>
+        <Button variant="primary" onClick={() => setShowNew(v => !v)}>
           {showNew ? 'Cancel' : '+ New enquiry'}
-        </button>
+        </Button>
       </div>
 
       {/* Landlord criteria */}
@@ -236,8 +236,8 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
               onChange={e => setNewForm(f => ({ ...f, message: e.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-gold" disabled={saving} onClick={createNew}>{saving ? 'Saving…' : 'Add enquiry'}</button>
-            <button className="btn btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>
+            <Button variant="primary" disabled={saving} onClick={createNew}>{saving ? 'Saving…' : 'Add enquiry'}</Button>
+            <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -311,11 +311,9 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                     </div>
                   )}
 
-                  <button className="btn btn-gold" style={{ width: '100%', marginBottom: 14 }}
-                    disabled={triaging === selected.id}
-                    onClick={() => runTriage(selected)}>
+                  <Button variant="primary" disabled={triaging === selected.id} onClick={() => runTriage(selected)} style={{width: '100%', marginBottom: 14}}>
                     {triaging === selected.id ? 'Thinking…' : selected.ai_reply_draft ? '↻ Re-run AI triage' : 'Draft reply + screen + score'}
-                  </button>
+                  </Button>
 
                   {selected.ai_score != null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -353,8 +351,8 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                         value={draftValue}
                         onChange={ev => setDraftEdits(prev => ({ ...prev, [selected.id]: ev.target.value }))} />
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => copyDraft(selected.id)}>Copy reply</button>
-                        <button className="btn btn-ghost" onClick={() => setStatus(selected.id, 'replied')}>Mark replied</button>
+                        <Button variant="primary" onClick={() => copyDraft(selected.id)} style={{flex: 1}}>Copy reply</Button>
+                        <Button variant="secondary" onClick={() => setStatus(selected.id, 'replied')}>Mark replied</Button>
                       </div>
                       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
                         AI-generated draft. Review and edit before sending. Screening is a triage aid, not a right-to-rent or affordability decision.
@@ -363,9 +361,9 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   )}
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setStatus(selected.id, 'rejected')}>Reject</button>
-                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setStatus(selected.id, 'archived')}>Archive</button>
-                    <button className="btn btn-ghost" onClick={() => remove(selected.id)}>Delete</button>
+                    <Button variant="secondary" onClick={() => setStatus(selected.id, 'rejected')} style={{flex: 1}}>Reject</Button>
+                    <Button variant="secondary" onClick={() => setStatus(selected.id, 'archived')} style={{flex: 1}}>Archive</Button>
+                    <Button variant="secondary" onClick={() => remove(selected.id)}>Delete</Button>
                   </div>
                 </div>
               </div>

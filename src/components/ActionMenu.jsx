@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
+import { Button } from './ui'
 
 /**
  * ActionMenu — a "..." button that opens a dropdown of actions.
@@ -53,17 +54,9 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
 
   return (
     <span ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="btn btn-ghost"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={buttonLabel}
-        style={{ fontSize: 11, color: T.muted, borderColor: T.border, padding: '6px 10px' }}>
+      <Button variant="secondary" size="sm" ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel} style={{borderColor: T.border}}>
         ⋯
-      </button>
+      </Button>
       {open && (
         <div role="menu" ref={menuRef} aria-label={buttonLabel}
           onKeyDown={e => {

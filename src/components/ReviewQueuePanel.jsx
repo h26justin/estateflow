@@ -94,7 +94,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <Button variant="secondary" size="sm" icon="plus" onClick={() => setEditing(e => ({ ...e, allocations: [...e.allocations, { _key: rowKey(), target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))}>Split</Button>
                     <span style={{ fontFamily: MONO, fontSize: FS.xs, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>{Math.abs(remainder) < 0.005 ? 'Fully allocated' : `${money(Math.abs(remainder))} ${remainder > 0 ? 'unallocated' : 'over-allocated'}`}</span>
-                    <Button variant="secondary" size="sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(null)}>Cancel</Button>
+                    <Button variant="secondary" size="sm" style={{marginLeft: 'auto'}} onClick={() => setEditing(null)}>Cancel</Button>
                     <Button size="sm" onClick={saveAlloc} disabled={saving}>{saving ? 'Saving…' : 'Save allocation'}</Button>
                   </div>
                 </div>

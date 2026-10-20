@@ -12,6 +12,7 @@ import { Badge, CompanyPill } from './Badges'
 import { RentDots } from './RentDots'
 import { RentTab } from './RentTab'
 import { Icon } from '../../lib/icons'
+import { Button } from '../ui'
 
 // Property detail view: header, tab bar and every per-property tab.
 // Moved verbatim from App.jsx; every value it reads is passed in explicitly.
@@ -24,7 +25,7 @@ export function PropertyDetailView({
 }) {
   return (
     <div className="fade">
-      <button className="btn btn-ghost" style={{marginBottom:20,fontSize:FS.sm}} onClick={closeDetail}>← Back</button>
+      <Button variant="secondary" size="sm" onClick={closeDetail} style={{marginBottom:20}}>← Back</Button>
       <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 280px',gap:18,alignItems:'start'}}>
         <div style={{minWidth:0}}>
           <div className="card" style={{padding:isMobile?'18px 16px':'24px 28px',marginBottom:16}}>
@@ -39,7 +40,7 @@ export function PropertyDetailView({
               </div>
               <div style={{display:'flex',gap:8}}>
                 {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
-                  <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
+                  <Button variant="primary" size="sm" onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</Button>
                 )}
                 {(() => {
                   const canEdit = canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive
@@ -148,9 +149,9 @@ export function PropertyDetailView({
                       </span>
                     )}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>setDetailTab('rent')}>
+                  <Button variant="secondary" size="sm" onClick={()=>setDetailTab('rent')}>
                     Full history →
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Year of dots */}
@@ -195,7 +196,7 @@ export function PropertyDetailView({
                     <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
                     <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted}}>No policies cover this property yet.</div>
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</button>
+                  <Button variant="secondary" size="sm" onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</Button>
                 </div>
               )
             }
@@ -209,7 +210,7 @@ export function PropertyDetailView({
                   <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                     Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</button>
+                  <Button variant="secondary" size="sm" onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</Button>
                 </div>
                 <div style={{display:'grid',gap:6}}>
                   {sorted.map(pol => {

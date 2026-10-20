@@ -4,7 +4,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
-import { EmptyState, Modal } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // Open Banking — live integration via Plaid UK.
@@ -191,10 +191,9 @@ export default function BankConnectionsModal({ onClose }) {
                       flex: 1, fontFamily: SANS, fontSize: FS.base,
                       background: T.surface, border: `1px solid ${T.border}`, color: T.text,
                       borderRadius: 8, padding: '10px 12px', }}/>
-                  <button onClick={registerInterest} disabled={busy}
-                    className="btn btn-gold" style={{ fontSize: FS.sm, whiteSpace: 'nowrap' }}>
+                  <Button variant="primary" size="sm" onClick={registerInterest} disabled={busy}>
                     {busy ? 'Saving…' : 'Register interest'}
-                  </button>
+                  </Button>
                 </div>
                 <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>
                   We'll never charge extra for Open Banking — it's included in your plan.
@@ -217,10 +216,9 @@ export default function BankConnectionsModal({ onClose }) {
 
               {hasActive && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                  <button onClick={manualSync} disabled={syncing}
-                    className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+                  <Button variant="secondary" size="sm" onClick={manualSync} disabled={syncing}>
                     {syncing ? 'Syncing…' : '↻ Sync now'}
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -237,10 +235,9 @@ export default function BankConnectionsModal({ onClose }) {
                   bank and sign in. Takes about 30 seconds. You stay on your
                   bank's official login screen — we never see your credentials.
                 </div>
-                <button onClick={startConnect} disabled={connecting}
-                  className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
+                <Button variant="primary" onClick={startConnect} disabled={connecting} style={{width: '100%'}}>
                   {connecting ? 'Redirecting…' : 'Connect a bank account →'}
-                </button>
+                </Button>
                 <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10, textAlign: 'center' }}>
                   Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more
                 </div>
@@ -286,7 +283,7 @@ export default function BankConnectionsModal({ onClose }) {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
+            <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
           </div>
         </div>
       </Modal>

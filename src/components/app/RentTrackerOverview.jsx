@@ -19,7 +19,7 @@ import { plural } from '../../lib/format'
 import { ReviewQueuePanel, BankConnectionsModal, BankInboxModal } from './lazyViews'
 import { Badge } from './Badges'
 import { RentDots } from './RentDots'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 
 // ─── RENT TRACKER OVERVIEW PAGE ──────────────────────────────────────────────
 // Month counts and money received for a set of properties, from the rent
@@ -287,7 +287,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
             <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
             <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
-            <button className="btn btn-gold" style={{fontSize:FS.sm,marginLeft:'auto'}} onClick={()=>setShowReview(true)}>Review</button>
+            <Button variant="primary" size="sm" onClick={()=>setShowReview(true)} style={{marginLeft:'auto'}}>Review</Button>
           </div>
         )
       })()}
@@ -552,7 +552,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
           {hasQuery ? <>No properties match <span style={{color:T.text}}>"{searchQ.trim()}"</span></> : 'No properties match these filters'}
           {coFilter.length > 0 ? ' in the selected companies.' : '.'}
           {narrowing && (
-            <><br/><button type="button" className="btn btn-ghost" style={{fontSize:FS.sm,marginTop:12}} onClick={clearSearchAndFilters}>Clear search &amp; filters</button></>
+            <><br/><Button variant="secondary" size="sm" type="button" onClick={clearSearchAndFilters} style={{marginTop:12}}>Clear search &amp; filters</Button></>
           )}
         </div>
       )}

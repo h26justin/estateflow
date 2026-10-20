@@ -83,7 +83,7 @@ export function PropertiesView({
         </div>
         {portfolioTab==='properties'&&(
           <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-            <button className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add property</button>
+            <Button variant="primary" size="sm" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add property</Button>
             {/* Less-used bulk actions sit behind ⋯ */}
             <ActionMenu buttonLabel="More portfolio actions" items={[
               { label: 'Add a block of flats', icon: 'building', disabled: !canEdit, onSelect: () => openWorkflow('bulk-add') },

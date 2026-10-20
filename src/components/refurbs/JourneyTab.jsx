@@ -227,7 +227,7 @@ function StatusEditor({ ws, onClose }) {
         <select value={r.category} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={inputStyle(T)} aria-label="Behaves like">
           {STAGE_STATUSES.map(s => <option key={s} value={s}>Like {STAGE_STATUS_CFG[s].label}</option>)}
         </select>
-        <Button variant="secondary" size="sm" onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} aria-label="Remove status">✕</Button>
+        <Button variant="ghost" size="sm" onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} aria-label="Remove status" icon="x" />
       </div>)}
       <Button variant="secondary" size="sm" icon="plus" onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])}>Add status</Button>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>

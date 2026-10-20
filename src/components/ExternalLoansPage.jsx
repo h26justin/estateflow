@@ -260,7 +260,7 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
         <MoneyInput prefix="£" value={amount} onChange={setAmount} style={{ ...inputStyle(T), width: 100, padding: '3px 6px' }} />
         <input type="date" value={date || ''} onChange={e => setDate(e.target.value)} style={{ ...inputStyle(T), width: 130, padding: '3px 6px' }} />
         <Button variant="primary" size="sm" onClick={saveEdit} disabled={busy}>Save</Button>
-        <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>×</Button>
+        <Button variant="ghost" size="sm" icon="x" aria-label="Close" onClick={() => setEditing(false)} />
       </div>}
     </td>
   </tr>

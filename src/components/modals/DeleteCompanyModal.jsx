@@ -97,7 +97,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
           {error && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginBottom: 14 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>
+            <Button variant="secondary" style={{flex: 1}} onClick={onClose}>
               Cancel
             </Button>
             <Button variant="danger" style={{ flex: 2 }} onClick={handleDelete} disabled={!isConfirmed || busy}>

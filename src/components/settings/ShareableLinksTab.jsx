@@ -4,7 +4,7 @@ import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
 import { copyToClipboard } from '../../lib/clipboard'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 import { COMPANY_INVITE_DEFAULTS } from '../../lib/api/invitations'
 
 // ── SHAREABLE LINKS TAB ─────────────────────────────────────────────────────
@@ -225,9 +225,9 @@ export function ShareableLinksTab({ companies, showToast, T }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
-          <button type="submit" disabled={creating || !formCompanyId} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+          <Button variant="primary" size="sm" type="submit" disabled={creating || !formCompanyId}>
             {creating ? 'Generating…' : '+ Generate invite'}
-          </button>
+          </Button>
         </div>
       </form>
 

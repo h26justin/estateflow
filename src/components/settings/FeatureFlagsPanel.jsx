@@ -71,7 +71,7 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
           <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Feature Flags</div>
           <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Enable features globally, per user, or per company. Priority: user override → company override → global.</div>
         </div>
-        <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowNew(true)}>+ New Flag</button>
+        <Button variant="primary" size="sm" onClick={()=>setShowNew(true)}>+ New Flag</Button>
       </div>
 
       {showNew && (
@@ -99,8 +99,8 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
             Enable globally by default
           </label>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={createFlag}>Create</button>
-            <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>setShowNew(false)}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={createFlag}>Create</Button>
+            <Button variant="secondary" size="sm" onClick={()=>setShowNew(false)}>Cancel</Button>
           </div>
         </div>
       )}

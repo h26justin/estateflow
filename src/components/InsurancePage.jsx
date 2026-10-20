@@ -220,7 +220,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setEditing({})}>+ New policy</button>
+          <Button variant="primary" size="sm" onClick={() => setEditing({})}>+ New policy</Button>
         </div>
       </div>
 
@@ -381,7 +381,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                 + Add another policy
               </button>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setPropertyPicker(null)}>Cancel</button>
+                <Button variant="secondary" size="sm" onClick={() => setPropertyPicker(null)}>Cancel</Button>
               </div>
             </div>
           </Modal>
@@ -1018,14 +1018,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
             <label style={lbl} htmlFor="policy-doc">Policy document (schedule / certificate)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               {form.document_id && (
-                <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }}
-                  onClick={async () => {
+                <Button variant="secondary" size="sm" type="button" onClick={async () => {
                     try {
                       const url = await api.getCompanyDocumentSignedUrlById(form.document_id)
                       if (url) window.open(url, '_blank', 'noopener')
                       else showAppToast('Document not found', 'error')
                     } catch (e) { showAppToast(e.message, 'error') }
-                  }}>View attached document</button>
+                  }}>View attached document</Button>
               )}
               <input id="policy-doc" type="file" accept="application/pdf,image/*"
                 onChange={e => setDocFile(e.target.files?.[0] || null)}
@@ -1091,10 +1090,10 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-gold" style={{ fontSize: FS.sm }}>
+            <Button variant="secondary" size="sm" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit">
               {isRenewal ? 'Save renewal' : isNew ? 'Add policy' : 'Save changes'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

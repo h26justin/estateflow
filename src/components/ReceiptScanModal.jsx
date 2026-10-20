@@ -4,7 +4,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { naturalCompare } from '../lib/addressUtils'
-import { Modal } from './ui'
+import { Button, Modal } from './ui'
 
 // ── RECEIPT SCAN MODAL ───────────────────────────────────────────────
 // Mobile-first expense capture. User taps "Scan receipt" → device
@@ -133,10 +133,9 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
 
           {stage === 'capture' && (
             <div style={{ textAlign: 'center', padding: '12px 0' }}>
-              <button onClick={() => fileRef.current?.click()}
-                className="btn btn-gold" style={{ fontSize: 14, padding: '14px 28px', width: '100%' }}>
+              <Button variant="primary" onClick={() => fileRef.current?.click()} style={{width: '100%'}}>
                 Open camera
-              </button>
+              </Button>
               <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
                 On mobile this opens your camera. Desktop opens a file picker.
               </div>
@@ -197,12 +196,12 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
-                <button onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null) }} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+                <Button variant="secondary" size="sm" onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null) }}>
                   ← Re-scan
-                </button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+                </Button>
+                <Button variant="primary" size="sm" onClick={save}>
                   Save expense
-                </button>
+                </Button>
               </div>
             </div>
           )}

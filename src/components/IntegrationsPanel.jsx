@@ -323,15 +323,15 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy || mappings.length === 0}>
+            <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
-            </button>
-            <button onClick={hostawayProps ? () => setHostawayProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={hostawayProps ? () => setHostawayProps(null) : openMappingEditor} disabled={!!busy}>
               {busy==='props' ? 'Loading listings…' : (hostawayProps ? 'Hide mappings' : 'Edit mappings')}
-            </button>
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={disconnect} disabled={!!busy} destructive>
               Disconnect
-            </button>
+            </Button>
           </div>
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:10, 12:10, 18:10 UTC).
@@ -364,9 +364,9 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
                 })}
               </div>
               <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
-                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
+                <Button variant="primary" size="sm" onClick={saveMappings} disabled={!!busy}>
                   {busy==='save' ? 'Saving…' : 'Save mappings'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -565,15 +565,15 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy || mappings.length === 0}>
+            <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
-            </button>
-            <button onClick={lodgifyProps ? () => setLodgifyProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={lodgifyProps ? () => setLodgifyProps(null) : openMappingEditor} disabled={!!busy}>
               {busy==='props' ? 'Loading listings…' : (lodgifyProps ? 'Hide mappings' : 'Edit mappings')}
-            </button>
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            </Button>
+            <Button variant="secondary" size="sm" onClick={disconnect} disabled={!!busy} destructive>
               Disconnect
-            </button>
+            </Button>
           </div>
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:00, 12:00, 18:00 UTC).
@@ -606,9 +606,9 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
                 })}
               </div>
               <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
-                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
+                <Button variant="primary" size="sm" onClick={saveMappings} disabled={!!busy}>
                   {busy==='save' ? 'Saving…' : 'Save mappings'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -720,27 +720,26 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
             {canWrite && (
-              <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
+              <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy}>
                 {busy==='sync' ? 'Syncing…' : 'Sync now'}
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
+              <Button variant="secondary" size="sm" onClick={() => setShowSettings(s => !s)} disabled={!!busy}>
                 {showSettings ? 'Hide settings' : 'Settings'}
-              </button>
+              </Button>
             )}
             {/* Renews the Xero sign-in in place (same org, sync settings
                 kept). Disconnect + Connect would cascade-delete the
                 company's xero_sync_settings row. */}
             {canAdmin && (
-              <button onClick={connect} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}
-                title="Sign in to Xero again to renew this connection. Sync settings are kept.">
+              <Button variant="secondary" size="sm" onClick={connect} disabled={!!busy} title="Sign in to Xero again to renew this connection. Sync settings are kept.">
                 {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
-              </button>
+              </Button>
             )}
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            <Button variant="secondary" size="sm" onClick={disconnect} disabled={!!busy} destructive>
               Disconnect
-            </button>
+            </Button>
           </div>
           {!canWrite && (
             <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
@@ -999,15 +998,15 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           {properties.map(p => (
             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background: T.bg, borderRadius: 8 }}>
               <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>{p.name || p.address}</span>
-              <button onClick={async () => {
+              <Button variant="secondary" size="sm" onClick={async () => {
                 try {
                   const r = await api.runXeroSyncForProperties(company.id, [p.id])
                   showAppToast(`Synced ${p.name || 'property'}: ${r.created || 0} new, ${r.failed || 0} failed`)
                   onSaved?.()
                 } catch (e) { showAppToast(e.message, 'error') }
-              }} className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '4px 10px' }}>
+              }}>
                 Sync this one
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -1018,7 +1017,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Undo the last push</strong> deletes from Xero the bank transactions Properly posted in its most recent push. Xero keeps any that are already reconciled; those are listed and left alone.
           </div>
-          <button onClick={async () => {
+          <Button variant="secondary" size="sm" onClick={async () => {
             try {
               const d = await api.undoXeroPush(company.id, { dryRun: true })
               if (!d.count) { showAppToast('Nothing from the last push is still in Xero'); return }
@@ -1031,15 +1030,15 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               showAppToast(`Deleted ${r.deleted} of ${r.count} from Xero${r.failed ? `, ${r.failed} kept (e.g. ${r.errors?.[0] || 'reconciled'})` : ''}`, r.failed ? 'error' : undefined)
               onSaved?.()
             } catch (e) { showAppToast(e.message, 'error') }
-          }} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }}>
+          }} style={{color: T.red, borderColor: T.red+'66'}}>
             Undo last push for {company.name}
-          </button>
+          </Button>
         </div>
         <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px' }}>
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Re-sync everything</strong> wipes the sync map so the next sync re-pushes every record. Use this if you've manually deleted transactions from Xero and want to re-create them. Doesn't touch the Xero side directly.
           </div>
-          <button onClick={async () => {
+          <Button variant="secondary" size="sm" onClick={async () => {
             if (!await confirmDialog({
               title: `Wipe the sync map for ${company.name}?`,
               body: "Next sync will re-push every record. Make sure you've cleared the corresponding records in Xero first or you'll get duplicates.",
@@ -1050,16 +1049,16 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               showAppToast(`Cleared ${n} sync map entries. Click Sync now to re-push.`)
               onSaved?.()
             } catch (e) { showAppToast(e.message, 'error') }
-          }} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }}>
+          }} style={{color: T.red, borderColor: T.red+'66'}}>
             Wipe sync map for {company.name}
-          </button>
+          </Button>
         </div>
       </Section>
 
       <div style={{ marginTop: 18, display:'flex', justifyContent:'flex-end' }}>
-        <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving}>
+        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save settings'}
-        </button>
+        </Button>
       </div>
     </div>
   )

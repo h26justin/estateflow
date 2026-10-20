@@ -190,7 +190,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
               <span style={{ fontSize: 13 }}>{nameOf(d.depends_on_id)}</span>
               <input type="number" defaultValue={d.lag_days} disabled={dis} title="Days to wait after it finishes" aria-label="Lag days"
                 onBlur={e => { const v = Math.round(Number(e.target.value) || 0); if (v !== d.lag_days) ops.updateDependency(d, v) }} style={{ ...inputStyle(T), padding: '4px 6px' }} />
-              {canEdit ? <Button variant="secondary" size="sm" onClick={() => ops.removeDependency(d)} aria-label="Remove dependency">✕</Button> : <span />}
+              {canEdit ? <Button variant="ghost" size="sm" onClick={() => ops.removeDependency(d)} aria-label="Remove dependency" icon="x" /> : <span />}
             </div>)}
             {preds.length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
             {canEdit && <AddDependency stage={stage} others={others} deps={data.deps} onAdd={ops.addDependency} T={T} />}
@@ -290,7 +290,7 @@ function Checklist({ ws, stage, items }) {
       <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} onChange={() => ops.toggleTask(t)} style={{ width: 18, height: 18, margin: 0 }} aria-label={t.title} />
       <span style={{ flex: 1, fontSize: 13, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? T.muted : T.text }}>{t.title}</span>
       {t.status === 'done' && t.completed_by && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{t.completed_by}</span>}
-      {canEdit && <Button variant="secondary" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`}>✕</Button>}
+      {canEdit && <Button variant="ghost" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`} icon="x" />}
     </div>)}
     {canEdit && <QuickText placeholder="Add a checklist item" button="Add" T={T} onAdd={title => ops.addTask({ stage_id: stage.id, kind: 'checklist', title })} />}
   </div>
@@ -323,7 +323,7 @@ export function TaskList({ ws, stage, items, title = 'Tasks and milestones' }) {
           {[t.owner_name, t.contractor_name, t.due_date ? `due ${fmtDate(t.due_date)}` : null, ws.stageName && t.stage_id && !stage ? ws.stageName(t.stage_id) : null].filter(Boolean).join(' · ') || 'No owner or due date'}
         </div>
       </div>
-      {canEdit ? <Button variant="secondary" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`}>✕</Button> : <span />}
+      {canEdit ? <Button variant="ghost" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`} icon="x" /> : <span />}
     </div>
   }
   return <div style={panel(T)}>

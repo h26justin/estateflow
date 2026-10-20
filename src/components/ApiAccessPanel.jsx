@@ -15,6 +15,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { listApiTokens, createApiToken, revokeApiToken } from '../lib/api/apiAccess'
 import { Skeleton } from '../lib/Skeleton'
 import { ensureAal2, isMfaRequiredError, totpPrompt } from '../lib/mfaStepUp'
+import { Button } from './ui'
 
 const EXPIRY_OPTIONS = [
   { days: 30, label: '30 days' },
@@ -134,8 +135,8 @@ export default function ApiAccessPanel({ T }) {
             {freshToken.token}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={copyFresh}>Copy token</button>
-            <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setFreshToken(null)}>Done — I've saved it</button>
+            <Button variant="primary" size="sm" onClick={copyFresh}>Copy token</Button>
+            <Button variant="secondary" size="sm" onClick={() => setFreshToken(null)}>Done — I've saved it</Button>
           </div>
         </div>
       )}
@@ -158,14 +159,9 @@ export default function ApiAccessPanel({ T }) {
                       {tok.expires_at ? ` · Expires ${fmtDate(tok.expires_at)}` : ''}
                     </div>
                   </div>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, color: T.red, flexShrink: 0 }}
-                    disabled={busy === `revoke-${tok.id}`}
-                    onClick={() => handleRevoke(tok)}
-                  >
+                  <Button variant="secondary" size="sm" disabled={busy === `revoke-${tok.id}`} onClick={() => handleRevoke(tok)} style={{flexShrink: 0}} destructive>
                     {busy === `revoke-${tok.id}` ? 'Revoking…' : 'Revoke'}
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -184,9 +180,9 @@ export default function ApiAccessPanel({ T }) {
               style={{ fontFamily: SANS, fontSize: FS.sm }}>
               {EXPIRY_OPTIONS.map(o => <option key={o.days} value={o.days}>Expires in {o.label}</option>)}
             </select>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={creating} onClick={handleCreate}>
+            <Button variant="primary" size="sm" disabled={creating} onClick={handleCreate}>
               {creating ? 'Creating…' : 'Create token'}
-            </button>
+            </Button>
           </div>
           {mfaError && (
             <div role="alert" style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 10 }}>

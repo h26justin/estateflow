@@ -6,7 +6,7 @@ import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { isFormDirty } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
-import { Modal } from './ui'
+import { Button, Modal } from './ui'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -238,10 +238,9 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                 <input ref={fileInputRef} type="file" accept="application/pdf,image/*"
                   style={{ display: 'none' }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleScanPdf(f); e.target.value = '' }}/>
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
-                  className="btn btn-ghost" style={{ fontSize: FS.sm, whiteSpace: 'nowrap' }}>
+                <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}>
                   {scanning ? 'Scanning…' : 'Upload PDF'}
-                </button>
+                </Button>
               </div>
               {scanMessage && (
                 <div style={{
@@ -316,10 +315,10 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button type="button" onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-                <button type="submit" form="bm-form" disabled={saving || unitCount === 0} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+                <Button variant="secondary" size="sm" type="button" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" size="sm" type="submit" form="bm-form" disabled={saving || unitCount === 0}>
                   {saving ? `Updating ${unitCount} units…` : `Save across ${unitCount} units`}
-                </button>
+                </Button>
               </div>
             </>
           )}

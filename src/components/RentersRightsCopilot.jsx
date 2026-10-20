@@ -42,11 +42,9 @@ function Toggle({ T, on, onClick, disabled }) {
       onClick={onClick}
       disabled={disabled}
       aria-pressed={on}
-      style={{
-        minWidth: 110,
+      style={{minWidth: 110,
         borderColor: on ? T.green : T.border,
-        color: on ? T.green : T.muted,
-      }}
+        color: on ? T.green : T.muted}}
     >
       {on ? 'Done' : 'Mark done'}
     </Button>

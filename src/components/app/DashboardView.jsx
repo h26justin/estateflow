@@ -52,10 +52,10 @@ export function DashboardView({
           <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
             {companies.length === 0
               ? <>
-                  <button className="btn btn-gold" onClick={()=>setShowAddCo(true)}>1. Add a Company</button>
-                  <button className="btn btn-ghost" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled title="Add a company first">2. Add a Property</button>
+                  <Button variant="primary" onClick={()=>setShowAddCo(true)}>1. Add a Company</Button>
+                  <Button variant="secondary" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled title="Add a company first">2. Add a Property</Button>
                 </>
-              : <button className="btn btn-gold" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</button>}
+              : <Button variant="primary" onClick={()=>{setEditProp(null);setShowAddProp(true)}}>Add your first property</Button>}
           </div>
         </div>
       )}
@@ -236,8 +236,7 @@ export function DashboardView({
                     <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
                       Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
                     </p>
-                    <button className="btn btn-gold" style={{ fontSize: FS.sm }}
-                      onClick={() => {
+                    <Button variant="primary" size="sm" onClick={() => {
                         // 'billing' is a Settings sub-tab, not a top-level
                         // view. Set the hash BEFORE switching views —
                         // SettingsPage reads its initial tab from the URL
@@ -252,7 +251,7 @@ export function DashboardView({
                         ))
                       }}>
                       Upgrade to Investor →
-                    </button>
+                    </Button>
                   </div>
                 )
               }
@@ -710,7 +709,7 @@ export function DashboardView({
                             </div>
                           ))}
                         </div>
-                        <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:FS.sm}} onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}}>View properties -&gt;</button>
+                        <Button variant="secondary" size="sm" onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}} style={{width:'100%', marginTop:12}}>View properties -&gt;</Button>
                       </div>
                     ))}
                   </div>

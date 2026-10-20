@@ -65,7 +65,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
             </div>
           )}
           <div style={{display:'flex',gap:10}}>
-            <button className="btn btn-ghost" style={{flex:1}} onClick={onClose}>Cancel</button>
+            <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
             <Button disabled={busy||!numPrice||!date} onClick={handleConfirm} style={{flex:1}}>
               {busy?'Saving…':'Mark as sold'}
             </Button>

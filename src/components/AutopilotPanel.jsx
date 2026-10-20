@@ -84,7 +84,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
             </span>
           )}
         </h2>
-        <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onOpenFull}>Review all →</button>
+        <Button variant="secondary" size="sm" onClick={onOpenFull}>Review all →</Button>
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
@@ -239,11 +239,11 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {filtered.length > 1 && (
             <>
-              <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
-              <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</Button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')} destructive>Dismiss all {filtered.length} shown</Button>
             </>
           )}
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={load}>↻ Refresh</button>
+          <Button variant="secondary" size="sm" onClick={load}>↻ Refresh</Button>
         </div>
       </div>
       <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 24 }}>
@@ -335,36 +335,20 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           </div>
                         )}
                         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-gold"
-                            style={{ fontSize: 12 }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleAct(a)}
-                          >
+                          <Button variant="primary" size="sm" disabled={busyId === a.id} onClick={() => handleAct(a)}>
                             Mark actioned
-                          </button>
+                          </Button>
                           {a.draft_body && (
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 12 }}
-                              disabled={busyId === a.id}
-                              onClick={() => setViewing(a)}
-                            >
+                            <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => setViewing(a)}>
                               Copy draft
-                            </button>
+                            </Button>
                           )}
-                          <button
-                            className="btn btn-ghost"
-                            style={{ fontSize: 12, color: T.muted }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleDismiss(a)}
-                          >
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleDismiss(a)}>
                             Dismiss
-                          </button>
-                          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === a.id}
-                            onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
+                          </Button>
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
                             Snooze 30d
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>

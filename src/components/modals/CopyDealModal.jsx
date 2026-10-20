@@ -69,7 +69,7 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
         </p>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} disabled={busy} onClick={onClose}>Cancel</button>
+          <Button variant="secondary" disabled={busy} onClick={onClose} style={{flex: 1}}>Cancel</Button>
           <Button disabled={busy} onClick={() => onConfirm(opts)} style={{ flex: 1 }}>
             {busy ? 'Copying…' : 'Copy deal'}
           </Button>

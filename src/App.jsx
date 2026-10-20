@@ -1660,7 +1660,7 @@ export default function App({ initialLoginMode = null } = {}) {
       <div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
           <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowAddCo(true)}>+ Add company</button>
+          <Button variant="primary" size="sm" onClick={()=>setShowAddCo(true)}>+ Add company</Button>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
           {companies.map(c=>(
@@ -1898,7 +1898,7 @@ export default function App({ initialLoginMode = null } = {}) {
             <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.6,maxWidth:520,margin:'0 auto 20px'}}>
               Your data is safe. This is usually a temporary connection problem, so please try again in a moment. If it keeps happening, contact support.
             </p>
-            <button className="btn btn-gold" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</button>
+            <Button variant="primary" onClick={()=>{ setLoadError(null); setLoadNonce(n=>n+1) }}>Retry</Button>
           </div>
         ):<ErrorBoundary variant="panel" theme={T} resetKey={view==='detail'?`detail:${selectedId}`:view}><Suspense fallback={<PageLoadingSpinner T={T}/>}>
 
@@ -1985,7 +1985,7 @@ export default function App({ initialLoginMode = null } = {}) {
               <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:20,maxWidth:440,margin:'0 auto 20px',lineHeight:1.6}}>
                 {view==='autopilot'?'Portfolio Autopilot':'The Renters Rights copilot'} is rolling out gradually. If you'd like early access, send us a message from the Feedback page.
               </p>
-              <button className="btn btn-gold" onClick={()=>setView('dashboard')}>Back to dashboard</button>
+              <Button variant="primary" onClick={()=>setView('dashboard')}>Back to dashboard</Button>
             </div>
           )}
 
@@ -1995,7 +1995,7 @@ export default function App({ initialLoginMode = null } = {}) {
             <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:20}}>
               This property doesn't exist or you don't have access to it.
             </p>
-            <button className="btn btn-gold" onClick={closeDetail}>← Back to portfolio</button>
+            <Button variant="primary" onClick={closeDetail}>← Back to portfolio</Button>
           </div>}
 
           {view==='detail'&&selected&&<PropertyDetailView

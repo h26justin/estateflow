@@ -17,7 +17,7 @@ import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
 import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
-import { Modal } from './ui'
+import { Button, Modal } from './ui'
 
 const mono = MONO
 
@@ -306,19 +306,19 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           {/* Action buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, gap: 10 }}>
             <div>
-              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {step > 1 && <button className="btn btn-ghost" onClick={() => setStep(step - 1)} disabled={saving}>← Back</button>}
+              {step > 1 && <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={saving}>← Back</Button>}
               {step < 3 && (
-                <button className="btn btn-gold" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
+                <Button variant="primary" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
                   Next →
-                </button>
+                </Button>
               )}
               {step === 3 && (
-                <button className="btn btn-gold" onClick={handleSave} disabled={!canProceed() || saving}>
+                <Button variant="primary" onClick={handleSave} disabled={!canProceed() || saving}>
                   {saving ? 'Saving…' : `✓ Create ${units.length} ${units.length === 1 ? 'property' : 'properties'}`}
-                </button>
+                </Button>
               )}
             </div>
           </div>

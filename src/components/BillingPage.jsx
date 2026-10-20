@@ -8,6 +8,7 @@ import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 import { SkeletonList } from '../lib/Skeleton'
 import { billingDisplayStatus } from '../lib/subscriptionLive'
+import { Button } from './ui'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
@@ -90,7 +91,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   if (loadError) return (
     <div style={{ padding: 40, textAlign: 'center' }}>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.red, marginBottom: 14 }}>Couldn't load billing data — {loadError}</div>
-      <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={loadData}>Retry</button>
+      <Button variant="secondary" size="sm" onClick={loadData}>Retry</Button>
     </div>
   )
 
@@ -173,25 +174,19 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {(status === 'trialing' || status === 'past_due') && (
-                    <button className="btn btn-gold" style={{ fontSize: FS.sm }}
-                      onClick={() => handleCheckout(co.id, 'checkout')}
-                      disabled={!!working}>
+                    <Button variant="primary" size="sm" onClick={() => handleCheckout(co.id, 'checkout')} disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Add payment method'}
-                    </button>
+                    </Button>
                   )}
                   {status === 'active' && (
-                    <button className="btn btn-ghost" style={{ fontSize: FS.sm }}
-                      onClick={() => handleCheckout(co.id, 'portal')}
-                      disabled={!!working}>
+                    <Button variant="secondary" size="sm" onClick={() => handleCheckout(co.id, 'portal')} disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Manage subscription'}
-                    </button>
+                    </Button>
                   )}
                   {(status === 'active' || status === 'trialing') && tierKey !== 'investor' && !investorUnavailable && (
-                    <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: TIERS.investor.color, borderColor: TIERS.investor.color }}
-                      onClick={() => handleCheckout(co.id, 'subscribe', 'investor')}
-                      disabled={!!working}>
+                    <Button variant="secondary" size="sm" onClick={() => handleCheckout(co.id, 'subscribe', 'investor')} disabled={!!working} style={{color: TIERS.investor.color, borderColor: TIERS.investor.color}}>
                       {working===co.id ? 'Redirecting…' : <><Icon name="star" size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>{`Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}</>}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

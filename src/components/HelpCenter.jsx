@@ -3,6 +3,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { pressable } from '../lib/pressable'
+import { Button } from './ui'
 
 const CATEGORIES = [
   { key: 'start',       label: 'Getting started',      icon: 'sparkle' },
@@ -693,9 +694,9 @@ export default function HelpCenter() {
           Step-by-step guides for every feature in Properly. Search or browse by category.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
+          <Button variant="secondary" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
             {"▶ Replay app tour"}
-          </button>
+          </Button>
           <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, textDecoration: 'none' }}>
             {"Read full blog guides →"}
           </a>

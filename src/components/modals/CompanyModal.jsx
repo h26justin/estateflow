@@ -7,7 +7,7 @@ import * as api from '../../lib/api'
 import { pressable } from '../../lib/pressable'
 import { LegalOwnerChoice } from '../CompanyLegalOwner'
 import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
-import { Modal } from '../ui'
+import { Button, Modal } from '../ui'
 
 export default function CompanyModal({ onClose, onSave }) {
   const confirmDiscard = useConfirm()
@@ -115,10 +115,10 @@ export default function CompanyModal({ onClose, onSave }) {
           return <div key={hex} {...pressable(()=>s('color',hex), { role: 'radio', 'aria-checked': on, 'aria-label': `Colour ${name}` })} title={name} style={{width:32,height:32,borderRadius:8,background:hex,cursor:'pointer',boxShadow:on?`0 0 0 2px ${T.surface}, 0 0 0 4px ${T.text}`:'none',transition:'box-shadow 0.15s'}}/>
         })}</div></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-gold">
+          <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit">
             {similarCompanies.length > 0 ? 'Create anyway' : 'Add company'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

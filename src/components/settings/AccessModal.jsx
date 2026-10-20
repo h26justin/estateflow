@@ -256,10 +256,9 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                 <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
                 <label htmlFor="invite-admin" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
               </div>
-              <button className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}}
-                onClick={sendInvite} disabled={adding||!newEmail.trim()}>
+              <Button variant="primary" size="sm" onClick={sendInvite} disabled={adding||!newEmail.trim()}>
                 {adding ? 'Sending…' : 'Send invite'}
-              </button>
+              </Button>
             </div>
             {/* Company selector — only show if more than 1 company */}
             {companies.length > 1 && (
