@@ -145,13 +145,13 @@ describe('RefurbsPage', () => {
   it('hides write controls for a read-only collaborator', () => {
     renderPage({ permissionsMap: { c1: { view_financial: true }, c2: { view_financial: true } } })
     fireEvent.click(screen.getByText('List'))
-    expect(screen.queryByText('+ Payment')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Payment' })).not.toBeInTheDocument()
   })
 
   it('creates a refurb with the residential journey', async () => {
     const api = await import('../../lib/api')
     renderPage()
-    fireEvent.click(screen.getAllByText('+ New Refurb')[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'New refurb' })[0])
     const form = screen.getByText('Create refurb').closest('div').parentElement
     fireEvent.change(form.querySelector('select'), { target: { value: 'p2' } })
     fireEvent.click(screen.getByText('Create refurb'))
@@ -205,7 +205,7 @@ describe('RefurbPropertyTab', () => {
     </ThemeProvider>)
     expect(screen.getByText('No refurb on this property')).toBeInTheDocument()
     expect(screen.getByText(/£4,000 of historic refurb spend/)).toBeInTheDocument()
-    fireEvent.click(screen.getByText('+ New refurb'))
+    fireEvent.click(screen.getByRole('button', { name: 'New refurb' }))
     expect(screen.getByText('Create refurb')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
@@ -9,7 +9,7 @@ import { loadJsPDF } from '../lib/pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 
@@ -135,7 +135,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     <div style={{marginBottom:28}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em'}}>
-          Needs Attention
+          Needs attention
           {alerts.length>0&&<span style={{marginLeft:8,background:T.red,color:T.bg,borderRadius:20,fontSize:11,fontFamily:MONO,padding:'2px 8px',fontWeight:700}}>{alerts.length}</span>}
         </h2>
       </div>
@@ -146,13 +146,13 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
             <span style={{flexShrink:0,display:'flex',color:alert.color}}>{ICON_NAMES.includes(alert.icon)?<Icon name={alert.icon} size={17}/>:<span style={{fontSize:16}}>{alert.icon}</span>}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{alert.title}</div>
-              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{alert.detail}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{alert.detail}</div>
             </div>
             <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:badgeColor(alert.badge),background:badgeColor(alert.badge)+'22',padding:'2px 6px',borderRadius:20,flexShrink:0}}>{alert.badge}</span>
           </div>
         ))}
         {alerts.length===0&&(
-          <div style={{fontFamily:MONO,color:T.green,fontSize:12,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>
+          <div style={{fontFamily:SANS,color:T.green,fontSize:FS.base,textAlign:'center',padding:32,background:T.card,borderRadius:12}}>
             All properties healthy — no alerts
           </div>
         )}
@@ -443,7 +443,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
       doc.setTextColor(...gold)
       doc.setFontSize(10)
       doc.setFont('helvetica','bold')
-      doc.text('Expense Breakdown', 14, y)
+      doc.text('Expense breakdown', 14, y)
       y += 7
 
       const sortedExp = Object.entries(expByCategory).sort((a,b)=>b[1]-a[1])
@@ -517,8 +517,8 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     <div className="fade">
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & Analytics</h1>
-          <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>Portfolio performance and P&L analysis</p>
+          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & analytics</h1>
+          <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base}}>Portfolio performance and P&L analysis</p>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} style={{fontSize:11}}>
@@ -528,15 +528,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           <select value={selectedYear} onChange={e=>setSelectedYear(+e.target.value)} style={{fontSize:11}}>
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={exportCSV}>CSV</button>
-          <button className="btn btn-gold" style={{fontSize:11,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}`}} onClick={exportPDF}>PDF Report</button>
+          <Button variant="primary" size="sm" onClick={exportCSV}>CSV</Button>
+          <Button variant="secondary" size="sm" onClick={exportPDF}>PDF Report</Button>
           {onImport&&(()=>{
             // Show import button if ANY selected company has feature_statements enabled
             const hasFeature = selectedCompany==='all'
               ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
               : (companySettings[selectedCompany]||{}).feature_statements
             return hasFeature ? (
-              <button className="btn btn-gold" style={{fontSize:11,background:T.green+'15',color:T.green,border:`1px solid ${T.green}`}} onClick={onImport}>Import Statement</button>
+              <Button variant="secondary" size="sm" onClick={onImport}>Import statement</Button>
             ) : null
           })()}
         </div>
@@ -555,7 +555,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
             <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:20,fontWeight:700,color:item.c,marginBottom:2}}>{item.v}</div>
-            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>{item.sub}</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint}}>{item.sub}</div>
           </div>
         ))}
       </div>
@@ -596,7 +596,7 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
             : Object.entries(expByCategory).sort((a,b)=>b[1]-a[1]).map(([cat,amt])=>(
               <div key={cat} style={{marginBottom:10}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-                  <span style={{fontFamily:MONO,fontSize:11,color:T.text}}>{CATEGORY_LABELS[cat]||cat}</span>
+                  <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text}}>{CATEGORY_LABELS[cat]||cat}</span>
                   <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.red}}>{fmt(amt)}</span>
                 </div>
                 <div style={{height:4,background:T.bg,borderRadius:2}}>
@@ -720,10 +720,10 @@ export function ContractorsPage({companies, showToast}) {
     <div className="fade">
       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:24}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Contractor Directory</h1>
+          <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Contractor directory</h1>
           <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>{contractors.length} contacts across {Object.keys(byTrade).length} trades</p>
         </div>
-        <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Contractor</button>
+        <Button variant="primary" size="sm" onClick={()=>setShowForm(v=>!v)}>+ Add contractor</Button>
       </div>
 
       {showForm&&<div className="card" style={{padding:'18px 20px',marginBottom:20}}>
@@ -736,13 +736,13 @@ export function ContractorsPage({companies, showToast}) {
           <div><label>Email</label><input aria-label="Email" value={form.email} onChange={e=>s('email',e.target.value)} placeholder="contractor@email.com"/></div>
         </div>
         <div style={{marginBottom:12}}>
-          <label>Linked Companies</label>
+          <label>Linked companies</label>
           <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:6}}>
             {companies.map(co=>{
               const selected = form.company_ids.includes(co.id)
               return (
                 <button key={co.id} type="button" onClick={()=>toggleCompany(co.id)}
-                  style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${selected?co.color:T.border}`,
                     background:selected?co.color+'22':'transparent',
                     color:selected?co.color:T.muted,transition:'all 0.18s'}}>
@@ -758,8 +758,8 @@ export function ContractorsPage({companies, showToast}) {
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Contractor</button>
-          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>Save contractor</Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
 
@@ -778,13 +778,13 @@ export function ContractorsPage({companies, showToast}) {
                         <div style={{fontSize:13,fontWeight:700,marginBottom:1}}>
                           {c.preferred&&<span style={{display:'inline-flex',verticalAlign:'-2px',marginRight:4,color:T.goldText}} title="Preferred"><Icon name="star" size={13}/></span>}{c.name}
                         </div>
-                        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{c.trade}</div>
+                        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{c.trade}</div>
                       </div>
-                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:T.red+'15',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
+                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:SANS,fontSize:FS.sm,background:T.red+'15',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
                     </div>
                     {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}><Icon name="phone" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.phone}</a>}
                     {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}><Icon name="mail" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.email}</a>}
-                    {c.notes&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
+                    {c.notes&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:4,lineHeight:1.6}}>{c.notes}</div>}
                     {(()=>{
                       const ids = c.company_ids_json ? JSON.parse(c.company_ids_json) : (c.company_id ? [c.company_id] : [])
                       return ids.length>0&&(
@@ -968,28 +968,14 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
-    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:500, padding:'40px 16px', overflowY:'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:18, width:'100%', maxWidth:1100, padding:'28px 32px' }}>
-
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
-          <div>
-            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>Rent Review Planner</h2>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, lineHeight:1.6 }}>
-              Model the impact of rent increases across your portfolio. {plural(rows.length,'property','properties')} in scope.
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button onClick={exportPDF} disabled={exporting || rows.length === 0}
-              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.goldText, fontWeight:700 }}>
-              {exporting ? 'Generating…' : 'Export PDF'}
-            </button>
-            <button onClick={onClose}
-              style={{ fontFamily:mono, fontSize:11, padding:'8px 16px', borderRadius:8, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }}>
-              Close
-            </button>
-          </div>
-        </div>
+    <Modal onClose={onClose} size={1100} zIndex={500} title="Rent review planner"
+      description={<>Model the impact of rent increases across your portfolio. {plural(rows.length,'property','properties')} in scope.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button onClick={exportPDF} disabled={exporting || rows.length === 0} loading={exporting}>
+          {exporting ? 'Generating…' : 'Export PDF'}
+        </Button>
+      </>}>
 
         {/* Summary bar */}
         <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:20 }}>
@@ -1040,7 +1026,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             {presets.map(p => (
               <button key={p.value} onClick={() => setGlobalPct(p.value)}
-                style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
+                style={{ fontFamily:SANS, fontSize:FS.sm, padding:'6px 14px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${Math.abs(globalPct - p.value) < 0.05 ? T.gold : T.border}`,
                   background: Math.abs(globalPct - p.value) < 0.05 ? T.gold+'22' : 'transparent',
                   color: Math.abs(globalPct - p.value) < 0.05 ? T.goldText : T.muted,
@@ -1050,7 +1036,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             ))}
             {Object.keys(overrides).length > 0 && (
               <button onClick={() => setOverrides({})}
-                style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
+                style={{ fontFamily:SANS, fontSize:FS.sm, padding:'6px 14px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${T.red}44`, background:T.red+'11', color:T.red, marginLeft:'auto' }}>
                 Clear {Object.keys(overrides).length} override{Object.keys(overrides).length > 1 ? 's' : ''}
               </button>
@@ -1063,7 +1049,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginRight:4 }}>SCOPE:</span>
           {[{ k:'all', l:'All' }, { k:'rented', l:'Rented only' }, ...companies.map(c => ({ k:c.id, l:c.abbr || c.name }))].map(opt => (
             <button key={opt.k} onClick={() => setScope(opt.k)}
-              style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
+              style={{ fontFamily:SANS, fontSize:FS.sm, padding:'5px 12px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${scope === opt.k ? T.gold : T.border}`,
                 background: scope === opt.k ? T.gold+'22' : 'transparent',
                 color: scope === opt.k ? T.goldText : T.muted, fontWeight: scope === opt.k ? 700 : 400 }}>
@@ -1071,7 +1057,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             </button>
           ))}
           <button onClick={() => setShowOverrides(s => !s)}
-            style={{ fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer', marginLeft:'auto',
+            style={{ fontFamily:SANS, fontSize:FS.sm, padding:'5px 12px', borderRadius:20, cursor:'pointer', marginLeft:'auto',
               border:`1px solid ${showOverrides ? T.gold : T.border}`,
               background: showOverrides ? T.gold+'22' : 'transparent',
               color: showOverrides ? T.goldText : T.muted }}>
@@ -1081,7 +1067,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
         {/* Per-property table */}
         {rows.length === 0 ? (
-          <div style={{ fontFamily:mono, fontSize:12, color:T.muted, textAlign:'center', padding:40 }}>
+          <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.muted, textAlign:'center', padding:40 }}>
             No properties with rent in this scope.
           </div>
         ) : (
@@ -1099,7 +1085,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
             {rows.map(r => (
               <div key={r.p.id} style={{ display:'grid', gridTemplateColumns: showOverrides ? '1fr 70px 90px 90px 90px 110px 180px' : '1fr 70px 90px 90px 90px 140px',
                 gap:10, padding:'12px 18px', borderTop:`1px solid ${T.border}`, alignItems:'center' }}>
-                <div style={{ fontFamily:mono, fontSize:12, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                   {r.p.name}
                   {overrides[r.p.id] !== undefined && (
                     <span style={{ marginLeft:8, fontSize:FS.xs, color:T.goldText, fontWeight:700 }}>·OVERRIDE</span>
@@ -1116,7 +1102,7 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                   {r.delta >= 0 ? '+' : ''}{fmt(r.delta)}
                 </div>
                 <div style={{ textAlign:'right' }}>
-                  <span style={{ fontFamily:mono, fontSize:FS.xs, color:r.badge.color, background:r.badge.color + '22', padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
+                  <span style={{ fontFamily:SANS, fontSize:FS.sm, color:r.badge.color, background:r.badge.color + '22', padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
                     {r.badge.label}
                   </span>
                 </div>
@@ -1130,9 +1116,8 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                       {r.pct > 0 ? '+' : ''}{r.pct.toFixed(1)}%
                     </span>
                     {overrides[r.p.id] !== undefined && (
-                      <button onClick={() => clearOverride(r.p.id)}
-                        style={{ fontFamily:mono, fontSize:FS.xs, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
-                        title="Reset to global" aria-label="Reset to global">✕</button>
+                      <Button variant="ghost" size="sm" icon="x" onClick={() => clearOverride(r.p.id)}
+                        title="Reset to global" aria-label="Reset to global" />
                     )}
                   </div>
                 )}
@@ -1141,12 +1126,11 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           </div>
         )}
 
-        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.faint, marginTop:16, lineHeight:1.6 }}>
+        <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.faint, marginTop:16, lineHeight:1.6 }}>
           Yield calculated {yieldBasis === 'value' ? 'on current property value' : 'on purchase + refurb cost'}.
           Tenancy badges based on tenancy end dates: green, expired or vacant · amber, ends within 90 days · red, fixed term &gt; 90 days remaining.
           This tool is for scenario modelling — actual rent increases must follow legal notice requirements (Section 13 etc.).
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
+import { Button, Modal } from '../ui'
 
 export default function PaymentModal({ payment, onClose, onSave }) {
   const { T } = useTheme()
@@ -21,17 +21,10 @@ export default function PaymentModal({ payment, onClose, onSave }) {
   ]
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{maxWidth:380}} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
-        <div style={{padding:'24px 28px'}}>
-          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Update Payment</div>
-          <h2 id="payment-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{payment.month_label}</h2>
-          <div style={{fontFamily:MONO,fontSize:12,color:T.muted,marginBottom:24}}>
-            Current status: <span style={{color:payment.status==='paid'?T.green:(payment.status==='overdue'||payment.status==='missed')?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status==='missed'?'overdue':payment.status}</span>
-          </div>
-
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
+    <Modal onClose={onClose} size="sm" title={`Update payment: ${payment.month_label}`}
+      description={<>Current status: <span style={{color:payment.status==='paid'?T.green:(payment.status==='overdue'||payment.status==='missed')?T.red:payment.status==='late'?T.amber:T.faint,fontWeight:700}}>{payment.status==='missed'?'overdue':payment.status}</span></>}
+      footer={<Button variant="secondary" onClick={onClose}>Cancel</Button>}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
             {options.map(opt=>{
               const isPending = pending === opt.status
               return (
@@ -48,7 +41,7 @@ export default function PaymentModal({ payment, onClose, onSave }) {
                     }
                   }}
                   style={{
-                    fontFamily:MONO,fontWeight:600,fontSize:13,
+                    fontFamily:SANS,fontWeight:600,fontSize:FS.base,
                     background: isPending ? opt.color : (payment.status===opt.status ? opt.color + '1A' : T.surface),
                     color: isPending ? '#fff' : opt.color,
                     border: `2px solid ${isPending || payment.status===opt.status ? opt.color : T.border}`,
@@ -63,15 +56,10 @@ export default function PaymentModal({ payment, onClose, onSave }) {
             })}
           </div>
           {pending && (
-            <div role="status" aria-live="polite" style={{fontFamily:MONO,fontSize:11,color:T.amber,textAlign:'center',marginBottom:12}}>
+            <div role="status" aria-live="polite" style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,textAlign:'center',marginTop:12}}>
               Click again to confirm — or pick a different status.
             </div>
           )}
-
-          <button className="btn btn-ghost" style={{width:'100%',fontSize:12}} onClick={onClose}>Cancel</button>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

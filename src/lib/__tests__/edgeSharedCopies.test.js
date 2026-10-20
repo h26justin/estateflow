@@ -23,7 +23,7 @@ function copiesOf(file) {
 }
 
 describe('edge _shared copies', () => {
-  for (const file of ['secrets.ts', 'oauth-state.ts']) {
+  for (const file of ['secrets.ts', 'oauth-state.ts', 'billing.ts']) {
     it(`every ${file} copy matches _shared/${file}`, () => {
       const canonical = readFileSync(join(FN_DIR, '_shared', file), 'utf8')
       const copies = copiesOf(file)
@@ -38,7 +38,7 @@ describe('edge _shared copies', () => {
       const idx = join(FN_DIR, d.name, 'index.ts')
       if (!existsSync(idx)) continue
       const src = readFileSync(idx, 'utf8')
-      for (const file of ['secrets.ts', 'oauth-state.ts']) {
+      for (const file of ['secrets.ts', 'oauth-state.ts', 'billing.ts']) {
         if (src.includes(`from './${file}'`)) expect(existsSync(join(FN_DIR, d.name, file))).toBe(true)
       }
       if (existsSync(join(FN_DIR, d.name, 'oauth-state.ts'))) {

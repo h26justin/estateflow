@@ -7,7 +7,7 @@
 // someone confirms or corrects it. The logic is in lib/statementImport.js
 // (pure, tested); this file is the screen and the commit call.
 import { useState, useEffect, useMemo } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -17,6 +17,7 @@ import {
   reviewRows, planImport, planSummary, statusCounts, statementFingerprint, auditLines,
   REVIEW_STATUS, REVIEW_STATUS_LABEL,
 } from '../lib/statementImport'
+import { Button } from './ui'
 
 const gbp = n => n == null ? '–' : '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dmy = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : ''
@@ -141,14 +142,14 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
       <b>This statement has already been imported</b> ({previous.map(p => `${new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${p.filename ? `, ${p.filename}` : ''}`).join('; ')}). Lines already recorded show as Duplicate and will not be added again. Revert the earlier import from Data import → History if it was wrong.
     </div>}
     {(parsed.warnings || []).filter(w => !/audit statement number/i.test(w)).length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginBottom: 10 }}>{parsed.warnings.filter(w => !/audit statement number/i.test(w)).join(' ')}</div>}
-    {(parsed.errors || []).length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.red, marginBottom: 10 }}>{parsed.errors.length} {parsed.errors.length === 1 ? 'entry' : 'entries'} could not be read: {parsed.errors.map(e => `${e.property_address || 'no property'} (${e.reason})`).join('; ')}. Add them by hand in the Rent Tracker.</div>}
+    {(parsed.errors || []).length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginBottom: 10 }}>{parsed.errors.length} {parsed.errors.length === 1 ? 'entry' : 'entries'} could not be read: {parsed.errors.map(e => `${e.property_address || 'no property'} (${e.reason})`).join('; ')}. Add them by hand in the Rent Tracker.</div>}
 
     {/* Status filter */}
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
       {[['all', `All ${rows.length}`], ...['ready', 'needs_review', 'unmatched', 'duplicate', 'matched'].filter(s => counts[s]).map(s => [s, `${REVIEW_STATUS_LABEL[s]} ${counts[s]}`])].map(([k, l]) => (
-        <button key={k} onClick={() => setFilter(k)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${filter === k ? (k === 'all' ? T.gold : statusColor(k)) : T.border}`, background: filter === k ? (k === 'all' ? T.gold : statusColor(k)) + '22' : 'transparent', color: k === 'all' ? T.text : statusColor(k) }}>{l}</button>
+        <button key={k} onClick={() => setFilter(k)} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${filter === k ? (k === 'all' ? T.gold : statusColor(k)) : T.border}`, background: filter === k ? (k === 'all' ? T.gold : statusColor(k)) + '22' : 'transparent', color: k === 'all' ? T.text : statusColor(k) }}>{l}</button>
       ))}
-      {!ctxLoaded && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, alignSelf: 'center' }}>Checking what is already recorded…</span>}
+      {!ctxLoaded && <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, alignSelf: 'center' }}>Checking what is already recorded…</span>}
     </div>
 
     {/* Review table */}
@@ -192,17 +193,17 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
             <td style={{ ...td, minWidth: 170, fontSize: FS.sm }}>
               {r.property ? <>
                 <div>{r.property.name}</div>
-                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>
                   {r.matchedVia === 'alias' ? 'remembered label' : r.matchedVia === 'manual' ? 'chosen by you' : r.matchScore != null ? `name match ${r.matchScore}` : ''}
                   {r.targetLabel ? ` → ${r.targetLabel}` : ''}
                 </div>
               </> : <span style={{ color: T.faint }}>—</span>}
             </td>
             <td style={{ ...td, minWidth: 190 }}>
-              <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: statusColor(r.status) }}>{REVIEW_STATUS_LABEL[r.status]}</span>
+              <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: statusColor(r.status) }}>{REVIEW_STATUS_LABEL[r.status]}</span>
               {r.reasons.length > 0 && <ul style={{ margin: '3px 0 0', paddingLeft: 14, fontSize: FS.xs, color: T.muted, lineHeight: 1.4 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>}
-              {needsConfirm && !r.blocked && <button onClick={() => set(r.lineNo, { confirmed: true, include: true })} style={{ marginTop: 4, fontFamily: MONO, fontSize: FS.xs, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.amber}`, background: 'transparent', color: T.amber, cursor: 'pointer' }}>Checked: import it</button>}
-              {r.confirmed && <button onClick={() => set(r.lineNo, { confirmed: false, include: undefined })} style={{ marginTop: 4, marginLeft: 4, fontFamily: MONO, fontSize: FS.xs, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Undo</button>}
+              {needsConfirm && !r.blocked && <button onClick={() => set(r.lineNo, { confirmed: true, include: true })} style={{ marginTop: 4, fontFamily: SANS, fontSize: FS.sm, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.amber}`, background: 'transparent', color: T.amber, cursor: 'pointer' }}>Checked: import it</button>}
+              {r.confirmed && <button onClick={() => set(r.lineNo, { confirmed: false, include: undefined })} style={{ marginTop: 4, marginLeft: 4, fontFamily: SANS, fontSize: FS.sm, padding: '3px 8px', borderRadius: 6, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Undo</button>}
             </td>
           </tr>
         })}</tbody>
@@ -211,17 +212,17 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
 
     {/* Approve */}
     <div style={{ marginTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
         On approval: {summary.rentReceipts} rent {summary.rentReceipts === 1 ? 'receipt' : 'receipts'} ({gbp(summary.rentTotal)}) across {summary.periods} rent {summary.periods === 1 ? 'period' : 'periods'}{summary.newPeriods ? ` (${summary.newPeriods} new)` : ''}
         {summary.arrearsReceipts ? ` · ${summary.arrearsReceipts} arrears` : ''} · {summary.fees} agent {summary.fees === 1 ? 'fee' : 'fees'} ({gbp(summary.feeTotal)}){summary.otherExpenses ? ` · ${summary.otherExpenses} other` : ''}
         {summary.bridges ? ` · ${summary.bridges} hand-entered ${summary.bridges === 1 ? 'amount' : 'amounts'} kept as ${summary.bridges === 1 ? 'a receipt' : 'receipts'}` : ''}.
         <br />The Rent Tracker and the dashboard update from these. Recorded only: nothing is sent anywhere. The whole import can be reverted from Data import → History.
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-ghost" onClick={onBack} disabled={busy}>← Back</button>
-        <button className="btn btn-gold" onClick={approve} disabled={busy || !ctxLoaded || (!summary.rentReceipts && !summary.arrearsReceipts && !plan.expenses.length)}>
+        <Button variant="secondary" onClick={onBack} disabled={busy}>← Back</Button>
+        <Button variant="primary" onClick={approve} disabled={busy || !ctxLoaded || (!summary.rentReceipts && !summary.arrearsReceipts && !plan.expenses.length)}>
           {busy ? 'Importing…' : `Approve import (${rows.filter(r => r.include).length} ${rows.filter(r => r.include).length === 1 ? 'line' : 'lines'})`}
-        </button>
+        </Button>
       </div>
     </div>
   </div>

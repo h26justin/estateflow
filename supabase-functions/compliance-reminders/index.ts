@@ -1,5 +1,5 @@
-// Runs daily via pg_cron. Finds compliance items expiring within their reminder_days
-// window and emails the property owner.
+// Runs daily via pg_cron. Finds compliance items that have reached a new
+// reminder stage (see ./reminderStages.ts) and emails the property owner.
 //
 // Email provider: Gmail API via Google Workspace service account with
 // Domain-Wide Delegation. See ./gmail.ts for the helper. Justin: set
@@ -14,6 +14,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { sendGmail } from './gmail.ts'
 import { secretMatches } from './secrets.ts'
+import { shouldRemind } from './reminderStages.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -139,18 +140,14 @@ serve(async (req) => {
     const eligibleItems = (items || []).filter(item => {
       // Skip if property was deleted
       if (item.property?.deleted_at) return false
-      const days = daysUntil(item.expiry_date)
-      const reminderDays = item.reminder_days || 30
-      // Fire when item is within reminderDays window (including expired, but cap at -30 to stop nagging forever)
-      if (days > reminderDays) return false
-      if (days < -30) return false
-      // Don't send if we already sent a reminder in the last 24 hours
-      if (item.last_reminder_sent_at) {
-        const lastSent = new Date(item.last_reminder_sent_at)
-        const hoursSince = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60)
-        if (hoursSince < 24) return false
-      }
-      return true
+      // Staged: reminder_days, then 90/60/30/7/0 inside that window, then
+      // weekly for 30 days after expiry. See ./reminderStages.ts.
+      return shouldRemind({
+        days: daysUntil(item.expiry_date),
+        reminderDays: item.reminder_days || 30, // 0/null → default window, as before
+        lastSentAt: item.last_reminder_sent_at,
+        now,
+      })
     })
 
     // Group by user_id

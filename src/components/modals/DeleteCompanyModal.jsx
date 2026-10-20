@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
-import FocusTrap from '../../lib/FocusTrap'
 import { Icon } from '../../lib/icons'
 import { Skeleton } from '../../lib/Skeleton'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 function PreviewRow({ label, value, T, mono }) {
   const dim = !value
@@ -58,15 +56,13 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="delete-company-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="delete-company-modal-title" isDirty={isDirty} confirmFn={confirmDiscard}>
         <div style={{ padding: '24px 28px 0' }}>
           <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.red }}><Icon name="trash" size={32}/></div>
           <h2 id="delete-company-modal-title" style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 6, color: T.text }}>
             Delete {company.name}?
           </h2>
-          <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: 'center', marginBottom: 22, lineHeight: 1.5 }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, textAlign: 'center', marginBottom: 22, lineHeight: 1.5 }}>
             This will hide the company and everything inside it. You can restore it from the Trash within 30 days.
           </p>
         </div>
@@ -90,18 +86,18 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
 
           {/* Type-the-name confirmation */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 6, }}>
               Type <strong style={{ color: T.text }}>{expectedConfirm}</strong> to confirm
             </label>
             <input aria-label="Type to confirm" value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus
               placeholder={expectedConfirm}
-              style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${isConfirmed ? T.green : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', boxSizing: 'border-box' }}/>
+              style={{ width: '100%', fontFamily: SANS, fontSize: FS.base, background: T.bg, border: `1.5px solid ${isConfirmed ? T.green : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', boxSizing: 'border-box' }}/>
           </div>
 
-          {error && <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginBottom: 14 }}>{error}</div>}
+          {error && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginBottom: 14 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={onClose}>
+            <Button variant="secondary" style={{flex: 1}} onClick={onClose}>
               Cancel
             </Button>
             <Button variant="danger" style={{ flex: 2 }} onClick={handleDelete} disabled={!isConfirmed || busy}>
@@ -109,8 +105,6 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
             </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

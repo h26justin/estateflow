@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 
 // ── ACCOUNT TYPE PANEL ──────────────────────────────────────────────
 // Lets the user say whether they file taxes as a sole-trader (individual),
@@ -30,7 +30,7 @@ export function AccountTypePanel({ T, mono, user, accountType, setAccountType })
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
         Tax setup
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.5 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 14, lineHeight: 1.5 }}>
         How do you hold your properties? Drives which features appear in your nav.
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
@@ -48,13 +48,13 @@ export function AccountTypePanel({ T, mono, user, accountType, setAccountType })
               <div style={{ fontSize: 13, fontWeight: 600, color: active ? T.goldText : T.text, marginBottom: 3 }}>
                 {o.label} {active && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginLeft: 4 }}>selected</span>}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.45 }}>{o.desc}</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.45 }}>{o.desc}</div>
             </button>
           )
         })}
       </div>
       {!accountType && (
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
           Not picked yet — by default we show everything.
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, Fragment, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { SOON_DAYS } from '../lib/complianceStatus'
@@ -298,9 +298,9 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // partial failure never masquerades as "no data".
   const errorBanner = loadErrors.length > 0 && (
     <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap',background:T.red+'18',border:`1px solid ${T.red}44`,borderRadius:10,padding:'10px 16px',marginBottom:16}}>
-      <span style={{fontFamily:mono,fontSize:11,color:T.red,flex:1}}>Couldn't load: {loadErrors.join(', ')} — figures shown may be incomplete.</span>
+      <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,flex:1}}>Couldn't load: {loadErrors.join(', ')} — figures shown may be incomplete.</span>
       <button onClick={loadAll} disabled={loading}
-        style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'5px 14px',borderRadius:8,border:`1px solid ${T.red}`,background:'transparent',color:T.red,cursor:loading?'wait':'pointer'}}>
+        style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'5px 14px',borderRadius:8,border:`1px solid ${T.red}`,background:'transparent',color:T.red,cursor:loading?'wait':'pointer'}}>
         {loading ? 'Retrying…' : 'Retry'}
       </button>
     </div>
@@ -314,20 +314,20 @@ export default function ReportsPage({ properties, companies, companySettings, us
         {errorBanner}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:12,marginBottom:24}}>
           <div>
-            <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & Analytics</h1>
-            <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{REPORT_CATALOGUE.length} reports available · click any report to open full screen</p>
+            <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Reports & analytics</h1>
+            <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base}}>{REPORT_CATALOGUE.length} reports available · click any report to open full screen</p>
           </div>
           <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
             {companies.length > 1 && (
               <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
                 <option value="all">All companies</option>
                 {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             )}
             <select value={year} onChange={e=>setYear(Number(e.target.value))}
               aria-label="Tax year for the Year-End Pack" title="Tax year applied to the Year-End Pack"
-              style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+              style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {[2022,2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
             <YearEndPackButton
@@ -340,9 +340,9 @@ export default function ReportsPage({ properties, companies, companySettings, us
 
         {/* Category filter pills */}
         <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:24}}>
-          <button onClick={()=>setCatFilter('all')} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.goldText:T.muted}}>All reports</button>
+          <button onClick={()=>setCatFilter('all')} style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter==='all'?T.gold:T.border}`,background:catFilter==='all'?T.gold+'22':'transparent',color:catFilter==='all'?T.goldText:T.muted}}>All reports</button>
           {Object.entries(CAT_LABELS).map(([k,l])=>(
-            <button key={k} onClick={()=>setCatFilter(k)} style={{fontFamily:mono,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter===k?CAT_COLORS[k]:T.border}`,background:catFilter===k?CAT_COLORS[k]+'22':'transparent',color:catFilter===k?CAT_COLORS[k]:T.muted}}>{l}</button>
+            <button key={k} onClick={()=>setCatFilter(k)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 14px',borderRadius:20,cursor:'pointer',border:`1px solid ${catFilter===k?CAT_COLORS[k]:T.border}`,background:catFilter===k?CAT_COLORS[k]+'22':'transparent',color:catFilter===k?CAT_COLORS[k]:T.muted}}>{l}</button>
           ))}
         </div>
 
@@ -364,8 +364,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
                     <span style={{fontFamily:mono,fontSize:FS.xs,color:CAT_COLORS[cat],background:CAT_COLORS[cat]+'18',padding:'2px 8px',borderRadius:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>{CAT_LABELS[cat].split(' ')[0]}</span>
                   </div>
                   <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:5}}>{report.name}</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>{report.desc}</div>
-                  <div style={{fontFamily:mono,fontSize:11,color:CAT_COLORS[cat],marginTop:12}}>View report →</div>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.6}}>{report.desc}</div>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:CAT_COLORS[cat],marginTop:12}}>View report →</div>
                 </div>
               ))}
             </div>
@@ -383,14 +383,14 @@ export default function ReportsPage({ properties, companies, companySettings, us
     <div className="fade">
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
-        <button onClick={backToCatalogue} style={{fontFamily:mono,fontSize:11,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All Reports</button>
+        <button onClick={backToCatalogue} style={{fontFamily:SANS,fontSize:FS.sm,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All reports</button>
         <div style={{flex:1}}>
           <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',margin:0,display:'flex',alignItems:'center',gap:10}}>{activeReport&&<Icon name={activeReport.icon} size={22} color={accent}/>} {activeReport?.name}</h1>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {companies.length > 1 && (
             <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} aria-label="Company"
-              style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+              style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               <option value="all">All companies</option>
               {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -398,7 +398,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
           {/* Year type toggle */}
           <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
             {[['tax','Tax year'],['calendar','Calendar'],['custom','Custom']].map(([k,l])=>(
-              <button key={k} onClick={()=>saveYearType(k)} aria-pressed={yearType===k} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
+              <button key={k} onClick={()=>saveYearType(k)} aria-pressed={yearType===k} style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
             ))}
           </div>
           {yearType==='custom' ? (
@@ -421,7 +421,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             </div>
           ) : (
             <select value={year} onChange={e=>setYear(Number(e.target.value))} aria-label="Report year"
-              style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+              style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
           )}
@@ -434,7 +434,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
       <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>
         {range.label} · {filtProps.length} {filtProps.length===1?'property':'properties'}{selectedCompany!=='all'?` · ${co?.name}`:''}
         {selectedCompany!=='all' && (
-          <button onClick={()=>saveYearType(yearType)} style={{fontFamily:mono,fontSize:FS.xs,color:accent,background:'none',border:`1px solid ${accent}44`,borderRadius:4,padding:'1px 8px',marginLeft:10,cursor:'pointer'}}>Save year type for {co?.name}</button>
+          <button onClick={()=>saveYearType(yearType)} style={{fontFamily:SANS,fontSize:FS.sm,color:accent,background:'none',border:`1px solid ${accent}44`,borderRadius:4,padding:'1px 8px',marginLeft:10,cursor:'pointer'}}>Save year type for {co?.name}</button>
         )}
       </div>
 
@@ -476,7 +476,7 @@ function ReportBody({ id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     maintenance_report: <ReportMaintenance {...props}/>,
     contractor_spend: <ReportContractorSpend {...props}/>,
   }
-  return map[id] || <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center'}}>Report not found</div>
+  return map[id] || <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:40,textAlign:'center'}}>Report not found</div>
 }
 
 // ── SHARED COMPONENTS ─────────────────────────────────────────────────────────
@@ -487,7 +487,7 @@ function StatCards({ items, T }) {
         <div key={i} style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{item.label}</div>
           <div style={{fontSize:22,fontWeight:700,color:item.color||T.goldText,letterSpacing:'-0.02em'}}>{item.value}</div>
-          {item.sub && <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:3}}>{item.sub}</div>}
+          {item.sub && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:3}}>{item.sub}</div>}
         </div>
       ))}
     </div>
@@ -508,7 +508,7 @@ function ReportTable({ headers, rows, T, accent, totals }) {
           {rows.map((row,ri)=>(
             <div key={ri} style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
               {row.map((cell,ci)=>(
-                <div key={ci} style={{fontFamily:mono,fontSize:12,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
+                <div key={ci} style={{fontFamily:SANS,fontSize:FS.sm,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
                   {typeof cell==='object'?cell.v:cell}
                 </div>
               ))}
@@ -517,7 +517,7 @@ function ReportTable({ headers, rows, T, accent, totals }) {
           {totals && (
             <div style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'12px 20px',background:T.bg}}>
               {totals.map((cell,ci)=>(
-                <div key={ci} style={{fontFamily:mono,fontSize:12,fontWeight:700,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left'}}>
+                <div key={ci} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left'}}>
                   {typeof cell==='object'?cell.v:cell}
                 </div>
               ))}
@@ -609,10 +609,10 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
   return (
     <div style={{display:'flex',gap:8}}>
       <button onClick={exportPDF} disabled={exporting}
-        style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,cursor:exporting?'wait':'pointer',fontWeight:700}}>
+        style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText,cursor:exporting?'wait':'pointer',fontWeight:700}}>
         {exporting?'Generating...':'↓ PDF'}
       </button>
-      <button onClick={exportCSV} style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ CSV</button>
+      <button onClick={exportCSV} style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>↓ CSV</button>
     </div>
   )
 }
@@ -648,7 +648,7 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
   return (
     <Button size="sm" onClick={run} disabled={busy}
       title="Bundle the 5 HMRC tax reports into one PDF">
-      {busy ? 'Generating pack…' : 'Year-End Tax Pack'}
+      {busy ? 'Generating pack…' : 'Year-end tax pack'}
     </Button>
   )
 }
@@ -999,7 +999,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const byCat = filtExp.reduce((a,e)=>{a[e.category||'Other']=(a[e.category||'Other']||0)+(e.amount||0);return a},{})
       const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1])
       const total = cats.reduce((s,[,v])=>s+v,0)
-      return { title:'Expense Breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?cats[0][0]:'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[cat,fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
+      return { title:'Expense breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?cats[0][0]:'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[cat,fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
     }
     case 'mortgage_interest': {
       // For interest-only mortgages: annual_interest = balance × rate.
@@ -1059,7 +1059,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
     case 'yield_compare': {
       const rows = filtProps.map(p=>{const gy=propValue(p)&&p.rent_pcm?((p.rent_pcm*12)/propValue(p))*100:0;return{name:p.name,rent:p.rent_pcm||0,val:propValue(p),gy}}).sort((a,b)=>b.gy-a.gy)
       const avg = rows.length?rows.reduce((s,r)=>s+r.gy,0)/rows.length:0
-      return { title:'Yield Comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
+      return { title:'Yield comparison', kpis:[['Average gross yield',fmtPct(avg)],['Best performer',rows[0]?.name||'—'],['Highest yield',rows[0]?fmtPct(rows[0].gy):'—']], headers:['#','Property','Monthly Rent','Est. Value','Gross Yield'], rows:rows.map((r,i)=>[(i+1).toString(),r.name,fmt(r.rent),fmt(r.val),r.gy>0?fmtPct(r.gy):'—']) }
     }
     case 'occupancy': {
       const o=occupancySummary(filtProps)
@@ -1411,7 +1411,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
   const passiveHoldcos = companies.length - assocCount
 
   const disclaimer = (
-    <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,lineHeight:1.7,marginTop:18,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
+    <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7,marginTop:18,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
       Estimates for planning, not tax advice. Corporation tax uses the 19% small-profits / 25% main rate with marginal
       relief, thresholds split across {assocCount} associated {assocCount===1?'company':'companies'}
       {passiveHoldcos > 0 && <> ({passiveHoldcos} passive holding {passiveHoldcos===1?'company':'companies'} excluded per HMRC's rule)</>}.
@@ -1434,7 +1434,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
         ]}/>
         <SectionTitle title="Group holdings" T={T}/>
         {h.rows.length === 0 ? (
-          <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
             No holdings linked yet. On each company this one owns, add "{selectedCo.name}" as a Company
             shareholder and link it to this record (Portfolio → Companies → Shareholders) — its stake and
             dividend income will appear here.
@@ -1453,14 +1453,14 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
         )}
         <SectionTitle title="Shareholder split" T={T}/>
         {h.split.length === 0 ? (
-          <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
             No shareholders recorded for this holding company yet — add them under Portfolio → Companies →
             Shareholders to see who the group income flows to.
           </div>
         ) : (
           <>
             {!totalOk && (
-              <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginBottom:10}}>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginBottom:10}}>
                 Shareholdings sum to {h.ownershipTotal.toFixed(2)}% — the split below covers only the allocated share.
               </div>
             )}
@@ -1479,7 +1479,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
             />
           </>
         )}
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,lineHeight:1.7,marginTop:18,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7,marginTop:18,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
           {HOLDING_PNL_NOTE}
         </div>
       </>
@@ -1511,7 +1511,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
           {label:'Companies you hold shares in', value:`${holdings} of ${opCos.length}`, color:accent},
         ]}/>
         {holdings === 0 && (
-          <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:16,lineHeight:1.7}}>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:16,lineHeight:1.7}}>
             None of your companies has a shareholder entry linked to you yet. Add yourself (with your login email)
             under Portfolio → Companies → Shareholders and your personal income will appear here. Holdings via a
             holding company count too — add the holding company as a corporate shareholder, link it to its own
@@ -1546,7 +1546,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
                   {v:fmt(g.totalMonthly), color:accent, bold:true},
                 ])}
               />
-              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8,lineHeight:1.7}}>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8,lineHeight:1.7}}>
                 Rows link the same person across companies by linked login, then email, then exact name — use the
                 same email on each company's shareholder entry to keep holdings connected. "Combined %" sums
                 percentage points across companies (e.g. 75% + 50% = 125 pts), so it can exceed 100.
@@ -1554,7 +1554,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
             </>
           )
         })()}
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:12}}>
           Select a single company above for its full P&L and every shareholder's split.
         </div>
         {disclaimer}
@@ -1594,19 +1594,19 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
       ]}/>
 
       {pnl.income.usedFallback && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginBottom:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginBottom:12}}>
           No rent payments recorded for this period — income shown is expected rent from tenancy settings.
         </div>
       )}
       {pnl.actualAgentFeeExpenses > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12}}>
           {fmt(pnl.actualAgentFeeExpenses)} of logged "Agent / Management Fees" expenses are counted as-invoiced
           across {pnl.actualFeePropertyCount} propert{pnl.actualFeePropertyCount === 1 ? 'y' : 'ies'} — the
           calculated fee percentage is skipped for those, so fees aren't counted twice.
         </div>
       )}
       {pnl.excludedAgentFeeExpenses > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12}}>
           {fmt(pnl.excludedAgentFeeExpenses)} of logged "Agent / Management Fees" expenses could not be matched to
           a property in this portfolio, so they're excluded to avoid double-counting the calculated fee lines.
         </div>
@@ -1620,14 +1620,14 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
 
       <SectionTitle title="Shareholder split" T={T}/>
       {pnl.shareholders.length === 0 ? (
-        <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
+        <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'18px 20px',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
           No shareholders recorded for this company. Add them under Portfolio → Companies → Shareholders to see
           each owner's share of the profit here.
         </div>
       ) : (
         <>
           {!totalOk && (
-            <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginBottom:10}}>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginBottom:10}}>
               Shareholdings sum to {pnl.ownershipTotal.toFixed(2)}% — the split below covers only the allocated share.
             </div>
           )}
@@ -1645,7 +1645,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
             ])}
           />
           {pnl.shareholders.some(s => s.dividendTax == null) && (
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8}}>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
               "—" = no dividend tax band set for that shareholder (Portfolio → Companies → Shareholders).
               {pnl.shareholders.some(s => s.type === 'company') &&
                 ' "n/a" = corporate shareholder — dividends between UK companies are normally CT-exempt, so no dividend tax is estimated; tax arises when the holding company pays its own shareholders.'}
@@ -1685,7 +1685,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
     <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
       {options.map(([v,l])=>(
         <button key={l} onClick={()=>setValue(v)}
-          style={{fontFamily:mono,fontSize:11,padding:'7px 14px',border:'none',cursor:'pointer',background:value===v?accent+'22':'transparent',color:value===v?accent:T.muted,fontWeight:value===v?700:400}}>
+          style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',border:'none',cursor:'pointer',background:value===v?accent+'22':'transparent',color:value===v?accent:T.muted,fontWeight:value===v?700:400}}>
           {l}
         </button>
       ))}
@@ -1715,7 +1715,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
           return (
             <button key={k} disabled={!!o.disabled} title={o.title}
               onClick={()=>setPnlInc({ ...pnlInc, [k]: !on })}
-              style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:o.disabled?'not-allowed':'pointer',opacity:o.disabled?0.4:1,
+              style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:o.disabled?'not-allowed':'pointer',opacity:o.disabled?0.4:1,
                 border:`1px solid ${on?accent:T.border}`,background:on?accent+'18':'transparent',color:on?accent:T.muted,
                 textDecoration:!on&&!o.disabled?'line-through':'none'}}>
               {on ? '✓ ' : ''}{l}
@@ -1730,7 +1730,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
     return (
       <>
         {controls}
-        <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,padding:32,textAlign:'center',background:T.card,border:`1px solid ${T.border}`,borderRadius:12,lineHeight:1.7}}>
           {mine
             ? <>No shareholder entry is linked to your login, so there's nothing to show for "My share".<br/>
                Add yourself (with your login email) under Portfolio → Companies → Shareholders — directly, or as a
@@ -1760,12 +1760,12 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
   const notes = (
     <>
       {excludedBits.length > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginTop:12}}>
           Excluded from this view: {excludedBits.join(', ')} — untick/tick the Include chips to change.
         </div>
       )}
       {mine && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:12}}>
           Showing your effective shareholding of each company (direct, plus stakes via linked holding companies)
           {hiddenCount > 0 && <> — {hiddenCount} {hiddenCount === 1 ? 'company where you hold no shares is' : 'companies where you hold no shares are'} hidden</>}.
           {pnlInc.divTax
@@ -1781,13 +1781,13 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
         </div>
       )}
       {data.fullOccupancy && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginTop:12}}>
           Full occupancy: income assumes every property earns at least its expected rent in every month — voids,
           vacant periods, and under-collected months are filled to contract level.
         </div>
       )}
       {(pnlForecast || pnlInc.fullOcc) && tooWide && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginTop:12}}>
           Forecast / full-occupancy unavailable — the custom range spans more than {MAX_GRID_MONTHS} months (or both dates aren't set). Showing actuals.
         </div>
       )}
@@ -1797,24 +1797,24 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
         </div>
       )}
       {fallbackCos.length > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.amber,marginTop:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginTop:12}}>
           No rent payments recorded this period for {fallbackCos.join(', ')} — expected rent from tenancy settings shown instead.
         </div>
       )}
       {actualFees > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:8}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
           {fmt(actualFees)} of logged "Agent / Management Fees" expenses are counted as-invoiced across{' '}
           {actualFeeProps} propert{actualFeeProps === 1 ? 'y' : 'ies'} — the calculated fee percentage is skipped
           for those, so fees aren't counted twice.
         </div>
       )}
       {excludedFees > 0 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginTop:8}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
           {fmt(excludedFees)} of logged "Agent / Management Fees" expenses could not be matched to a property in
           this portfolio, so they're excluded to avoid double-counting the calculated fee lines.
         </div>
       )}
-      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,lineHeight:1.7,marginTop:14,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7,marginTop:14,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
         {FULL_PNL_NOTE}
       </div>
     </>
@@ -1884,7 +1884,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
             </div>
           </div>
         </div>
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
           Monthly cells are pre-tax net (rent collected − expenses − management fee) for that calendar month.
           {fc && <> Columns marked <span style={{color:T.amber}}>*</span> are forecast (expected rent).</>}
         </div>
@@ -1958,7 +1958,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
 // than the grid can sensibly display (or both custom dates aren't set yet).
 function GridTooWide({ T }) {
   return (
-    <div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:40,textAlign:'center',border:`1px dashed ${T.border}`,borderRadius:14,lineHeight:1.7}}>
+    <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:40,textAlign:'center',border:`1px dashed ${T.border}`,borderRadius:14,lineHeight:1.7}}>
       This month-by-month view supports up to {MAX_GRID_MONTHS} months.<br/>
       Set both custom dates and keep the range within {MAX_GRID_MONTHS/12} years to see it, or switch to a tax/calendar year.
     </div>
@@ -1996,7 +1996,7 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
           </div>
           {propRent.map(({p,monthData,total}) => (
             <div key={p.id} style={{display:'grid',gridTemplateColumns:cols,padding:'10px 16px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
-              <div style={{fontFamily:mono,fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
               {monthData.map((v,i)=><div key={i} style={{fontFamily:mono,fontSize:11,color:T.green,textAlign:'center'}}>{v>0?fmt(v):'-'}</div>)}
               <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.green,textAlign:'right'}}>{fmt(total)}</div>
             </div>
@@ -2055,7 +2055,7 @@ function ReportMortgageInterest({ filtProps, T, accent, fmt, fmtPct }) {
   const totalCredit = rows.reduce((s,r)=>s+r.taxCredit,0)
   return (
     <>
-      <div style={{background:T.amber+'18',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.7}}>
+      <div style={{background:T.amber+'18',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:SANS,fontSize:FS.base,color:T.text,lineHeight:1.7}}>
         <strong style={{color:T.amber}}>Section 24 note:</strong> Since April 2020, mortgage interest can no longer be deducted as an expense. You receive a 20% tax credit on the finance cost instead. Repayment figures are year-one approximations — re-run annually for accuracy.
       </div>
       <StatCards T={T} items={[
@@ -2090,7 +2090,7 @@ function ReportCapitalGains({ filtProps, T, accent, fmt }) {
   const totalGain = totalValue - totalCost
   return (
     <>
-      <div style={{background:T.blue+'18',border:`1px solid ${T.blue}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:12,color:T.text}}>
+      <div style={{background:T.blue+'18',border:`1px solid ${T.blue}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:SANS,fontSize:FS.base,color:T.text}}>
         These are unrealised gains based on estimated values. Actual CGT is calculated at the point of sale. Consult your accountant for CGT planning.
       </div>
       <StatCards T={T} items={[
@@ -2168,7 +2168,7 @@ function ReportPropertyOwnership({ filtProps, companies, shareholders, selectedC
 
   return (
     <>
-      <div style={{background:T.blue+'18',border:`1px solid ${T.blue}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>
+      <div style={{background:T.blue+'18',border:`1px solid ${T.blue}44`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.6}}>
         {OWNERSHIP_NOTE}
       </div>
 
@@ -2445,7 +2445,7 @@ function ReportRentOutstanding({ filtProps, T, accent, fmt }) {
   return (
     <>
       <StatCards T={T} items={RENT_OUT_KPIS.map(([k, l]) => ({ label: l, value: fmt(d.totals[k]), color: k === 'overdue' && d.totals[k] > 0 ? T.red : k === 'pendingReview' && d.totals[k] > 0 ? T.blue : T.text }))}/>
-      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
         Outstanding is overdue rent plus rent still inside its payment window. Pending review is set aside for a decision and is not a write-off; the combined figure keeps it in view. Not yet due, duplicate placeholders and paid periods with a missing or unverified amount are listed so nothing drops out. The export carries every period since 1 January 2026.
       </div>
       <ReportTable T={T} accent={accent}
@@ -2475,7 +2475,7 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
   if (d.legacy) {
     return (
       <>
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:10}}>Legacy data: periods before 1 January 2026 use the older month-count method (late and part payments count as collected; contract rent × 12 as the expectation).</div>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:10}}>Legacy data: periods before 1 January 2026 use the older month-count method (late and part payments count as collected; contract rent × 12 as the expectation).</div>
         <StatCards T={T} items={[
           {label:'Collection rate (legacy)',value:d.rate==null?'—':`${d.rate.toFixed(1)}%`,color:d.rate==null?T.muted:d.rate>=95?T.green:d.rate>=85?T.amber:T.red},
           {label:'Expected income',value:fmt(d.expected),color:T.text},
@@ -2497,7 +2497,7 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
         {label:'Current rent received',value:fmt(d.received),color:T.green},
         {label:'Current rent outstanding',value:fmt(d.outstanding),color:d.outstanding>0?T.red:T.green},
       ]}/>
-      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
         Current rent received ÷ collectible rent due to {d.asOf}. Only tenancy-covered periods whose due date has been reached count; vacant, refurbishment and non-chargeable periods are excluded ({d.notCollectible} this period).
         {d.stlExcluded>0 && ` ${d.stlExcluded} short-term-let ${d.stlExcluded===1?'property is':'properties are'} reported under Short-Term Let Income.`}
         {d.needsBackfill>0 && ` ${d.needsBackfill} paid ${d.needsBackfill===1?'month has':'months have'} no amount and are excluded until backfilled.`}
@@ -2517,7 +2517,7 @@ function ReportRentCollection({ filtProps, filtRent, range, T, accent, fmt }) {
         ])}
         totals={['Total',fmt(d.due),fmt(d.received),fmt(d.outstanding),String(d.missed),String(d.notCollectible),fmt(d.arrears)]}
       />
-      {d.rows.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No collectible rent in this period. Record tenancies and receipts in the property Rent and Tenancy tabs to populate this report.</div>}
+      {d.rows.length===0&&<div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'20px 0'}}>No collectible rent in this period. Record tenancies and receipts in the property Rent and Tenancy tabs to populate this report.</div>}
     </>
   )
 }
@@ -2559,7 +2559,7 @@ function AgentMonthTiles({ months, T }) {
         return (
           <span key={m.month} title={m.future ? 'future' : (RENT_LABEL[m.state] || 'no rent row')}
             style={{width:38,height:24,borderRadius:6,display:'inline-flex',alignItems:'center',justifyContent:'center',position:'relative',
-              fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:c ? c[0] : T.faint,
+              fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:c ? c[0] : T.faint,
               background:m.future ? `repeating-linear-gradient(135deg, ${T.border} 0 4px, transparent 4px 8px)` : m.state==='not_collectible' ? `repeating-linear-gradient(135deg, ${T.muted}22 0 4px, ${c[1]} 4px 8px)` : c ? c[1] : 'transparent',
               border:m.current ? `2px solid ${T.gold}` : m.future ? `1px dashed ${T.border}` : `1px solid ${c ? c[0] + '55' : T.border}`}}>
             {m.label}
@@ -2582,10 +2582,10 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
         <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>Letting agent</span>
         <select value={model.agent.id} onChange={e=>setReportAgentId(e.target.value)}
-          style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}>
+          style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'6px 10px'}}>
           {list.map(a=><option key={a.id} value={a.id}>{a.name} ({a.count})</option>)}
         </select>
-        <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>Rent tracker for {model.year}, position at {model.asOf}. The PDF is the one the agent gets by email.</span>
+        <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Rent tracker for {model.year}, position at {model.asOf}. The PDF is the one the agent gets by email.</span>
       </div>
       <StatCards T={T} items={[
         {label:`Due ${model.year} so far`,value:fmt(s.yearDue),sub:`${fmt(s.yearCollected)} collected`,color:T.text},
@@ -2651,13 +2651,13 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
                     </div>
                     <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:5}}>
                       <span style={{fontFamily:mono,fontSize:11,fontWeight:600,color:c.let?T.green:T.amber}}>● {c.letLabel}</span>
-                      <span style={{display:'flex',gap:8,fontFamily:mono,fontSize:FS.xs}}>
+                      <span style={{display:'flex',gap:8,fontFamily:SANS,fontSize:FS.sm}}>
                         {[['paid','paid'],['due','due'],['missed','missed'],['nc','n/c']].map(([k,l])=><span key={k} style={{color:c.counts[k]>0?countColor[k]:T.faint}}>{c.counts[k]} {l}</span>)}
                       </span>
                       <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>{fmt(c.received)}</span>
                       {c.shortfallYear>0 && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.red}}>{fmt(c.shortfallYear)} short in {model.year}</span>}
                       {c.shortfallTenancy>0 && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.red}}>{fmt(c.shortfallTenancy)} this tenancy</span>}
-                      {c.let && !c.stl && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{c.tenancyStart ? `Tenancy since ${c.tenancyStart}` : 'Tenancy start not recorded'}</span>}
+                      {c.let && !c.stl && <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{c.tenancyStart ? `Tenancy since ${c.tenancyStart}` : 'Tenancy start not recorded'}</span>}
                     </div>
                   </div>
                 ))}
@@ -2678,14 +2678,14 @@ function ReportRentBackfill({ filtProps, T, accent }) {
         {label:'Months needing an amount',value:rows.length,color:rows.length>0?T.amber:T.green},
         {label:'Properties affected',value:new Set(rows.map(r=>r.property)).size,color:T.text},
       ]}/>
-      <div style={{fontFamily:mono,fontSize:11,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
         These months are marked paid but carry no amount, so they stay Green on the tracker and are left out of the value-based collection rate until the amount is entered. Record the money as a receipt on the property Rent tab (or set the amount in the Day Tracker) to clear each one.
       </div>
       <ReportTable T={T} accent={accent}
         headers={[{label:'Company'},{label:'Property'},{label:'Month'},{label:'Period'},{label:'Expected',right:true,width:'100px'}]}
         rows={rows.map(r=>[r.company,r.property,r.month,r.period,{v:r.expected!=null?`£${Number(r.expected).toLocaleString('en-GB',{minimumFractionDigits:2})}`:'—',right:true}])}
       />
-      {rows.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.green,padding:'20px 0'}}>Nothing to backfill: every paid month since 1 January 2026 has an amount.</div>}
+      {rows.length===0&&<div style={{fontFamily:SANS,fontSize:FS.base,color:T.green,padding:'20px 0'}}>Nothing to backfill: every paid month since 1 January 2026 has an amount.</div>}
     </>
   )
 }
@@ -2824,7 +2824,7 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
         {label:'Clear properties',value:filtProps.length-rows.length,color:T.green},
       ]}/>
       {rows.length===0
-        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:mono,fontSize:13,color:T.green}}>No arrears — all clear!</div>
+        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:SANS,fontSize:FS.base,color:T.green}}>No arrears — all clear!</div>
         : <ReportTable T={T} accent={accent}
             headers={[{label:'Property'},{label:'Arrears amount',right:true,width:'160px'},{label:'Monthly rent',right:true,width:'140px'},{label:'Status',width:'120px'}]}
             rows={rows.map(r=>[
@@ -2941,7 +2941,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
             </div>
             {cert.certificate_url && (
               <a href={cert.certificate_url} target="_blank" rel="noopener noreferrer"
-                style={{fontFamily:mono,fontSize:FS.xs,color:accent,border:`1px solid ${accent}44`,borderRadius:6,padding:'4px 10px',textDecoration:'none',whiteSpace:'nowrap'}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,color:accent,border:`1px solid ${accent}44`,borderRadius:6,padding:'4px 10px',textDecoration:'none',whiteSpace:'nowrap'}}>
                 Certificate ↗
               </a>
             )}
@@ -2958,20 +2958,20 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
                 </div>
               ))}
               {plan.status === 'not_reachable' && (
-                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.amber,paddingTop:8}}>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,paddingTop:8}}>
                   ⚠ The certificate's listed measures only reach SAP {plan.sapAfter ?? '?'} — getting to band C (SAP 69) needs a further retrofit assessment.
                 </div>
               )}
             </div>
           ) : (
-            <div style={{padding:'12px 18px',fontFamily:mono,fontSize:11,color:T.amber}}>
+            <div style={{padding:'12px 18px',fontFamily:SANS,fontSize:FS.sm,color:T.amber}}>
               No improvement measures listed on this certificate — a retrofit assessment is needed to price the route to C.
             </div>
           )}
         </div>
       ))}
       {d.belowC.length === 0 && (
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'18px 20px',fontFamily:mono,fontSize:12,color:T.green,marginBottom:18}}>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'18px 20px',fontFamily:SANS,fontSize:FS.base,color:T.green,marginBottom:18}}>
           ✓ Every property with an EPC is already band C or better.
         </div>
       )}
@@ -3001,7 +3001,7 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
         </>
       )}
 
-      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,lineHeight:1.7,marginTop:18}}>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7,marginTop:18}}>
         {EPC_UPGRADE_NOTE} Use the PDF export to hand this straight to your builder.
       </div>
     </>
@@ -3111,7 +3111,7 @@ function ReportContractorSpend({ filtMaint, T, accent, fmt }) {
           {v:fmt(Math.round(r.total/r.jobs)),right:true},
         ])}
       />
-      {rows.length===0&&<div style={{fontFamily:mono,fontSize:12,color:T.muted,padding:'20px 0'}}>No contractor costs recorded. Add costs and contractor names in the Maintenance tab.</div>}
+      {rows.length===0&&<div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,padding:'20px 0'}}>No contractor costs recorded. Add costs and contractor names in the Maintenance tab.</div>}
     </>
   )
 }

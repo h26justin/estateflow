@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
 import { SkeletonList } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 
 // Tenant referencing modal.
 //
@@ -108,18 +107,16 @@ export default function TenantReferenceModal({ property, onClose }) {
     background: T.bg, border: `1px solid ${T.border}`, color: T.text,
     borderRadius: 8, padding: '10px 12px', outline: 'none', width: '100%', boxSizing: 'border-box',
   }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 620 }} role="dialog" aria-modal="true" aria-labelledby="tenant-reference-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="tenant-reference-modal-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <h2 id="tenant-reference-modal-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
-              Tenant Referencing
+              Tenant referencing
             </h2>
-            <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+            <p style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>
               {property?.name || property?.address || 'Property'}
             </p>
           </div>
@@ -136,7 +133,7 @@ export default function TenantReferenceModal({ property, onClose }) {
           <div style={{
             background: T.amber + '11', border: `1px solid ${T.amber}44`,
             borderRadius: 10, padding: '12px 14px', marginBottom: 16,
-            fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
+            fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.65,
           }}>
             <strong>Coming soon.</strong> We're finalising a partnership with a
             UK referencing provider (credit check, employer verification,
@@ -146,10 +143,9 @@ export default function TenantReferenceModal({ property, onClose }) {
           </div>
 
           {!showForm && (
-            <button onClick={() => setShowForm(true)}
-              className="btn btn-gold" style={{ width: '100%', fontSize: 12, padding: '10px 18px', marginBottom: 16 }}>
+            <Button variant="primary" size="sm" onClick={() => setShowForm(true)} style={{width: '100%', marginBottom: 16}}>
               + Request a reference
-            </button>
+            </Button>
           )}
 
           {showForm && (
@@ -194,12 +190,11 @@ export default function TenantReferenceModal({ property, onClose }) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                <button onClick={submit} disabled={!isValid || saving}
-                  className="btn btn-gold" style={{ fontSize: 12, padding: '9px 18px', opacity: isValid ? 1 : 0.5, cursor: isValid && !saving ? 'pointer' : 'not-allowed' }}>
+                <Button variant="primary" size="sm" onClick={submit} disabled={!isValid || saving} style={{opacity: isValid ? 1 : 0.5}}>
                   {saving ? 'Saving…' : 'Save request'}
-                </button>
+                </Button>
                 <button onClick={() => setShowForm(false)} disabled={saving}
-                  style={{ fontFamily: mono, fontSize: 12, padding: '9px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                  style={{ fontFamily: SANS, fontSize: FS.sm, padding: '9px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
                   Cancel
                 </button>
               </div>
@@ -228,7 +223,7 @@ export default function TenantReferenceModal({ property, onClose }) {
                       {r.monthly_income && ` · ${fmt(r.monthly_income)}/mo`}
                     </div>
                     <span style={{
-                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
+                      fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
                       background: (STATUS_COLOR[r.status] || T.muted) + '22',
                       color: STATUS_COLOR[r.status] || T.muted,
@@ -242,11 +237,9 @@ export default function TenantReferenceModal({ property, onClose }) {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12, padding: '9px 18px' }}>Close</button>
+            <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

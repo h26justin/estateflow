@@ -1,4 +1,4 @@
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 // AI Maintenance Triage button + result card.
 //
 // Drops into a maintenance job view. Shows an "AI triage" button; on click it
@@ -18,6 +18,7 @@ import { MONO, FS } from '../../lib/styles'
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { triageJob } from '../../lib/api/maintenanceTriage'
+import { Button } from '../ui'
 
 const SEVERITY_LABEL = { emergency: 'EMERGENCY', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }
 const TRADE_LABEL = {
@@ -71,14 +72,9 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
     <div style={{ marginTop: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {canTriage && (
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 11 }}
-            disabled={loading}
-            onClick={run}
-          >
+          <Button variant="secondary" size="sm" disabled={loading} onClick={run}>
             {loading ? 'Analysing…' : triage ? '↻ Re-run AI triage' : 'AI triage'}
-          </button>
+          </Button>
         )}
         {triagedAt && (
           <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>
@@ -90,11 +86,11 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
       {triage && (
         <div className="card" style={{ padding: '12px 14px', marginTop: 8, borderLeft: `3px solid ${sevColor(triage.severity)}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: sevColor(triage.severity), letterSpacing: '0.08em' }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: sevColor(triage.severity), }}>
               {SEVERITY_LABEL[triage.severity] || triage.severity?.toUpperCase()}
             </span>
             <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
-            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText }}>
               {TRADE_LABEL[triage.suggested_trade] || triage.suggested_trade}
             </span>
             <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
@@ -122,13 +118,9 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
               <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.5, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '8px 10px', whiteSpace: 'pre-wrap' }}>
                 {triage.contractor_brief}
               </div>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: FS.xs, marginTop: 6 }}
-                onClick={copyBrief}
-              >
+              <Button variant="secondary" size="sm" onClick={copyBrief} style={{marginTop: 6}}>
                 Copy brief
-              </button>
+              </Button>
             </div>
           )}
 
@@ -137,17 +129,13 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
               Suggested priority: <strong style={{ color: sevColor(triage.severity), textTransform: 'capitalize' }}>{triage.suggested_priority}</strong>
             </span>
             {onApplyPriority && triage.suggested_priority && triage.suggested_priority !== job?.priority && (
-              <button
-                className="btn btn-gold"
-                style={{ fontSize: FS.xs }}
-                onClick={() => onApplyPriority(triage.suggested_priority)}
-              >
+              <Button variant="primary" size="sm" onClick={() => onApplyPriority(triage.suggested_priority)}>
                 Apply priority
-              </button>
+              </Button>
             )}
           </div>
 
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, fontStyle: 'italic' }}>
             {triage.disclaimer || 'AI-generated triage — review before acting.'}
           </div>
         </div>

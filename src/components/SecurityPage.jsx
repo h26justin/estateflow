@@ -1,5 +1,5 @@
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, SANS, FS } from '../lib/styles'
 import { Button } from './ui'
 
 const mono = MONO
@@ -29,14 +29,14 @@ export default function SecurityPage({ onBack }) {
     <div style={{ minHeight: '100vh', background: T.bg, padding: '40px 24px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         {onBack && (
-          <Button variant="secondary" size="sm" icon="chevron-left" onClick={onBack} style={{ marginBottom: 32 }}>
+          <Button variant="secondary" size="sm" icon="chevron-left" onClick={onBack} style={{marginBottom: 32}}>
             Back
           </Button>
         )}
 
         <div style={{ marginBottom: 40 }}>
           <h1 style={{ fontSize: 32, fontWeight: 700, color: T.text, marginBottom: 8, letterSpacing: '-0.02em' }}>Security</h1>
-          <p style={{ fontFamily: mono, fontSize: 12, color: T.muted }}>OwnProperly Ltd · Last updated: 24 May 2026</p>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted }}>OwnProperly Ltd · Last updated: 24 May 2026</p>
         </div>
 
         <Section title="Reporting a security issue">
@@ -113,7 +113,7 @@ export default function SecurityPage({ onBack }) {
         </Section>
 
         <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 24, marginTop: 8 }}>
-          <p style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted }}>
             OwnProperly Ltd · ownproperly.com
           </p>
         </div>

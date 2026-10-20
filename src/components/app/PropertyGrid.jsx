@@ -1,9 +1,10 @@
 import { useTheme } from '../../lib/ThemeContext'
 import { complianceStatusFor, complianceBadge } from '../../lib/complianceStatus'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { propTypeMeta } from '../../lib/propertyCalcs'
 import { pressable } from '../../lib/pressable'
+import { fmtYield, hasYield } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 
 // (ComplianceMatrix moved to components/CompliancePage.jsx — the matrix is
@@ -17,10 +18,10 @@ import { Badge, CompanyPill } from './Badges'
 
 export function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldBasis }) {
   const { T } = useTheme()
-  if (!filtered.length) return <div style={{fontFamily:MONO,color:T.muted,fontSize:12,padding:32,textAlign:'center'}}>No properties match your filters.</div>
+  if (!filtered.length) return <div style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,padding:32,textAlign:'center'}}>No properties match your filters.</div>
   // Compliance footer chip — one consistent pill shape for every state.
   const compliancePill = (cfg) => cfg
-    ? <span title={cfg.label} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:999,background:cfg.bg,color:cfg.color,fontFamily:MONO,fontSize:FS.xs,fontWeight:700,whiteSpace:'nowrap'}}><Icon name={cfg.iconName} size={11}/>{cfg.label}</span>
+    ? <span title={cfg.label} style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:999,background:cfg.bg,color:cfg.color,fontFamily:SANS,fontSize:FS.sm,fontWeight:700,whiteSpace:'nowrap'}}><Icon name={cfg.iconName} size={11}/>{cfg.label}</span>
     : <span title="Compliance valid" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 9px',borderRadius:999,background:T.green+'1A',color:T.green,fontFamily:MONO,fontSize:FS.xs,fontWeight:700,whiteSpace:'nowrap'}}><span style={{width:6,height:6,borderRadius:'50%',background:T.green}}/>Valid</span>
   return (
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
@@ -46,7 +47,7 @@ export function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldB
               <div style={{flex:1,minWidth:0}}>
                 {/* Name gets the full width (wraps to 2 lines); pills sit below */}
                 <div style={{fontSize:14,fontWeight:700,color:T.text,lineHeight:1.3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{p.name}</div>
-                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:3}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginTop:3}}>{p.prop_type}{p.address?` · ${p.address}`:''}</div>
                 <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginTop:8}}>
                   <CompanyPill company={co}/>
                   <Badge status={p.status}/>
@@ -61,7 +62,7 @@ export function PropertyGrid({ filtered, fmt, openDetail, calcGrossYield, yieldB
               </div>
               <div>
                 <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:1}}>Yield</div>
-                <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{gy.toFixed(1)}%</div>
+                <div title={hasYield(gy)?undefined:'No yield — no rent or no cost/value recorded'} style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:hasYield(gy)?T.goldText:T.muted}}>{fmtYield(gy)}</div>
               </div>
               {compliancePill(cfg)}
             </div>

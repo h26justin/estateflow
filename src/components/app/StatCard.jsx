@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
 
@@ -26,7 +26,7 @@ const BreakdownRow = memo(({item, T}) => {
   }
   const inner = (
     <>
-      <span style={{fontFamily:MONO,fontSize:FS.xs,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+      <span style={{fontFamily:SANS,fontSize:FS.sm,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
         {item.indent&&<span style={{color:T.border}}>└</span>}
         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
         {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
@@ -72,34 +72,35 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
   }, [open])
-  // Cards with a breakdown keep click = expand; navigation gets its own
-  // explicit link so the two affordances never fight. Cards without a
-  // breakdown navigate on click directly.
-  const clickable = breakdown || onNavigate
+  // The whole card is the control. Cards with a breakdown toggle it (the
+  // panel carries the "Open …" link to the full page); cards without one
+  // navigate straight there. Only a small chevron hints at the affordance —
+  // the old "PORTFOLIO → DETAIL ›" header text crowded the icon.
+  const [hover,setHover] = useState(false)
+  const action = breakdown ? ()=>setOpen(o=>!o) : onNavigate
+  const a11y = breakdown
+    ? {'aria-expanded':open, 'aria-label':`${label}: ${value}. ${open?'Hide':'Show'} breakdown`}
+    : onNavigate ? {role:'link', 'aria-label':`${label}: ${value}. Open ${navLabel||label}`} : {}
   return (
-    <div ref={rootRef} style={{position:'relative',zIndex:open?30:undefined,background:T.card,border:`1px solid ${open?T.gold:T.border}`,borderRadius:12,padding:'20px 22px',transition:'border-color 0.2s',cursor:clickable?'pointer':'default'}}
-      {...pressable(breakdown?()=>setOpen(o=>!o):onNavigate, breakdown?{'aria-expanded':open}:{})}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+    <div ref={rootRef} className="kpi-card"
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      style={{position:'relative',zIndex:open?30:undefined,display:'flex',flexDirection:'column',minWidth:0,height:'100%',boxSizing:'border-box',background:T.card,border:`1px solid ${open?T.gold:hover&&action?T.gold+'88':T.border}`,borderRadius:12,padding:'18px 20px',transition:'border-color 0.2s',cursor:action?'pointer':'default'}}
+      {...pressable(action, a11y)}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8,marginBottom:8}}>
         {/* Redesign: a known icon name renders the hairline glyph in a tinted
             accent tile; legacy emoji strings still render as-is. */}
         {ICON_NAMES.includes(icon)
-          ? <div style={{width:34,height:34,borderRadius:9,background:(accent||T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><Icon name={icon} size={18} color={accent||T.gold}/></div>
-          : <div style={{fontSize:20,marginBottom:8}}>{icon}</div>}
-        <span style={{display:'inline-flex',alignItems:'center',gap:10,marginTop:2}}>
-          {onNavigate&&(
-            <button onClick={e=>{e.stopPropagation();onNavigate()}}
-              aria-label={navLabel||`Open ${label}`}
-              style={{background:'none',border:'none',cursor:'pointer',padding:'6px 4px',margin:'-6px -4px',minHeight:24,fontFamily:MONO,fontSize:FS.xs,color:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}
-              onMouseEnter={e=>e.currentTarget.style.color=T.goldText} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
-              {(navLabel||'VIEW').toUpperCase()}<Icon name="arrow-right" size={11}/>
-            </button>
-          )}
-          {breakdown&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:open?T.goldText:T.muted,letterSpacing:'0.1em',display:'inline-flex',alignItems:'center',gap:3}}>{open?'CLOSE':'DETAIL'}<Icon name={open?'chevron-down':'chevron-right'} size={11}/></span>}
-        </span>
+          ? <div style={{width:34,height:34,borderRadius:9,background:(accent||T.gold)+'1A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={icon} size={18} color={accent||T.gold}/></div>
+          : <div style={{fontSize:20}}>{icon}</div>}
+        {action&&(
+          <span aria-hidden="true" style={{display:'inline-flex',color:open||hover?T.goldText:T.faint,transition:'color 0.2s, transform 0.2s',transform:breakdown&&open?'rotate(90deg)':'none',marginTop:2}}>
+            <Icon name="chevron-right" size={14}/>
+          </span>
+        )}
       </div>
-      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2}}>{value}</div>
-      {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{sub}</div>}
+      <div title={label} style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2,overflowWrap:'anywhere'}}>{value}</div>
+      {sub&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,lineHeight:1.5,overflowWrap:'anywhere'}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
           three months of rent) rather than one sub-line. */}
@@ -121,7 +122,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
               {table.rows.map((r,ri)=>(
                 <tr key={ri}>
                   {r.cells.map((cell,ci)=>(
-                    <td key={ci} style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
+                    <td key={ci} style={{fontFamily:ci?MONO:SANS,fontSize:ci?FS.xs:FS.sm,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
                   ))}
                 </tr>
               ))}
@@ -130,11 +131,11 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
         </div>
       )}
       {strip&&strip.length>0&&(
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px 12px',marginTop:10}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px 12px',marginTop:10}}>
           {strip.map((s,i)=>(
-            <div key={i}>
-              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em'}}>{s.label}</div>
-              <div style={{fontFamily:MONO,fontSize:12,color:s.color||T.text}}>{s.value}</div>
+            <div key={i} style={{minWidth:0}}>
+              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,textTransform:'uppercase',letterSpacing:'0.08em',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.label}</div>
+              <div style={{fontFamily:MONO,fontSize:12,color:s.color||T.text,overflowWrap:'anywhere'}}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -148,9 +149,17 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
             <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
+          {onNavigate&&(
+            <div style={{borderTop:`1px solid ${T.border}`,marginTop:6,paddingTop:8,display:'flex',justifyContent:'flex-end'}}>
+              <button type="button" onClick={e=>{e.stopPropagation();setOpen(false);onNavigate()}}
+                style={{background:'none',border:'none',cursor:'pointer',padding:'4px 2px',minHeight:28,fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:4}}>
+                Open {navLabel||label}<Icon name="arrow-right" size={11}/>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

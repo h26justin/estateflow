@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
@@ -171,13 +171,13 @@ export default function NotificationCentre() {
               padding: '14px 16px', borderBottom: `1px solid ${T.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.text }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.base, fontWeight: 700, color: T.text }}>
                 Notifications {unread > 0 && <span style={{ color: T.muted, fontWeight: 400 }}>· {unread} unread</span>}
               </div>
               {unread > 0 && (
                 <button onClick={handleMarkAll}
                   style={{ background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: mono, fontSize: FS.xs, color: T.goldText, textDecoration: 'underline' }}>
+                    fontFamily: SANS, fontSize: FS.sm, color: T.goldText, textDecoration: 'underline' }}>
                   Mark all read
                 </button>
               )}
@@ -189,8 +189,8 @@ export default function NotificationCentre() {
               ) : items.length === 0 ? (
                 <div style={{ padding: '36px 20px', textAlign: 'center' }}>
                   <div style={{ display:'flex', justifyContent:'center', marginBottom: 10, color: T.faint }}><Icon name="bell-off" size={26}/></div>
-                  <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4 }}>You're all caught up</div>
-                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, fontWeight: 600, marginBottom: 4 }}>You're all caught up</div>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
                     Compliance reminders, rent activity and system updates will show up here.
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export default function NotificationCentre() {
                           {g.label} · {g.items.length}{g.unread ? ` · ${g.unread} unread` : ''}
                         </span>
                         <button onClick={e => handleClearGroup(g.type, e)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: mono, fontSize: FS.xs, color: T.muted, textDecoration: 'underline' }}>
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: FS.sm, color: T.muted, textDecoration: 'underline' }}>
                           Clear all
                         </button>
                       </div>
@@ -237,7 +237,7 @@ export default function NotificationCentre() {
                         </div>
                       </div>
                       {n.body && (
-                        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.55, marginTop: 3 }}>
+                        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.55, marginTop: 3 }}>
                           {n.body}
                         </div>
                       )}
@@ -246,7 +246,7 @@ export default function NotificationCentre() {
                           onClick={e => e.stopPropagation()}
                           style={{
                             display: 'inline-block', marginTop: 6,
-                            fontFamily: mono, fontSize: FS.xs, fontWeight: 600,
+                            fontFamily: SANS, fontSize: FS.sm, fontWeight: 600,
                             padding: '4px 9px', borderRadius: 6,
                             background: T.gold + '14', color: T.goldText,
                             border: `1px solid ${T.gold}55`,
@@ -257,7 +257,7 @@ export default function NotificationCentre() {
                       )}
                     </div>
                     <button onClick={e => handleSnooze(n, e)} title="Snooze for a week"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontFamily: mono, fontSize: FS.xs, padding: 4, alignSelf: 'flex-start' }} aria-label="Snooze notification for 7 days">zz</button>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, fontFamily: SANS, fontSize: FS.sm, padding: 4, alignSelf: 'flex-start' }} aria-label="Snooze notification for 7 days">zz</button>
                     <button onClick={e => handleDismiss(n.id, e)}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer',

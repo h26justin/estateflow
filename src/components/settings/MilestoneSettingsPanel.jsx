@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
+import { Button } from '../ui'
 
 // ── MASTER MILESTONE SETTINGS PANEL ──────────────────────────────────────────
 export function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
@@ -54,16 +55,16 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Master deal milestone defaults</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
           Configure which steps appear by default when you create a new deal. You can still toggle individual steps on or off inside each deal — these are just the starting defaults.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 4 }}>
-          <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => resetAll(true)} disabled={saving}>
+          <Button variant="secondary" size="sm" onClick={() => resetAll(true)} disabled={saving}>
             Enable all
-          </button>
-          <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => resetAll(false)} disabled={saving}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => resetAll(false)} disabled={saving}>
             Disable all
-          </button>
+          </Button>
           {saving && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center' }}>Saving…</span>}
         </div>
       </div>
@@ -86,12 +87,12 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
                     <div style={{ position: 'absolute', top: 2, left: enabled ? 18 : 2, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
                   </button>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{m.label}</span>
+                    <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>{m.label}</span>
                     {m.required && (
                       <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginLeft: 8 }}>recommended</span>
                     )}
                   </div>
-                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: enabled ? T.blue : T.muted }}>
+                  <span style={{ fontFamily: SANS, fontSize: FS.sm, color: enabled ? T.blue : T.muted }}>
                     {enabled ? 'Default ON' : 'Default OFF'}
                   </span>
                 </div>
@@ -101,7 +102,7 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
         )
       })}
 
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 12, lineHeight: 1.6 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 12, lineHeight: 1.6 }}>
         Changes apply to new deals only. Existing deals keep their current step configuration.
       </div>
     </div>

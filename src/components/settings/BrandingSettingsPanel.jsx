@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
+import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
+import { readableOr, normalizeHex } from '../../lib/contrast'
 
 // ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
 export function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCompanySettings, user, showToast, T }) {
@@ -41,7 +43,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
 
   async function updateCompanyColor(newColor) {
     if (!co || !newColor) return
-    if (!/^#[0-9A-Fa-f]{6}$/.test(newColor)) { showToast('Enter a valid hex colour (e.g. #4B8FE0)', 'error'); return }
+    if (!/^#[0-9A-Fa-f]{6}$/.test(newColor)) { showToast('Enter a valid hex colour (e.g. #2D6FA8)', 'error'); return }
     if (newColor.toLowerCase() === (co.color || '').toLowerCase()) { setColorDraft(null); return }
     setSavingColor(true)
     try {
@@ -96,10 +98,10 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {companies.map(c => (
               <button key={c.id} onClick={() => setSelectedCo(c.id)}
-                style={{ fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
+                style={{ fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${selectedCo === c.id ? (c.color || T.gold) : T.border}`,
                   background: selectedCo === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                  color: selectedCo === c.id ? (c.color || T.goldText) : T.muted,
+                  color: selectedCo === c.id ? readableOr(normalizeHex(c.color), T.card, T.text) : T.muted,
                   fontWeight: selectedCo === c.id ? 700 : 400 }}>
                 {c.abbr} {c.name}
               </button>
@@ -123,20 +125,20 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
                 }
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
                   Upload your company logo to brand PDF report exports. Recommended: PNG with transparent background (PNG, JPG, WebP or GIF), max 2MB.
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ cursor: 'pointer' }}>
-                    <span className="btn btn-gold" style={{ fontSize: 11 }}>
+                    <span className="btn btn-gold" style={{ fontSize: FS.sm }}>
                       {uploading ? 'Uploading…' : logoPreview ? '↑ Replace logo' : '↑ Upload logo'}
                     </span>
                     <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
                   </label>
                   {logoPreview && (
-                    <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
+                    <Button variant="secondary" size="sm" onClick={removeLogo} destructive>
                       Remove
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -146,21 +148,21 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
           {/* Report accent colour */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
               PDF report headers and accents will use this colour. It is also used as the accent colour for this company throughout the app.
             </div>
 
             {/* Preset swatches */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              {['#C8A84B','#4B8FE0','#2ECC8A','#E0943A','#9B59B6','#E05555','#16A085','#34495E','#D35400','#7F8C8D'].map(c => {
+              {COMPANY_COLORS.map(({ name, hex: c }) => {
                 const selected = (co.color || '').toLowerCase() === c.toLowerCase()
                 return (
                   <button key={c} onClick={() => updateCompanyColor(c)}
-                    disabled={savingColor}
+                    disabled={savingColor} aria-label={`Colour ${name}`} aria-pressed={selected}
                     style={{ width: 36, height: 36, borderRadius: 8, cursor: savingColor ? 'wait' : 'pointer',
                       border: `2px solid ${selected ? T.text : 'transparent'}`,
                       background: c, padding: 0, boxShadow: selected ? `0 0 0 2px ${T.card}, 0 0 0 3px ${c}` : 'none' }}
-                    title={c}/>
+                    title={`${name} ${c}`}/>
                 )
               })}
             </div>
@@ -169,24 +171,24 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="color"
-                  value={colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft) ? colorDraft : (co.color || '#C8A84B')}
+                  value={colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft) ? colorDraft : (co.color || DEFAULT_COMPANY_COLOR)}
                   onChange={e => pickCustomColor(e.target.value)}
                   style={{ width: 48, height: 36, border: `1px solid ${T.border}`, borderRadius: 8, cursor: 'pointer', background: 'transparent', padding: 2 }}/>
                 <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Custom</span>
               </label>
-              <input type="text" value={colorDraft !== null ? colorDraft : (co.color || '#C8A84B')}
+              <input type="text" aria-label="Hex colour" value={colorDraft !== null ? colorDraft : (co.color || DEFAULT_COMPANY_COLOR)}
                 onChange={e => setColorDraft(e.target.value)}
                 onBlur={() => { if (colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft)) updateCompanyColor(colorDraft); else setColorDraft(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-                placeholder="#C8A84B"
-                style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
+                placeholder={DEFAULT_COMPANY_COLOR}
+                style={{ fontFamily: SANS, fontSize: FS.sm, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
               {savingColor && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Saving…</span>}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
               <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current:</div>
               <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || '#C8A84B'}</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || DEFAULT_COMPANY_COLOR}</span>
             </div>
           </div>
 
@@ -230,7 +232,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.7 }}>
           Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, WebP, GIF. Recommended: PNG with transparent background, at least 400px wide.
         </div>
       </div>
@@ -242,7 +244,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
           return (
             <div key={co.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', borderLeft: `3px solid ${co.color||T.gold}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: co.color||T.goldText, background: (co.color||T.gold)+'22', padding: '3px 10px', borderRadius: 4 }}>{co.abbr}</span>
+                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: readableOr(normalizeHex(co.color), T.card, T.goldText), background: (normalizeHex(co.color)||T.gold)+'22', padding: '3px 10px', borderRadius: 4 }}>{co.abbr}</span>
                 <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{co.name}</span>
               </div>
 
@@ -251,7 +253,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                 <div style={{ width: 180, height: 80, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {cs.logo_url
                     ? <img src={cs.logo_url} alt={co.name} style={{ maxWidth: '90%', maxHeight: '70%', objectFit: 'contain' }}/>
-                    : <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>No logo uploaded</span>
+                    : <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>No logo uploaded</span>
                   }
                 </div>
 
@@ -259,19 +261,19 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <label style={{ cursor: 'pointer' }}>
-                      <span className="btn btn-gold" style={{ fontSize: 11, display: 'inline-block' }}>
+                      <span className="btn btn-gold" style={{ fontSize: FS.sm, display: 'inline-block' }}>
                         {isUploading ? 'Uploading…' : cs.logo_url ? '↑ Replace logo' : '↑ Upload logo'}
                       </span>
                       <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} disabled={isUploading}
                         onChange={e => handleLogoUpload(co.id, e.target.files?.[0])}/>
                     </label>
                     {cs.logo_url && (
-                      <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'44' }} onClick={() => removeLogo(co.id)}>
+                      <Button variant="secondary" size="sm" onClick={() => removeLogo(co.id)} destructive>
                         Remove
-                      </button>
+                      </Button>
                     )}
                   </div>
-                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
                     This logo will appear on all PDF reports for {co.name}.<br/>
                     PNG with transparent background works best on dark PDF headers.
                   </div>

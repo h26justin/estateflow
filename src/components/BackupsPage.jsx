@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -103,8 +103,8 @@ export default function BackupsPage({ user, showToast }) {
   return (
     <div>
       <div style={{marginBottom:20}}>
-        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Backup History</h2>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
+        <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Backup history</h2>
+        <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.6}}>
           Your data is automatically backed up every week. You can create a manual backup anytime, or download any previous backup to restore your data or share with support.
         </p>
       </div>
@@ -124,7 +124,7 @@ export default function BackupsPage({ user, showToast }) {
             ) : (
               <>
                 <div style={{fontSize:18,fontWeight:700,color:T.amber,marginBottom:4}}>No backups yet</div>
-                <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Create your first backup to get started</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Create your first backup to get started</div>
               </>
             )}
           </div>
@@ -140,7 +140,7 @@ export default function BackupsPage({ user, showToast }) {
       </div>
 
       {/* Info bar */}
-      <div style={{background:T.gold+'11',border:`1px solid ${T.gold}33`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
+      <div style={{background:T.gold+'11',border:`1px solid ${T.gold}33`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.7}}>
         <strong style={{color:T.goldText}}>How backups work:</strong> Automatic backups run every Monday and are kept for the 12 most recent. You can create manual backups anytime, and download any backup as JSON for safekeeping or restoration support.
       </div>
 
@@ -181,19 +181,19 @@ export default function BackupsPage({ user, showToast }) {
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{relativeTime(b.created_at)}</div>
                 </div>
                 <div>
-                  <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 8px',borderRadius:4,
+                  <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'3px 8px',borderRadius:4,
                     background: b.type==='automatic' ? T.blue+'22' : b.type==='manual' ? T.gold+'22' : T.muted+'22',
                     color:     b.type==='automatic' ? T.blue      : b.type==='manual' ? T.goldText      : T.muted}}>
                     {b.type === 'automatic' ? 'Auto' : b.type === 'manual' ? 'Manual' : b.type}
                   </span>
                 </div>
                 <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{formatBytes(b.size_bytes)}</div>
-                <div style={{fontFamily:mono,fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                   {summary || '—'}
                 </div>
                 <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                   <button onClick={()=>download(b)} disabled={downloading===b.id}
-                    style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText}}>
+                    style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'5px 12px',borderRadius:6,cursor:downloading===b.id?'wait':'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText}}>
                     {downloading===b.id?'…':'↓ Download'}
                   </button>
                   <button onClick={()=>remove(b)} disabled={deleting===b.id}
@@ -210,7 +210,7 @@ export default function BackupsPage({ user, showToast }) {
       )}
 
       {backups.length >= 12 && (
-        <div style={{fontFamily:mono,fontSize:11,color:T.faint,marginTop:12,textAlign:'center'}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:12,textAlign:'center'}}>
           Keeping the 12 most recent backups · older backups are automatically removed
         </div>
       )}
@@ -218,11 +218,11 @@ export default function BackupsPage({ user, showToast }) {
       {/* Restore help */}
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginTop:20}}>
         <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Need to restore data?</div>
-        <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.7,marginBottom:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,lineHeight:1.7,marginBottom:12}}>
           If you've lost data or need to roll back to a previous state, download the backup you want to restore from and email it to us with details of what you need restored.
         </div>
         <a href="mailto:hello@ownproperly.com?subject=Restore backup request"
-          style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.goldText,textDecoration:'none',display:'inline-block'}}>
+          style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'9px 18px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.goldText,textDecoration:'none',display:'inline-block'}}>
           Contact support for restore
         </a>
       </div>

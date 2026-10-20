@@ -1,46 +1,76 @@
 import { useState, useEffect } from 'react'
-import { MONO, SANS } from '../lib/styles'
+import { MONO, SANS, FS, CV } from '../lib/styles'
+import { LIGHT, DARK as DARK_T } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 
-// Redesign palette (design/redesign-2026). SLATE = ink/text + dark brand panels.
-const SLATE  = '#1C2830'
-const GOLD   = '#B8902F'
-// Gold as *text* on cream/white. GOLD itself is 2.7–3:1 there (fails WCAG AA);
-// this darker sibling is 5.5:1+. GOLD stays for fills and for text on the
-// navy/slate panels, where it already clears 5:1.
-const GOLD_T = '#7A5E1C'
-const CREAM  = '#F4F3EF'
-const WHITE  = '#FFFFFF'
-const MUTED  = '#5C6670'
-const BORDER = '#E4E1D9'
-const DARK   = '#14202A'
+// Redesign palette (design/redesign-2026). Page surfaces and text are the
+// app's theme tokens as CSS custom properties (src/styles/app.css), so the
+// site follows <html data-theme> — set before first paint by
+// public/js/theme-init.js from the saved choice or prefers-color-scheme —
+// exactly like the signed-in app. The slate brand panels (hero, AI strip,
+// Starter card, closing CTA, footer) are dark in both themes and use the
+// fixed ON_DARK_* neutrals.
+const INK     = CV.text      // primary text
+const MUTED   = CV.muted
+const BORDER  = CV.border
+const CREAM   = CV.bg        // page / alternate section background
+const SURFACE = CV.surface   // white sections and cards
+const TINT    = CV.card      // table stripes, FAQ rows
+// Gold as *text* on paper/white (#7A5E1C, 5.5:1). In dark mode the token is
+// the lighter #CBA64E, which clears AA on the dark surfaces.
+const GOLD_T  = CV.goldText
+const GOLD    = LIGHT.gold   // fills, tints and the CTA button (both themes)
+// Fixed slate panels and the text that sits on them.
+const PANEL       = LIGHT.text   // #1C2830 ink panel
+const SLATE_DEEP  = '#14202A'    // brand slate ("P." tile, footer)
+const SLATE_2     = '#22323D'
+const ON_DARK       = LIGHT.bg     // paper headings on slate (14:1)
+const ON_DARK_SOFT  = '#E7E4DC'    // list items, sample copy
+const ON_DARK_MUTED = '#A9B4BC'    // body copy on slate (7.6:1 on #14202A)
+const ON_DARK_FAINT = DARK_T.muted // #9AA6B0 eyebrow labels (6.6:1)
+const GOLD_ON_DARK  = DARK_T.gold  // #CBA64E (6.5:1 on #1C2830)
+
+// Translucent mix of a colour (hex or var()) — the CSS-var-safe replacement
+// for the old `hex + '18'` alpha suffixes.
+const mix = (c, pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`
 
 const CSS = `
-  .show-mobile-logo { display: none; }
+  /* Category accents — the Reports catalogue palette, per theme. */
+  .mkt-root{--mkt-blue:#3F77C2;--mkt-green:#1F9D63;--mkt-gold:#B8902F;--mkt-purple:#8255A8;--mkt-amber:#C77E1E;}
+  :root[data-theme="dark"] .mkt-root{--mkt-blue:#5B9BD8;--mkt-green:#34C281;--mkt-gold:#CBA64E;--mkt-purple:#A87FD0;--mkt-amber:#E2A24A;}
+  /* Logo: ink-on-light lockups by default; the light-on-dark wordmark in
+     dark mode (the light files vanish on the dark nav). */
+  .mkt-logo{display:none;}
+  .mkt-logo-light-wide{display:block;}
+  :root[data-theme="dark"] .mkt-logo-light-wide{display:none;}
+  :root[data-theme="dark"] .mkt-logo-dark-wide{display:block;}
   @media (max-width: 768px) {
-    .hide-mobile-logo { display: none; }
-    .show-mobile-logo { display: block; }
+    .mkt-logo-light-wide,:root[data-theme="dark"] .mkt-logo-dark-wide{display:none;}
+    .mkt-logo-light-short{display:block;}
+    :root[data-theme="dark"] .mkt-logo-light-short{display:none;}
+    :root[data-theme="dark"] .mkt-logo-dark-short{display:block;}
   }
+  .mkt-nav{background:${mix(CREAM, 96)};}
 
   *{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
   body{-webkit-font-smoothing:antialiased;}
-  .mkt-btn-gold{background:${GOLD};color:${DARK};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;letter-spacing:0.02em;text-decoration:none;display:inline-block;}
-  .mkt-btn-gold:hover{background:#B8942A;transform:translateY(-1px);box-shadow:0 4px 16px rgba(200,168,75,0.3);}
-  .mkt-btn-ghost{background:transparent;color:${SLATE};font-family:${SANS};font-weight:600;font-size:13px;padding:13px 28px;border-radius:10px;border:1.5px solid ${BORDER};cursor:pointer;transition:all 0.18s;text-decoration:none;display:inline-block;}
-  .mkt-btn-ghost:hover{border-color:${SLATE};background:${SLATE};color:white;}
-  .mkt-btn-white{background:white;color:${SLATE};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
-  .mkt-btn-white:hover{background:${CREAM};}
+  .mkt-btn-gold{background:${GOLD};color:${PANEL};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;letter-spacing:0.02em;text-decoration:none;display:inline-block;}
+  .mkt-btn-gold:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 4px 16px rgba(184,144,47,0.3);}
+  .mkt-btn-ghost{background:transparent;color:${INK};font-family:${SANS};font-weight:600;font-size:13px;padding:13px 28px;border-radius:10px;border:1.5px solid ${BORDER};cursor:pointer;transition:all 0.18s;text-decoration:none;display:inline-block;}
+  .mkt-btn-ghost:hover{border-color:${INK};background:${INK};color:${SURFACE};}
+  .mkt-btn-white{background:${ON_DARK};color:${PANEL};font-family:${SANS};font-weight:700;font-size:13px;padding:14px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.18s;}
+  .mkt-btn-white:hover{background:#FFFFFF;}
   .feat-card{background:${CREAM};border:1px solid ${BORDER};border-radius:14px;padding:26px 26px;transition:border-color 0.18s,transform 0.18s,box-shadow 0.18s;}
   .screen-tab{background:transparent;border:1px solid ${BORDER};color:${MUTED};font-family:${SANS};font-size:13px;font-weight:500;white-space:nowrap;padding:8px 14px;border-radius:999px;cursor:pointer;transition:all 0.15s;}
-  .screen-tab:hover{border-color:${SLATE};color:${SLATE};}
-  .screen-tab.active{background:${SLATE};border-color:${SLATE};color:${WHITE};}
-  .screen-tab:focus-visible{outline:2px solid ${GOLD};outline-offset:2px;}
-  .screen-frame{background:${WHITE};border:1px solid ${BORDER};border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(28,40,48,0.14),0 2px 6px rgba(28,40,48,0.06);}
-  .screen-frame-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:#F7F6F2;border-bottom:1px solid ${BORDER};}
-  .screen-frame-bar span{width:10px;height:10px;border-radius:50%;background:#D9D5CB;display:inline-block;}
-  .screen-frame-url{margin-left:12px;font-family:${MONO};font-size:11px;color:${MUTED};background:${WHITE};border:1px solid ${BORDER};border-radius:6px;padding:3px 10px;}
-  .feat-card:hover{border-color:${GOLD}88;transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,0.07);}
+  .screen-tab:hover{border-color:${INK};color:${INK};}
+  .screen-tab.active{background:${INK};border-color:${INK};color:${SURFACE};}
+  .screen-tab:focus-visible{outline:2px solid ${GOLD_T};outline-offset:2px;}
+  .screen-frame{background:${SURFACE};border:1px solid ${BORDER};border-radius:14px;overflow:hidden;box-shadow:0 24px 60px rgba(28,40,48,0.14),0 2px 6px rgba(28,40,48,0.06);}
+  .screen-frame-bar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:${TINT};border-bottom:1px solid ${BORDER};}
+  .screen-frame-bar span{width:10px;height:10px;border-radius:50%;background:${BORDER};display:inline-block;}
+  .screen-frame-url{margin-left:12px;font-family:${MONO};font-size:${FS.xs}px;color:${MUTED};background:${SURFACE};border:1px solid ${BORDER};border-radius:6px;padding:3px 10px;}
+  .feat-card:hover{border-color:${mix(GOLD, 55)};transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,0.07);}
   @media(max-width:768px){
     .mkt-hero-btns{flex-direction:column!important;align-items:stretch!important;}
     .mkt-hero-btns a,.mkt-hero-btns button{text-align:center!important;}
@@ -54,19 +84,19 @@ const CSS = `
     .hero-sub{font-size:15px!important;}
     .hide-mobile{display:none!important;}
     .nav-btns{gap:8px!important;}
-    .nav-btns button{padding:7px 12px!important;font-size:11px!important;min-height:36px;}
+    .nav-btns button{padding:7px 12px!important;font-size:${FS.sm}px!important;min-height:36px;}
     .nav-btns .mkt-signin{display:none;}
     .mkt-burger{display:inline-flex!important;}
   }
-  .mkt-burger{display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1.5px solid ${BORDER};background:transparent;color:${SLATE};cursor:pointer;}
+  .mkt-burger{display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1.5px solid ${BORDER};background:transparent;color:${INK};cursor:pointer;}
   .mkt-navlink{background:none;border:none;font-family:${SANS};font-size:14px;cursor:pointer;padding:10px 4px;min-height:40px;text-decoration:none;display:inline-flex;align-items:center;transition:color 0.15s;}
   .mkt-mobile-menu{display:grid;gap:2px;padding:8px 0 16px;border-top:1px solid ${BORDER};}
-  .mkt-mobile-menu a,.mkt-mobile-menu button{display:flex;align-items:center;min-height:44px;width:100%;background:none;border:none;font-family:${SANS};font-size:16px;color:${SLATE};text-decoration:none;cursor:pointer;text-align:left;padding:0 4px;}
+  .mkt-mobile-menu a,.mkt-mobile-menu button{display:flex;align-items:center;min-height:44px;width:100%;background:none;border:none;font-family:${SANS};font-size:16px;color:${INK};text-decoration:none;cursor:pointer;text-align:left;padding:0 4px;}
   @media(min-width:769px){.mkt-mobile-menu{display:none;}}
   /* Visible keyboard focus. Gold-dark ring on cream/white; cream ring on the
      navy and slate panels (.mkt-dark) where a dark ring would vanish. */
   .mkt-root :focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;border-radius:6px;}
-  .mkt-root .mkt-dark :focus-visible{outline-color:${CREAM};}
+  .mkt-root .mkt-dark :focus-visible{outline-color:${ON_DARK};}
   .mkt-root summary:focus-visible{outline-offset:4px;}
   /* Headings balance their lines (no orphaned "that" at 390px); body copy
      avoids single-word last lines. */
@@ -74,7 +104,7 @@ const CSS = `
   .mkt-root p{text-wrap:pretty;}
   /* Feature-category accordion: only rendered as buttons on narrow screens
      (see useNarrow); desktop keeps the open two-column grid. */
-  .feat-acc-btn{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;cursor:pointer;color:${SLATE};}
+  .feat-acc-btn{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;cursor:pointer;color:${INK};}
   .feat-acc-btn .feat-acc-chev{margin-left:auto;transition:transform 0.18s;flex-shrink:0;}
   .feat-acc-btn[aria-expanded="true"] .feat-acc-chev{transform:rotate(180deg);}
   .mkt-root .feat-acc-btn:focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;border-radius:6px;}
@@ -97,7 +127,7 @@ const FEATURE_CATS = [
   {
     cat: 'Portfolio Management',
     icon: 'building',
-    color: '#4B8FE0',
+    color: 'var(--mkt-blue)',
     features: [
       { icon: 'building', title: 'Multi-company portfolios', desc: 'Organise properties under separate companies or trading names, each with its own branding, settings, Xero connection and access controls. Blocks of flats and HMO rooms sit under their building.' },
       { icon: 'pie-chart', title: 'Property health scores', desc: 'Every property gets an automatic health score from compliance, occupancy, rent and maintenance, so the ones that need you rise to the top.' },
@@ -108,7 +138,7 @@ const FEATURE_CATS = [
   {
     cat: 'Rent & Finance',
     icon: 'pound',
-    color: '#2ECC8A',
+    color: 'var(--mkt-gold)',
     features: [
       { icon: 'calendar', title: 'Rent Tracker and Day Tracker', desc: 'Month squares and a day-by-day grid for every tenancy: paid, due, missed, part-paid, payment plans and non-chargeable periods, with the arrears position always current.' },
       { icon: 'upload', title: 'Statement importer and inbox', desc: 'Drop a PNE or RMS agent statement PDF, or have the agent email it to your statement inbox, and rent, fees and maintenance are matched to properties automatically.' },
@@ -119,7 +149,7 @@ const FEATURE_CATS = [
   {
     cat: 'Short-Term Lets',
     icon: 'bed',
-    color: '#9B6FDE',
+    color: 'var(--mkt-blue)',
     features: [
       { icon: 'plug', title: 'Hostaway and Lodgify sync', desc: 'Airbnb, Booking.com, Vrbo and direct bookings pulled from your channel manager three times a day and recorded as income once the guest has stayed, with platform fees shown per booking.' },
       { icon: 'percent', title: 'Occupancy, ADR and RevPAR', desc: 'Nights actually slept over the rooms actually open, average daily rate and revenue per available room, per room and per month. Rooms in refurb sit out of the maths.' },
@@ -130,9 +160,9 @@ const FEATURE_CATS = [
   {
     cat: 'Compliance & Legal',
     icon: 'shield-check',
-    color: '#E0943A',
+    color: 'var(--mkt-green)',
     features: [
-      { icon: 'clipboard-check', title: 'Certificate tracking with EPC auto-sync', desc: 'Gas safety, EICR, smoke and CO, HMO licences and more with expiry alerts at 90, 60 and 30 days. EPC ratings and expiry pulled from the national register automatically.' },
+      { icon: 'clipboard-check', title: 'Certificate tracking with EPC auto-sync', desc: 'Gas safety, EICR, smoke and CO, HMO licences and more with staged expiry alerts at 90, 60, 30 and 7 days, on the day, then weekly if overdue. EPC ratings and expiry pulled from the national register automatically.' },
       { icon: 'id-card', title: 'Right to Rent and deposits', desc: 'Log document type, check date and expiry for every tenant; track which scheme protects each deposit, with dates and certificate numbers.' },
       { icon: 'scale', title: 'Renters Rights ready', desc: 'A portfolio checklist for the Renters Rights Act (PRS database, ombudsman, periodic tenancies) plus notice generation with the right grounds and periods.' },
       { icon: 'robot', title: 'Portfolio Autopilot', desc: 'A daily AI-drafted action list across arrears, compliance, insurance and vacancies. Every item is a suggestion with a ready-to-send draft; nothing goes out without you.' },
@@ -141,7 +171,7 @@ const FEATURE_CATS = [
   {
     cat: 'Refurbs',
     icon: 'hammer',
-    color: '#C8A84B',
+    color: 'var(--mkt-amber)',
     features: [
       { icon: 'hammer', title: 'Refurb projects', desc: 'Agreed price against payments made, extras, milestones and a board view for every refurbishment, so remaining-to-pay is always a real number.' },
       { icon: 'wallet', title: 'Payments ledger', desc: 'Every payment and credit logged against the project and the payee, exportable for your accountant and pushed to Xero as its own category if you want it separate.' },
@@ -151,7 +181,7 @@ const FEATURE_CATS = [
   {
     cat: 'Deals & Acquisitions',
     icon: 'target',
-    color: '#6E44B8',
+    color: 'var(--mkt-blue)',
     features: [
       { icon: 'calculator', title: 'BTL, HMO, SA and BRRR calculator', desc: 'Full acquisition numbers with current SDLT rates, conveyancing, agent fees, Section 24 tax and a deal score. Paste a Rightmove, Zoopla or OnTheMarket link to pre-fill.' },
       { icon: 'trending-up', title: 'Ten-year projection and remortgage scenarios', desc: 'Cashflow, equity and yield projected ten years out, with an LTV table showing what a remortgage at 65, 70 or 75 per cent would release.' },
@@ -162,7 +192,7 @@ const FEATURE_CATS = [
   {
     cat: 'Tenant Portal',
     icon: 'users',
-    color: '#9B6FDE',
+    color: 'var(--mkt-purple)',
     features: [
       { icon: 'globe', title: 'Branded subdomains', desc: 'Each company gets its own portal at yourname.ownproperly.com, in your colours and logo, with a branded email invite for every tenant.' },
       { icon: 'wrench', title: 'Repair requests', desc: 'Tenants submit repairs with photos. You get an alert, it lands in your maintenance tracker, and AI triage suggests urgency and trade.' },
@@ -172,7 +202,7 @@ const FEATURE_CATS = [
   {
     cat: 'Reports & Tax',
     icon: 'file-text',
-    color: '#4B8FE0',
+    color: 'var(--mkt-blue)',
     features: [
       { icon: 'file-text', title: '20 built-in reports', desc: 'P&L, rental income schedule, mortgage interest, capital gains, yield comparison, occupancy, collection rate, backfill, compliance, expenses and more. CSV and PDF, and a year-end tax pack.' },
       { icon: 'landmark', title: 'Making Tax Digital for Income Tax', desc: 'Quarterly Property Business figures built from your rent and expenses, ready for MTD. HMRC filing runs in practice mode (HMRC\'s sandbox) today, with live filing as soon as HMRC approves us. Plus a clear steer on when MTD applies and when it does not (limited companies).' },
@@ -249,13 +279,13 @@ export function Testimonials({ items = TESTIMONIALS }) {
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>From landlords using Properly</div>
-          <h2 id="mkt-testimonials-title" style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>What landlords say</h2>
+          <h2 id="mkt-testimonials-title" style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em' }}>What landlords say</h2>
         </div>
         <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(items.length, 3)}, 1fr)`, gap: 20 }}>
           {items.map(t => (
-            <figure key={t.name + t.quote.slice(0, 20)} style={{ margin: 0, background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '26px 24px' }}>
-              <blockquote style={{ margin: 0, fontFamily: SANS, fontSize: 15, color: SLATE, lineHeight: 1.6 }}>{t.quote}</blockquote>
-              <figcaption style={{ marginTop: 16, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: SLATE }}>
+            <figure key={t.name + t.quote.slice(0, 20)} style={{ margin: 0, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '26px 24px' }}>
+              <blockquote style={{ margin: 0, fontFamily: SANS, fontSize: 15, color: INK, lineHeight: 1.6 }}>{t.quote}</blockquote>
+              <figcaption style={{ marginTop: 16, fontFamily: SANS, fontSize: 14, fontWeight: 600, color: INK }}>
                 {t.name}{t.detail && <span style={{ display: 'block', fontWeight: 400, color: MUTED, fontSize: 13, marginTop: 2 }}>{t.detail}</span>}
               </figcaption>
             </figure>
@@ -296,11 +326,11 @@ function FeatureCategory({ cat, narrow, defaultOpen }) {
   const btnId = `feat-btn-${slug}`
   const expanded = !narrow || open
   const iconTile = (
-    <div style={{ width: 40, height: 40, borderRadius: 10, background: cat.color + '18', border: `1px solid ${cat.color}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={cat.icon} size={20} color={cat.color}/></div>
+    <div style={{ width: 40, height: 40, borderRadius: 10, background: mix(cat.color, 10), border: `1px solid ${mix(cat.color, 20)}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={cat.icon} size={20} color={cat.color}/></div>
   )
   return (
     <div className="feat-cat" style={{ marginBottom: 64 }}>
-      <h3 className="feat-cat-head" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${BORDER}`, fontSize: 20, fontWeight: 600, color: SLATE, letterSpacing: '-0.01em' }}>
+      <h3 className="feat-cat-head" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${BORDER}`, fontSize: 20, fontWeight: 600, color: INK, letterSpacing: '-0.01em' }}>
         {narrow ? (
           <button type="button" id={btnId} className="feat-acc-btn" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(o => !o)}>
             {iconTile}
@@ -315,9 +345,9 @@ function FeatureCategory({ cat, narrow, defaultOpen }) {
           {cat.features.map(f => (
             <div key={f.title} className="feat-card">
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: cat.color + '14', border: `1px solid ${cat.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: mix(cat.color, 8), border: `1px solid ${mix(cat.color, 16)}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name={f.icon} size={18} color={cat.color}/></div>
                 <div>
-                  <h4 style={{ fontSize: 15, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{f.title}</h4>
+                  <h4 style={{ fontSize: 15, fontWeight: 600, color: INK, marginBottom: 5 }}>{f.title}</h4>
                   <p style={{ fontFamily: SANS, fontSize: 14, color: MUTED, lineHeight: 1.6 }}>{f.desc}</p>
                 </div>
               </div>
@@ -375,21 +405,23 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
   }, [])
 
   return (
-    <div className="mkt-root" style={{ fontFamily: SANS, color: SLATE, background: CREAM, minHeight: '100vh', overflowX: 'hidden' }}>
+    <div className="mkt-root" style={{ fontFamily: SANS, color: INK, background: CREAM, minHeight: '100vh', overflowX: 'hidden' }}>
       <style>{CSS}</style>
 
-      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(244,243,239,0.96)', backdropFilter: 'blur(10px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>
+      <nav className="mkt-nav" style={{ position: 'sticky', top: 0, zIndex: 100, backdropFilter: 'blur(10px)', borderBottom: `1px solid ${BORDER}`, padding: '0 24px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 76 }}>
           <a href="/" aria-label="Properly — home" style={{ display:'flex', alignItems:'center' }}>
-            <img src="/logo.svg" alt="Properly" className="hide-mobile-logo" style={{ height: 48, width: 'auto' }}/>
-            <img src="/brand/lockup-short.svg" alt="Properly" className="show-mobile-logo" style={{ height: 30, width: 'auto' }}/>
+            <img src="/logo.svg" alt="Properly" className="mkt-logo mkt-logo-light-wide" style={{ height: 48, width: 'auto' }}/>
+            <img src="/wordmark-dark.svg" alt="Properly" className="mkt-logo mkt-logo-dark-wide" style={{ height: 48, width: 'auto' }}/>
+            <img src="/brand/lockup-short.svg" alt="Properly" className="mkt-logo mkt-logo-light-short" style={{ height: 30, width: 'auto' }}/>
+            <img src="/wordmark-dark.svg" alt="Properly" className="mkt-logo mkt-logo-dark-short" style={{ height: 34, width: 'auto' }}/>
           </a>
           <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
             <div className="hide-mobile" style={{ display: 'flex', gap: 24 }}>
               {NAV_LINKS.map(([id,label]) => (
                 <button key={id} onClick={()=>scrollTo(id)} className="mkt-navlink"
                   aria-current={activeNav===id ? 'true' : undefined}
-                  style={{ color: activeNav===id ? SLATE : MUTED, fontWeight: activeNav===id ? 600 : 400 }}>
+                  style={{ color: activeNav===id ? INK : MUTED, fontWeight: activeNav===id ? 600 : 400 }}>
                   {label}
                 </button>
               ))}
@@ -401,7 +433,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               <button type="button" className="mkt-burger" onClick={()=>setMobileMenuOpen(o=>!o)}
                 aria-expanded={mobileMenuOpen} aria-controls="mkt-mobile-menu"
                 aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
-                <Icon name={mobileMenuOpen ? 'x' : 'menu'} size={18} color={SLATE}/>
+                <Icon name={mobileMenuOpen ? 'x' : 'menu'} size={18}/>
               </button>
             </div>
           </div>
@@ -417,30 +449,30 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         )}
       </nav>
 
-      <section id="home" className="mkt-dark" style={{ background: `linear-gradient(160deg, ${DARK} 0%, ${SLATE} 100%)`, padding: '100px 24px 120px', textAlign: 'center' }}>
+      <section id="home" className="mkt-dark" style={{ background: `linear-gradient(160deg, ${SLATE_DEEP} 0%, ${PANEL} 100%)`, padding: '100px 24px 120px', textAlign: 'center' }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
-          <div style={{ display: 'inline-block', background: GOLD + '22', border: `1px solid ${GOLD}44`, borderRadius: 20, padding: '5px 16px', fontFamily: MONO, fontSize: 11, color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 28 }}>
+          <div style={{ display: 'inline-block', background: mix(GOLD, 14), border: `1px solid ${mix(GOLD, 30)}`, borderRadius: 20, padding: '5px 16px', fontFamily: MONO, fontSize: FS.xs, color: GOLD_ON_DARK, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 28 }}>
             Built this decade · UK landlords
           </div>
-          <h1 style={{ fontSize: 54, fontWeight: 600, color: WHITE, lineHeight: 1.13, letterSpacing: '-0.025em', marginBottom: 24 }}>
+          <h1 style={{ fontSize: 54, fontWeight: 600, color: ON_DARK, lineHeight: 1.13, letterSpacing: '-0.025em', marginBottom: 24 }}>
             Property software that doesn't feel like 2010
           </h1>
-          <p className="hero-sub" style={{ fontSize: 19, color: '#C5D0D6', lineHeight: 1.6, marginBottom: 40, fontFamily: SANS, fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
+          <p className="hero-sub" style={{ fontSize: 19, color: ON_DARK_SOFT, lineHeight: 1.6, marginBottom: 40, fontFamily: SANS, fontWeight: 400, maxWidth: 680, margin: '0 auto 40px' }}>
             Run your entire UK rental portfolio from one dashboard. Rent, compliance, tenant portal, reports and more from £2 per property a month (£10/mo minimum) — AI insights and the deals pipeline on the £5 Investor plan.
           </p>
           <div className="mkt-hero-btns" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
-            <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff44', fontSize: 14, padding: '16px 36px' }}>See all features</button>
+            <button onClick={()=>scrollTo('features')} className="mkt-btn-ghost" style={{ color: ON_DARK, borderColor: 'rgba(255,255,255,0.27)', fontSize: 14, padding: '16px 36px' }}>See all features</button>
           </div>
-          <p style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: ON_DARK_MUTED, marginTop: 20 }}>14-day free trial · Cancel anytime · No per-user fees, ever</p>
         </div>
       </section>
 
-      <div style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '28px 24px' }}>
+      <div style={{ background: SURFACE, borderBottom: `1px solid ${BORDER}`, padding: '28px 24px' }}>
         <div className="stats-grid" style={{ maxWidth: 1000, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, textAlign: 'center' }}>
           {[['From £2/mo','per property · £10/mo min'],['0','per-user fees'],['2 plans','Starter & Investor'],['14 days','free, no card']].map(([val,lab]) => (
             <div key={val}>
-              <div style={{ fontSize: 22, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', fontFamily: MONO }}>{val}</div>
+              <div style={{ fontSize: 22, fontWeight: 600, color: INK, letterSpacing: '-0.02em', fontFamily: MONO }}>{val}</div>
               <div style={{ fontFamily: MONO, fontSize: 11, color: MUTED, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{lab}</div>
             </div>
           ))}
@@ -451,7 +483,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 36 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Inside Properly</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, live account</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em', marginBottom: 14 }}>Real screens, live account</h2>
             <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 600, margin: '0 auto' }}>
               These are live pages from a working Properly account, not mock-ups: a two-company portfolio of houses, a block of flats, an HMO and six serviced apartments, exactly as it runs today.
             </p>
@@ -478,7 +510,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           </div>
           <div className="screen-caption" style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginTop: 22, maxWidth: 860, margin: '22px auto 0' }}>
             <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 8, letterSpacing: '-0.01em' }}>{shot.title}</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: INK, marginBottom: 8, letterSpacing: '-0.01em' }}>{shot.title}</h3>
               <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED, lineHeight: 1.6 }}>{shot.desc}</p>
             </div>
           </div>
@@ -486,11 +518,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      <section className="mkt-sec" style={{ padding: '88px 24px 72px', background: WHITE }}>
+      <section className="mkt-sec" style={{ padding: '88px 24px 72px', background: SURFACE }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 52 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Why Properly</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em', marginBottom: 14 }}>The landlord tool you'd actually choose</h2>
             <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 580, margin: '0 auto' }}>
               Most property software was built before the iPhone. Ours wasn't. Here's what that means in practice.
             </p>
@@ -518,10 +550,10 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             ].map(c => (
               <div key={c.title} style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '28px 26px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: GOLD + '18', border: `1px solid ${GOLD}33`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={c.icon} size={22} color={GOLD}/></div>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: GOLD_T, background: GOLD + '14', border: `1px solid ${GOLD}33`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: mix(GOLD, 10), border: `1px solid ${mix(GOLD, 20)}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name={c.icon} size={22} color={GOLD_T}/></div>
+                  <span style={{ fontFamily: MONO, fontSize: FS.xs, color: GOLD_T, background: mix(GOLD, 8), border: `1px solid ${mix(GOLD, 20)}`, borderRadius: 4, padding: '3px 8px', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{c.tag}</span>
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 600, color: SLATE, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
+                <h3 style={{ fontSize: 17, fontWeight: 600, color: INK, marginBottom: 10, lineHeight: 1.3 }}>{c.title}</h3>
                 <p style={{ fontFamily: SANS, fontSize: 14, color: MUTED, lineHeight: 1.6 }}>{c.desc}</p>
               </div>
             ))}
@@ -533,13 +565,13 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How it works</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Up and running in minutes</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em' }}>Up and running in minutes</h2>
           </div>
           <div className="steps-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 32 }}>
             {steps.map(s => (
               <div key={s.n} style={{ textAlign: 'center' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 26, background: SLATE, color: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 20, fontWeight: 700, margin: '0 auto 20px' }}>{s.n}</div>
-                <h3 style={{ fontSize: 18, fontWeight: 600, color: SLATE, marginBottom: 10 }}>{s.title}</h3>
+                <div style={{ width: 52, height: 52, borderRadius: 26, background: PANEL, color: GOLD_ON_DARK, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 20, fontWeight: 700, margin: '0 auto 20px' }}>{s.n}</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: INK, marginBottom: 10 }}>{s.title}</h3>
                 <p style={{ fontFamily: SANS, fontSize: 15, color: MUTED, lineHeight: 1.6 }}>{s.desc}</p>
               </div>
             ))}
@@ -547,11 +579,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      <section className="mkt-sec" id="features" style={{ padding: '88px 24px 100px', background: WHITE }}>
+      <section className="mkt-sec" id="features" style={{ padding: '88px 24px 100px', background: SURFACE }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 64 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Everything you need</div>
-            <h2 style={{ fontSize: 38, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Built for serious property investors</h2>
+            <h2 style={{ fontSize: 38, fontWeight: 600, color: INK, letterSpacing: '-0.02em', marginBottom: 14 }}>Built for serious property investors</h2>
             <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
               Eight modules covering every part of running a portfolio: acquisition, refurb, letting, rent, short-term lets, compliance, tax and the tenants themselves.
             </p>
@@ -562,20 +594,20 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           ))}
 
           <div className="mkt-also" style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 16, padding: '28px 32px', marginTop: 16 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 18 }}>Also included</div>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 18 }}>Also included</div>
             <div className="feat-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {[
-                ['🌙','Dark & light mode','Easy on the eyes, day or night.'],
-                ['📱','PWA — install on iPhone/Android','Works like a native app, no App Store needed.'],
-                ['🎨','Custom branding per company','Your logo and colour on every tenant-facing page.'],
-                ['🔗','Referral programme','Earn credit for every landlord you refer.'],
-                ['🧭','Custom navigation','Show only the tabs your team needs.'],
-                ['📧','Onboarding email sequences','Automated welcome, day 3 and day 7 emails.'],
+                ['moon','Dark & light mode','Easy on the eyes, day or night.'],
+                ['download','PWA — install on iPhone/Android','Works like a native app, no App Store needed.'],
+                ['star','Custom branding per company','Your logo and colour on every tenant-facing page.'],
+                ['users','Referral programme','Earn credit for every landlord you refer.'],
+                ['list','Custom navigation','Show only the tabs your team needs.'],
+                ['mail','Onboarding email sequences','Automated welcome, day 3 and day 7 emails.'],
               ].map(([icon, title, desc]) => (
                 <div key={title} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                  <span style={{ flexShrink: 0, marginTop: 1, color: GOLD_T }} aria-hidden="true"><Icon name={icon} size={18}/></span>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: SLATE, marginBottom: 3 }}>{title}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: INK, marginBottom: 3 }}>{title}</div>
                     <div style={{ fontFamily: SANS, fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{desc}</div>
                   </div>
                 </div>
@@ -585,25 +617,25 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      <section className="mkt-dark mkt-sec" style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${DARK} 0%, #1E3040 100%)` }}>
+      <section className="mkt-dark mkt-sec" style={{ padding: '72px 24px', background: `linear-gradient(135deg, ${SLATE_DEEP} 0%, ${SLATE_2} 100%)` }}>
         <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 48, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
-            <h2 style={{ fontSize: 32, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
-            <p style={{ fontFamily: SANS, fontSize: 15, color: '#B0BEC5', lineHeight: 1.6, marginBottom: 24 }}>
+            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: GOLD_ON_DARK, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 14 }}>AI tools · on the Investor plan</div>
+            <h2 style={{ fontSize: 32, fontWeight: 600, color: ON_DARK, letterSpacing: '-0.02em', marginBottom: 16, lineHeight: 1.25 }}>Listings written for you in 10 seconds</h2>
+            <p style={{ fontFamily: SANS, fontSize: 15, color: ON_DARK_MUTED, lineHeight: 1.6, marginBottom: 24 }}>
               Generate Rightmove and Zoopla descriptions in your choice of tone — professional, warm or luxury. Plus AI that reads your uploaded gas certs, EICRs and tenancy agreements and fills in the data for you. All included in the £5/property Investor plan.
             </p>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 13, padding: '12px 24px' }}>Try it free</button>
           </div>
           <div style={{ flex: 1, minWidth: 280 }}>
-            <div style={{ background: '#ffffff0D', border: '1px solid #ffffff18', borderRadius: 14, padding: '22px 24px' }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: '#9AAAB8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Generated listing · Zoopla · Warm tone</div>
-              <p style={{ fontFamily: SANS, fontSize: 14, color: '#C8D5E0', lineHeight: 1.65 }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: '22px 24px' }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: ON_DARK_FAINT, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Generated listing · Zoopla · Warm tone</div>
+              <p style={{ fontFamily: SANS, fontSize: 14, color: ON_DARK_SOFT, lineHeight: 1.65 }}>
                 "Tucked away in the heart of the city centre, this beautifully presented three-bedroom terraced home offers everything a modern family could wish for. The recently fitted kitchen floods the open-plan living space with natural light, while the south-facing garden provides a rare green retreat..."
               </p>
               <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {['Professional','Warm','Luxury'].map(t => (
-                  <span key={t} style={{ fontFamily: MONO, fontSize: 10, color: '#9AAAB8', background: '#ffffff0A', border: '1px solid #ffffff14', borderRadius: 6, padding: '3px 8px' }}>{t}</span>
+                  <span key={t} style={{ fontFamily: MONO, fontSize: FS.xs, color: ON_DARK_FAINT, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '3px 8px' }}>{t}</span>
                 ))}
               </div>
             </div>
@@ -616,21 +648,21 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           inline table cuts that off at the pass. Numbers below are based
           on publicly-listed pricing as of May 2026 — update when they
           change. */}
-      <section className="mkt-sec" style={{ padding: '72px 24px 80px', background: WHITE, borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" style={{ padding: '72px 24px 80px', background: SURFACE, borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 980, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 40 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>How we compare</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Properly vs the alternatives</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em' }}>Properly vs the alternatives</h2>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: SANS, fontSize: 14, minWidth: 720 }}>
               <thead>
-                <tr style={{ borderBottom: `2px solid ${SLATE}` }}>
+                <tr style={{ borderBottom: `2px solid ${INK}` }}>
                   <th style={{ textAlign: 'left', padding: '14px 12px', color: MUTED, fontWeight: 600 }}></th>
-                  <th style={{ textAlign: 'center', padding: '14px 12px', color: GOLD_T, fontWeight: 700, background: GOLD + '11' }}>Properly</th>
-                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Spreadsheets</th>
-                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Arthur Online</th>
-                  <th style={{ textAlign: 'center', padding: '14px 12px', color: SLATE, fontWeight: 600 }}>Landlord Vision</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: GOLD_T, fontWeight: 700, background: mix(GOLD, 7) }}>Properly</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: INK, fontWeight: 600 }}>Spreadsheets</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: INK, fontWeight: 600 }}>Arthur Online</th>
+                  <th style={{ textAlign: 'center', padding: '14px 12px', color: INK, fontWeight: 600 }}>Landlord Vision</th>
                 </tr>
               </thead>
               <tbody>
@@ -645,9 +677,9 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   ['Xero integration', 'Native', 'CSV export', '✓', '✓'],
                   ['Free trial', '14 days', 'N/A', '14 days', '30 days'],
                 ].map(([label, op, ss, ar, lv], i) => (
-                  <tr key={label} style={{ borderBottom: `1px solid ${BORDER}`, background: i % 2 ? '#FAFAF8' : 'transparent' }}>
-                    <td style={{ padding: '11px 12px', color: SLATE, fontWeight: 600 }}>{label}</td>
-                    <td style={{ padding: '11px 12px', textAlign: 'center', color: SLATE, fontWeight: 700, background: GOLD + '11' }}>{op}</td>
+                  <tr key={label} style={{ borderBottom: `1px solid ${BORDER}`, background: i % 2 ? TINT : 'transparent' }}>
+                    <td style={{ padding: '11px 12px', color: INK, fontWeight: 600 }}>{label}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: INK, fontWeight: 700, background: mix(GOLD, 7) }}>{op}</td>
                     <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{ss}</td>
                     <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{ar}</td>
                     <td style={{ padding: '11px 12px', textAlign: 'center', color: MUTED }}>{lv}</td>
@@ -668,18 +700,18 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 56 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Honest pricing</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 14 }}>Simple per-property pricing.</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em', marginBottom: 14 }}>Simple per-property pricing.</h2>
             <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, maxWidth: 600, margin: '0 auto' }}>Two plans: Starter at £2 a property and Investor at £5 a property, each with a £10/month minimum. No per-user fees, unlimited team members — whether you have one rental or a hundred.</p>
           </div>
 
           <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-            <div className="mkt-dark" style={{ background: SLATE, borderRadius: 20, padding: '36px 32px', color: WHITE }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
+            <div className="mkt-dark" style={{ background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 20, padding: '36px 32px', color: ON_DARK }}>
+              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: GOLD_ON_DARK, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 16 }}>Starter plan</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
-                <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: WHITE }}>£2</span>
-                <span style={{ fontFamily: SANS, fontSize: 15, color: '#B0BEC5' }}>/property/month</span>
+                <span style={{ fontSize: 52, fontWeight: 600, letterSpacing: '-0.03em', color: ON_DARK }}>£2</span>
+                <span style={{ fontFamily: SANS, fontSize: 15, color: ON_DARK_MUTED }}>/property/month</span>
               </div>
-              <p style={{ fontFamily: SANS, fontSize: 14, color: '#B0BEC5', marginBottom: 28, lineHeight: 1.6 }}>
+              <p style={{ fontFamily: SANS, fontSize: 14, color: ON_DARK_MUTED, marginBottom: 28, lineHeight: 1.6 }}>
                 Billed monthly with a £10/month minimum. Add or remove properties anytime — you only pay for what you have.
               </p>
               <div style={{ display: 'grid', gap: 11, marginBottom: 24 }}>
@@ -694,14 +726,14 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   '14-day free trial — no card needed',
                 ].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ color: GOLD, fontWeight: 700, fontSize: 14 }}>✓</span>
-                    <span style={{ fontFamily: SANS, fontSize: 14, color: '#D0D8E0' }}>{item}</span>
+                    <Icon name="check" size={16} color={GOLD_ON_DARK} stroke={2.2} aria-hidden="true"/>
+                    <span style={{ fontFamily: SANS, fontSize: 14, color: ON_DARK_SOFT }}>{item}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ background: '#ffffff0D', border: `1px solid ${GOLD}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: GOLD, marginBottom: 4 }}>Investor plan · £5/property/month</div>
-                <div style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', lineHeight: 1.55 }}>
+              <div style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${mix(GOLD, 30)}`, borderRadius: 10, padding: '12px 14px', marginBottom: 24 }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: GOLD_ON_DARK, marginBottom: 4 }}>Investor plan · £5/property/month</div>
+                <div style={{ fontFamily: SANS, fontSize: 13, color: ON_DARK_MUTED, lineHeight: 1.55 }}>
                   Everything in Starter, plus AI portfolio insights, the AI listing writer and the deals pipeline. Same £10/month minimum.
                 </div>
               </div>
@@ -709,18 +741,18 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             </div>
 
             <div>
-              <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px', marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px', marginBottom: 16 }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Example costs</div>
                 {[['1 property','£10/mo (minimum)'],['5 properties','£10/mo'],['10 properties','£20/mo'],['25 properties','£50/mo'],['50 properties','£100/mo'],['100 properties','£200/mo']].map(([props,cost]) => (
                   <div key={props} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: `1px solid ${BORDER}` }}>
                     <span style={{ fontFamily: MONO, fontSize: 12, color: MUTED }}>{props}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: SLATE }}>{cost}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: INK }}>{cost}</span>
                   </div>
                 ))}
                 <div style={{ fontFamily: SANS, fontSize: 12, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>Starter plan shown — Investor is £5/property. A £10/month minimum applies to both. Prices exclude VAT where applicable.</div>
               </div>
-              <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px' }}>
-                <div style={{ fontFamily: MONO, fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
+              <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '24px' }}>
+                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>Common questions</div>
                 {[
                   ['What happens after the trial?', "You'll be prompted to add a card. If you don't, the account moves to read-only — your data is always safe."],
                   ['Can I cancel anytime?', 'Yes. Cancel from billing settings and keep access until the end of the billing period. No questions asked.'],
@@ -728,7 +760,7 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
                   ['Is the tenant portal included?', 'Yes. Every company gets a branded subdomain portal for tenants at no extra cost.'],
                 ].map(([q,a]) => (
                   <div key={q} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${BORDER}` }}>
-                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: SLATE, marginBottom: 5 }}>{q}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: INK, marginBottom: 5 }}>{q}</div>
                     <div style={{ fontFamily: SANS, fontSize: 13, color: MUTED, lineHeight: 1.55 }}>{a}</div>
                   </div>
                 ))}
@@ -746,10 +778,10 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           CAL_BOOKING_URL secret on the trial-emails edge function.
           Conversion lift on similar landing pages is typically 5-12%
           when offered alongside (not instead of) the self-serve CTA. */}
-      <section className="mkt-sec" style={{ background: WHITE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" style={{ background: SURFACE, padding: '72px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Prefer a real conversation?</div>
-          <h2 style={{ fontSize: 32, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
+          <h2 style={{ fontSize: 32, fontWeight: 600, color: INK, letterSpacing: '-0.02em', marginBottom: 16 }}>Book a 15-minute onboarding call</h2>
           <p style={{ fontFamily: SANS, fontSize: 16, color: MUTED, lineHeight: 1.6, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px' }}>
             Stuck on whether Properly fits your portfolio? Book a call with Justin (founder).
             We'll go through your setup live and answer any questions about MTD ITSA, Section 24,
@@ -759,8 +791,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
             href="mailto:hello@ownproperly.com?subject=Onboarding%20call%20request&body=Hi%20Justin%2C%0A%0AI%27d%20like%20to%20book%20a%2015-minute%20onboarding%20call.%20A%20few%20times%20that%20work%20for%20me%3A%0A%0A"
             style={{
               display: 'inline-block', fontFamily: SANS, fontSize: 14, fontWeight: 700,
-              padding: '14px 28px', borderRadius: 10, border: `1px solid ${SLATE}`,
-              background: SLATE, color: WHITE, textDecoration: 'none',
+              padding: '14px 28px', borderRadius: 10, border: `1px solid ${INK}`,
+              background: INK, color: SURFACE, textDecoration: 'none',
             }}
           >
             Email to book a call →
@@ -776,11 +808,11 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
           AI search (ChatGPT, Perplexity, Claude, Gemini) lifts these
           answers directly into their result cards. Phrased in the words
           real landlords use when searching. */}
-      <section className="mkt-sec" id="faq" style={{ background: WHITE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
+      <section className="mkt-sec" id="faq" style={{ background: SURFACE, padding: '80px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <div className="mkt-sec-head" style={{ textAlign: 'center', marginBottom: 48 }}>
             <div style={{ fontFamily: MONO, fontSize: 11, color: GOLD_T, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>Frequently asked questions</div>
-            <h2 style={{ fontSize: 36, fontWeight: 600, color: SLATE, letterSpacing: '-0.02em' }}>Everything you might be wondering</h2>
+            <h2 style={{ fontSize: 36, fontWeight: 600, color: INK, letterSpacing: '-0.02em' }}>Everything you might be wondering</h2>
           </div>
           <div style={{ display: 'grid', gap: 14 }}>
             {[
@@ -801,8 +833,8 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
               ['Can tenants access Properly?',
                'Yes. Each property has a branded tenant portal where tenants can see their tenancy details, payment history, request repairs with photos, and download shared documents (gas safety certificates, the How to Rent guide). The portal lives at your-company.ownproperly.com.'],
             ].map(([q, a]) => (
-              <details key={q} style={{ background: '#FAFAF8', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
-                <summary style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: SLATE, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <details key={q} style={{ background: TINT, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '18px 22px' }}>
+                <summary style={{ fontFamily: SANS, fontSize: 16, fontWeight: 600, color: INK, cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{q}</span>
                   <span aria-hidden="true" style={{ color: GOLD_T, fontSize: 16, marginLeft: 12 }}>+</span>
                 </summary>
@@ -818,37 +850,37 @@ export default function MarketingSite({ onSignIn, onSignUp, onPrivacy }) {
         </div>
       </section>
 
-      <section className="mkt-dark mkt-sec" style={{ background: SLATE, padding: '80px 24px', textAlign: 'center' }}>
+      <section className="mkt-dark mkt-sec" style={{ background: PANEL, padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 600, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 34, fontWeight: 600, color: WHITE, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
-          <p style={{ fontFamily: SANS, fontSize: 16, color: '#B0BEC5', marginBottom: 32, lineHeight: 1.6 }}>
+          <h2 style={{ fontSize: 34, fontWeight: 600, color: ON_DARK, letterSpacing: '-0.02em', marginBottom: 16 }}>Ready to switch to modern property software?</h2>
+          <p style={{ fontFamily: SANS, fontSize: 16, color: ON_DARK_MUTED, marginBottom: 32, lineHeight: 1.6 }}>
             14 days free. No credit card. If it doesn't beat what you're using now, walk away.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onSignUp} className="mkt-btn-gold" style={{ fontSize: 14, padding: '16px 36px' }}>Start free trial — no card needed</button>
-            <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: WHITE, borderColor: '#ffffff33', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
+            <button onClick={onSignIn} className="mkt-btn-ghost" style={{ color: ON_DARK, borderColor: 'rgba(255,255,255,0.2)', fontSize: 14, padding: '16px 36px' }}>Sign in</button>
           </div>
-          <p style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5', marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
+          <p style={{ fontFamily: SANS, fontSize: 13, color: ON_DARK_MUTED, marginTop: 20 }}>14-day free trial · From £2/property/month after (£10/mo minimum) · Cancel anytime</p>
         </div>
       </section>
 
-      <footer className="mkt-dark" style={{ background: DARK, padding: '40px 24px', borderTop: '1px solid #ffffff0F' }}>
+      <footer className="mkt-dark" style={{ background: SLATE_DEEP, padding: '40px 24px', borderTop: `1px solid ${BORDER}` }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <img src="/wordmark-dark.svg" alt="Properly" style={{ height: 44, marginBottom: 10 }}/>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: '#9AA6B0' }}>Property Portfolio Management · Built for UK Landlords</div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: ON_DARK_FAINT }}>Property Portfolio Management · Built for UK Landlords</div>
           </div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {[['Features','features'],['Pricing','pricing']].map(([label,id]) => (
-              <button key={id} onClick={()=>scrollTo(id)} className="mkt-navlink" style={{ color: '#9AA6B0' }}>{label}</button>
+              <button key={id} onClick={()=>scrollTo(id)} className="mkt-navlink" style={{ color: ON_DARK_FAINT }}>{label}</button>
             ))}
-            <a href="/blog/" className="mkt-navlink" style={{ color: '#9AA6B0' }}>Guides</a>
+            <a href="/blog/" className="mkt-navlink" style={{ color: ON_DARK_FAINT }}>Guides</a>
           </div>
-          <div style={{ fontFamily: SANS, fontSize: 13, color: '#B0BEC5' }}>
+          <div style={{ fontFamily: SANS, fontSize: 13, color: ON_DARK_MUTED }}>
             © {new Date().getFullYear()} Properly ·{' '}
-            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: '#C8D5E0', cursor: 'pointer', fontFamily: SANS, fontSize: 'inherit', padding: 0, textDecoration: 'underline' }}>Privacy Policy</button>
+            <button onClick={onPrivacy} style={{ background: 'none', border: 'none', color: ON_DARK_SOFT, cursor: 'pointer', fontFamily: SANS, fontSize: 'inherit', padding: 0, textDecoration: 'underline' }}>Privacy Policy</button>
             {' '} · {' '}
-            <a href="mailto:hello@ownproperly.com" style={{ color: '#C8D5E0', textDecoration: 'none' }}>hello@ownproperly.com</a>
+            <a href="mailto:hello@ownproperly.com" style={{ color: ON_DARK_SOFT, textDecoration: 'none' }}>hello@ownproperly.com</a>
           </div>
         </div>
       </footer>

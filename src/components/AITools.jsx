@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
@@ -55,7 +55,7 @@ export function AIListingWriter({ property, T: TProp }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   return (
@@ -64,7 +64,7 @@ export function AIListingWriter({ property, T: TProp }) {
         <Icon name="file-text" size={20} color={T.gold}/>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>AI listing description writer</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Generate a professional property listing in seconds</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Generate a professional property listing in seconds</div>
         </div>
       </div>
 
@@ -101,7 +101,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <label style={lbl}>Platform</label>
           <div style={{ display: 'flex', gap: 6 }}>
             {[['rightmove','Rightmove'],['zoopla','Zoopla'],['general','General']].map(([k,l]) => (
-              <button key={k} onClick={() => set('target', k)} style={{ fontFamily:mono, fontSize:FS.xs, padding:'4px 10px', borderRadius:20, cursor:'pointer',
+              <button key={k} onClick={() => set('target', k)} style={{ fontFamily:SANS, fontSize:FS.sm, padding:'4px 10px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${form.target===k?T.gold:T.border}`, background:form.target===k?T.gold+'22':'transparent', color:form.target===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
@@ -110,7 +110,7 @@ export function AIListingWriter({ property, T: TProp }) {
           <label style={lbl}>Tone</label>
           <div style={{ display: 'flex', gap: 6 }}>
             {[['professional','Professional'],['warm','Warm'],['luxury','Luxury']].map(([k,l]) => (
-              <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:mono, fontSize:FS.xs, padding:'4px 10px', borderRadius:20, cursor:'pointer',
+              <button key={k} onClick={() => set('tone', k)} style={{ fontFamily:SANS, fontSize:FS.sm, padding:'4px 10px', borderRadius:20, cursor:'pointer',
                 border:`1px solid ${form.tone===k?T.gold:T.border}`, background:form.tone===k?T.gold+'22':'transparent', color:form.tone===k?T.goldText:T.muted }}>{l}</button>
             ))}
           </div>
@@ -127,9 +127,9 @@ export function AIListingWriter({ property, T: TProp }) {
             <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Generated description</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => navigator.clipboard.writeText(result).then(() => {})}
-                style={{ fontFamily:mono, fontSize:FS.xs, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Copy</button>
+                style={{ fontFamily:SANS, fontSize:FS.sm, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Copy</button>
               <button onClick={generate}
-                style={{ fontFamily:mono, fontSize:FS.xs, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Regenerate</button>
+                style={{ fontFamily:SANS, fontSize:FS.sm, padding:'3px 10px', borderRadius:6, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>Regenerate</button>
             </div>
           </div>
           <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{result}</div>
@@ -197,7 +197,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
         <Icon name="globe" size={20} color={T.gold}/>
         <div>
           <div style={{fontSize:14, fontWeight:700, color:T.text}}>Listing yield calculator</div>
-          <div style={{fontFamily:mono, fontSize:11, color:T.muted}}>Paste a Rightmove, Zoopla or OnTheMarket URL to pull the price and property type automatically</div>
+          <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted}}>Paste a Rightmove, Zoopla or OnTheMarket URL to pull the price and property type automatically</div>
         </div>
       </div>
 
@@ -205,13 +205,13 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
         <input value={url} onChange={e=>setUrl(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&analyse()}
           placeholder="https://www.rightmove.co.uk/properties/172607333..."
-          style={{flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
+          style={{flex:1, fontFamily:SANS, fontSize:FS.sm, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 12px'}}/>
         <Button onClick={analyse} disabled={loading || !url.trim()} style={{flexShrink:0}}>
           {loading ? 'Fetching…' : 'Analyse →'}
         </Button>
       </div>
 
-      {error && <div style={{fontFamily:mono, fontSize:11, color:T.amber, marginBottom:10}}>{error}</div>}
+      {error && <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.amber, marginBottom:10}}>{error}</div>}
 
       {scraped && (
         <div>
@@ -233,7 +233,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               </div>
               <select value={scraped.propertyType || ''}
                 onChange={e=>setScraped(p=>({...p, propertyType:e.target.value}))}
-                style={{fontFamily:mono, fontSize:12, background:scraped.propertyType?T.gold+'11':T.bg,
+                style={{fontFamily:SANS, fontSize:FS.sm, background:scraped.propertyType?T.gold+'11':T.bg,
                   border:`1px solid ${scraped.propertyType?T.gold:T.border}`, color:T.text, borderRadius:6, padding:'7px 10px', width:'100%'}}>
                 <option value="">Select type…</option>
                 {['flat','terraced','semi-detached','detached','bungalow','HMO'].map(t=>(
@@ -243,14 +243,14 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
             </div>
             {scraped.bedrooms && (
               <div>
-                <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
+                <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:4}}>Bedrooms ✓ auto-detected</div>
                 <div style={{fontFamily:mono, fontSize:13, fontWeight:700, color:T.goldText, padding:'7px 10px', background:T.gold+'11', borderRadius:6, border:`1px solid ${T.gold}`}}>
                   {scraped.bedrooms} bed
                 </div>
               </div>
             )}
             <div>
-              <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
+              <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:4}}>Expected monthly rent</div>
               <MoneyInput prefix="£" value={rent} onChange={v=>setRent(v)}
                 placeholder="e.g. 850"
                 style={{fontFamily:mono, fontSize:13, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:6, padding:'7px 10px 7px 26px', width:'100%'}}/>
@@ -258,7 +258,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           </div>
 
           {scraped.address && (
-            <div style={{fontFamily:mono, fontSize:11, color:T.muted, marginBottom:12}}>
+            <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:12}}>
               <Icon name="pin" size={12} style={{display:'inline-block', verticalAlign:'-2px', marginRight:4}}/>{scraped.address}
               {url && <> · <a href={url} target="_blank" rel="noreferrer" style={{color:T.blue, textDecoration:'none'}}>View listing →</a></>}
             </div>
@@ -296,12 +296,12 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
               </Button>
             )}
             <button onClick={()=>{setUrl('');setScraped(null);setRent('');setError('')}}
-              style={{fontFamily:mono, fontSize:12, padding:'9px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer'}}>
+              style={{fontFamily:SANS, fontSize:FS.sm, padding:'9px 14px', borderRadius:8, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer'}}>
               Clear
             </button>
           </div>
 
-          <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:10, lineHeight:1.7}}>
+          <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginTop:10, lineHeight:1.7}}>
             Profit estimate: 10% void/costs deducted, 4.5% interest-only mortgage at 75% LTV, £50/mo other costs. SDLT at 5% additional property rate (Oct 2024).
           </div>
         </div>
@@ -338,7 +338,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
         <Icon name="trending-up" size={20} color={T.gold}/>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Portfolio what-if modeller</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>See what your portfolio looks like after growth</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>See what your portfolio looks like after growth</div>
         </div>
       </div>
 
@@ -352,7 +352,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
         ].map(s => (
           <div key={s.label}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{s.label}</span>
+              <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{s.label}</span>
               <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: T.goldText }}>
                 {s.prefix||''}{s.fmt ? parseInt(s.value).toLocaleString('en-GB') : s.value}{s.suffix||''}
               </span>
@@ -400,7 +400,7 @@ export function PortfolioModeller({ currentProperties = [], T: TProp }) {
         </div>
       </div>
 
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.7 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.7 }}>
         Projections are illustrative only. Based on gross rental income without deductions for voids, maintenance or tax. Capital growth is compound annual. Rent growth assumed at 2% per year.
       </div>
     </div>

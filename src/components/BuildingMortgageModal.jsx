@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
-import FocusTrap from '../lib/FocusTrap'
-import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { isFormDirty } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
+import { Button, Modal } from './ui'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -175,14 +175,12 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   }).format(n || 0)
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
+    <Modal onClose={onClose} size="lg" labelledBy="building-mortgage-title" isDirty={isDirty} confirmFn={confirmDiscard}>
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             Building Mortgage
           </h2>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginTop: 4, lineHeight: 1.6 }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginTop: 4, lineHeight: 1.6 }}>
             Set one mortgage that covers every unit in a building. We split the
             loan, monthly payment, and fees equally across the units in one save.
           </p>
@@ -195,12 +193,12 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               Building ({buildings.length} eligible)
             </label>
             {buildings.length === 0 ? (
-              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '14px 16px', fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+              <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '14px 16px', fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
                 No multi-unit buildings detected. Buildings are detected automatically when 2+ properties share an address (e.g. "Flat 1, X House" / "Flat 2, X House"). For a single property, edit the mortgage directly from the property's edit form.
               </div>
             ) : (
               <select id="bm-building" value={selectedKey || ''} onChange={e => pickBuilding(e.target.value)}
-                style={{ width: '100%', fontFamily: MONO, fontSize: 13, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 12px' }}>
+                style={{ width: '100%', fontFamily: SANS, fontSize: FS.base, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 12px' }}>
                 {buildings.map(b => (
                   <option key={b.key} value={b.key}>
                     {b.label}  ·  {b.properties.length} units
@@ -230,27 +228,26 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
               }}>
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 2 }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, fontWeight: 700, marginBottom: 2 }}>
                     Scan a mortgage offer / facility agreement
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.5 }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5 }}>
                     We'll extract loan amount, rate, term, type, monthly payment and fees, then pre-fill the form for you to verify.
                   </div>
                 </div>
                 <input ref={fileInputRef} type="file" accept="application/pdf,image/*"
                   style={{ display: 'none' }}
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleScanPdf(f); e.target.value = '' }}/>
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}
-                  className="btn btn-ghost" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                <Button variant="secondary" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={scanning || !building}>
                   {scanning ? 'Scanning…' : 'Upload PDF'}
-                </button>
+                </Button>
               </div>
               {scanMessage && (
                 <div style={{
                   background: scanMessage.startsWith('⚠') ? T.red + '11' : T.green + '11',
                   border: `1px solid ${scanMessage.startsWith('⚠') ? T.red : T.green}44`,
                   borderRadius: 8, padding: '8px 12px', marginBottom: 14,
-                  fontFamily: MONO, fontSize: 11,
+                  fontFamily: SANS, fontSize: FS.sm,
                   color: scanMessage.startsWith('⚠') ? T.red : T.green,
                 }}>
                   {scanMessage}
@@ -261,11 +258,11 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
               <form id="bm-form" onSubmit={e => { e.preventDefault(); handleSave() }} style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
                 <div className="g2">
                   <div>
-                    <label htmlFor="bm-total-loan">Total Loan</label>
+                    <label htmlFor="bm-total-loan">Total loan</label>
                     <input id="bm-total-loan" value={totalLoan} onChange={e => setTotalLoan(e.target.value)} placeholder="e.g. 913068.75" />
                   </div>
                   <div>
-                    <label htmlFor="bm-total-monthly">Total Monthly Payment</label>
+                    <label htmlFor="bm-total-monthly">Total monthly payment</label>
                     <input id="bm-total-monthly" value={totalMonthly} onChange={e => setTotalMonthly(e.target.value)} placeholder="e.g. 4025.11" />
                   </div>
                 </div>
@@ -290,7 +287,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="bm-fees">Setup / Arrangement Fees (total)</label>
+                    <label htmlFor="bm-fees">Setup / arrangement fees (total)</label>
                     <input id="bm-fees" value={fees} onChange={e => setFees(e.target.value)} placeholder="e.g. 9375.00" />
                   </div>
                 </div>
@@ -298,36 +295,34 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
 
               {/* Per-unit preview */}
               <div style={{ background: T.gold + '11', border: `1px solid ${T.gold}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
                   Split per unit ({unitCount} × equal share)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Loan / unit</div>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 2 }}>Loan / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitLoan)}</div>
                   </div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Monthly / unit</div>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 2 }}>Monthly / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitMonthly)}</div>
                   </div>
                   <div>
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 2 }}>Fees / unit</div>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 2 }}>Fees / unit</div>
                     <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(perUnitFees)}</div>
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button type="button" onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12 }}>Cancel</button>
-                <button type="submit" form="bm-form" disabled={saving || unitCount === 0} className="btn btn-gold" style={{ fontSize: 12 }}>
+                <Button variant="secondary" size="sm" type="button" onClick={onClose}>Cancel</Button>
+                <Button variant="primary" size="sm" type="submit" form="bm-form" disabled={saving || unitCount === 0}>
                   {saving ? `Updating ${unitCount} units…` : `Save across ${unitCount} units`}
-                </button>
+                </Button>
               </div>
             </>
           )}
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

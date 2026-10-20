@@ -4,7 +4,7 @@ import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, stlPaymentIds } from '../../lib/rentStats'
 import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../../lib/rentEngine'
 import * as api from '../../lib/api'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { NotesTimeline, ReceiptsPanel, ArrearsPanel } from './lazyViews'
 import { RentDots } from './RentDots'
 import { RentLegend } from './RentTrackerOverview'
@@ -49,7 +49,7 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
           </div>
           <div style={{display:'flex',gap:6}}>
             <button onClick={()=>setFilterYear(null)}
-              style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+              style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 10px',borderRadius:20,cursor:'pointer',
                 border:`1px solid ${filterYear===null?T.gold:T.border}`,
                 background:filterYear===null?T.gold:'transparent',
                 color:filterYear===null?CV.onGold:T.muted}}>All</button>
@@ -108,7 +108,7 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
               <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                 <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                 <div style={{fontFamily:MONO,fontSize:item.big?15:17,fontWeight:700,color:item.c}}>{item.v}</div>
-                {item.sub&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                {item.sub&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:2}}>{item.sub}</div>}
               </div>
             ))}
           </div>

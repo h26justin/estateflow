@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { copyToClipboard } from '../../lib/clipboard'
 
@@ -40,17 +40,17 @@ export function ReferralPanel({ user, T, showToast }) {
   return (
     <div>
       <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'24px', marginBottom:16 }}>
-        <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Refer a landlord, get a free month</div>
-        <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.8, marginBottom:20 }}>
+        <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:12 }}>Refer a landlord, get a free month</div>
+        <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.text, lineHeight:1.8, marginBottom:20 }}>
           Share your referral link with another landlord. When they sign up and become a paying customer, we'll give you both a free month.
         </div>
-        {loading ? <div style={{ fontFamily:mono, fontSize:12, color:T.muted }}>Generating your link…</div> : (
+        {loading ? <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.muted }}>Generating your link…</div> : (
           <>
             <div style={{ display:'flex', gap:10, marginBottom:14 }}>
               <input readOnly value={referralUrl}
-                style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.goldText, borderRadius:8, padding:'9px 12px' }}/>
+                style={{ flex:1, fontFamily:SANS, fontSize:FS.sm, background:T.bg, border:`1px solid ${T.border}`, color:T.goldText, borderRadius:8, padding:'9px 12px' }}/>
               <button onClick={copy}
-                style={{ fontFamily:mono, fontSize:12, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:CV.onGold, cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
+                style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'9px 18px', borderRadius:8, border:'none', background:copied?T.green:T.gold, color:CV.onGold, cursor:'pointer', transition:'background 0.2s', flexShrink:0 }}>
                 {copied ? 'Copied!' : 'Copy link'}
               </button>
             </div>
@@ -76,10 +76,10 @@ export function ReferralPanel({ user, T, showToast }) {
           {referrals.map(r => (
             <div key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'11px 20px', borderBottom:`1px solid ${T.border}` }}>
               <div>
-                <div style={{ fontFamily:mono, fontSize:12, color:T.text }}>{r.referred_email || 'Link shared'}</div>
+                <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.text }}>{r.referred_email || 'Link shared'}</div>
                 <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted }}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
               </div>
-              <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'3px 10px', borderRadius:20,
+              <span style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'3px 10px', borderRadius:20,
                 background: r.status==='paying'?T.green+'22':r.status==='signed_up'?T.blue+'22':T.border,
                 color: r.status==='paying'?T.green:r.status==='signed_up'?T.blue:T.muted }}>
                 {r.status === 'paying' ? 'Paying' : r.status === 'signed_up' ? 'Signed up' : 'Pending'}

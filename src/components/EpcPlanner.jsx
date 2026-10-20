@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
 import { Skeleton } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -46,7 +46,7 @@ function RatingBadge({ rating, label, T }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: mono, fontSize: 26, fontWeight: 700, color: '#fff',
       }}>{r}</div>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>{label}</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>{label}</div>
     </div>
   )
 }
@@ -181,7 +181,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const certExpired = cert?.expiry_date && new Date(cert.expiry_date + 'T00:00:00') < new Date()
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
 
   if (loading) {
@@ -236,12 +236,12 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
                 )}
               </>
             ) : (
-              <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginTop: 6 }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>
                 {syncing ? 'Checking the EPC register…' : 'No certificate logged yet.'}
               </div>
             )}
             {syncNote && (
-              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, marginTop: 6 }}>{syncNote}</div>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -251,18 +251,18 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               </a>
             )}
             {canWrite && (
-              <button className="btn" disabled={syncing || syncingAll} onClick={() => runSync(false)}>
+              <Button variant="secondary" disabled={syncing || syncingAll} onClick={() => runSync(false)}>
                 {syncing ? 'Checking…' : (cert ? 'Re-check register' : 'Check register')}
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button className="btn btn-ghost" disabled={syncing || syncingAll} onClick={runSyncAll}>
+              <Button variant="secondary" disabled={syncing || syncingAll} onClick={runSyncAll}>
                 {syncingAll ? 'Syncing portfolio…' : 'Sync all properties'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
           Data from the official EPC register (England &amp; Wales). Certificates open on find-energy-certificate.service.gov.uk; found EPCs are also logged on the Compliance tab with expiry reminders.
         </div>
       </div>
@@ -288,29 +288,29 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn btn-gold" disabled={generating} onClick={() => runGenerate(false)}>
+            <Button variant="primary" disabled={generating} onClick={() => runGenerate(false)}>
               {generating ? 'Generating…' : (plan ? 'Regenerate plan' : 'Generate plan')}
-            </button>
+            </Button>
             {measures.length > 0 && (
-              <button className="btn" disabled={generating} onClick={() => runGenerate(true)}>Save plan</button>
+              <Button variant="secondary" disabled={generating} onClick={() => runGenerate(true)}>Save plan</Button>
             )}
             {plan?.id && (
-              <button className="btn btn-ghost" disabled={generating} onClick={handleDelete}>Delete</button>
+              <Button variant="secondary" disabled={generating} onClick={handleDelete}>Delete</Button>
             )}
           </div>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
             AI-generated planning guidance, not a survey or quote. Review with a qualified retrofit assessor before acting.
           </div>
         </div>
       )}
 
       {error && (
-        <div style={{ ...card, fontFamily: mono, fontSize: 11, color: T.red }}>⚠ {error}</div>
+        <div style={{ ...card, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>⚠ {error}</div>
       )}
 
       {/* Summary */}
       {plan?.summary && (
-        <div style={{ ...card, fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.6 }}>{plan.summary}</div>
+        <div style={{ ...card, fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.6 }}>{plan.summary}</div>
       )}
 
       {/* Measures table */}

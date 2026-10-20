@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
-import { Button } from './ui'
+import { Button, Modal } from './ui'
 import { Icon } from '../lib/icons'
 
 const mono = MONO
@@ -78,18 +77,14 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
   const hasOverrides = Object.keys(overrides).length > 0
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:900,padding:24}}>
-      <FocusTrap onEscape={onClose}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:620,maxHeight:'92vh',overflowY:'auto',padding:'28px',border:`1px solid ${T.border}`}}
-        role="dialog" aria-modal="true" aria-labelledby="role-permissions-title">
-
-        {/* Header */}
-        <div style={{marginBottom:18}}>
-          <h3 id="role-permissions-title" style={{fontSize:18,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Manage role & permissions</h3>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
-            <strong>{name}</strong> on <strong style={{color:company?.color||T.goldText}}>{company?.name}</strong>
-          </div>
-        </div>
+    <Modal onClose={()=>!saving&&onClose()} size="md" zIndex={900} title="Manage role & permissions"
+      description={<><strong>{name}</strong> on <strong style={{color:company?.color||T.goldText}}>{company?.name}</strong></>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={save} disabled={saving}>
+          {saving?'Saving...':'Save changes'}
+        </Button>
+      </>}>
 
         {/* Role selector */}
         <div style={{marginBottom:20}}>
@@ -109,7 +104,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                   <span style={{display:'flex',flexShrink:0,color:info.color}}><Icon name={info.icon} size={22}/></span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:selected?info.color:T.text,marginBottom:2,textTransform:'capitalize'}}>{r}</div>
-                    <div style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.5}}>{info.description}</div>
+                    <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.5}}>{info.description}</div>
                   </div>
                   <div style={{width:20,height:20,borderRadius:10,border:`2px solid ${selected?info.color:T.border}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}>
                     {selected && <div style={{width:10,height:10,borderRadius:5,background:info.color}}/>}
@@ -123,11 +118,11 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
         {/* Advanced toggle */}
         <div style={{borderTop:`1px solid ${T.border}`,paddingTop:16,marginBottom:14}}>
           <button onClick={()=>setShowAdvanced(s=>!s)}
-            style={{background:'none',border:'none',cursor:'pointer',fontFamily:mono,fontSize:12,color:T.goldText,fontWeight:700,padding:0,display:'flex',alignItems:'center',gap:6}}>
+            style={{background:'none',border:'none',cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,color:T.goldText,fontWeight:700,padding:0,display:'flex',alignItems:'center',gap:6}}>
             {showAdvanced ? '▼' : '▶'} Advanced — override specific permissions
             {hasOverrides && <span style={{fontSize:FS.xs,background:T.gold+'33',color:T.goldText,padding:'2px 7px',borderRadius:4}}>{Object.keys(overrides).length} custom</span>}
           </button>
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:6,marginLeft:14}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:6,marginLeft:14}}>
             Use this to grant or restrict specific abilities beyond the role defaults.
           </div>
         </div>
@@ -137,7 +132,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
             {hasOverrides && (
               <div style={{textAlign:'right',marginBottom:8}}>
                 <button onClick={resetOverrides}
-                  style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.muted}44`,background:'transparent',color:T.muted}}>
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.muted}44`,background:'transparent',color:T.muted}}>
                   Reset overrides
                 </button>
               </div>
@@ -151,7 +146,7 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                     const isOverride = key in overrides
                     return (
                       <div key={key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderTop:i>0?`1px solid ${T.border}`:'none',gap:10}}>
-                        <div style={{fontFamily:mono,fontSize:11,color:T.text,flex:1}}>
+                        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,flex:1}}>
                           {api.PERMISSION_LABELS[key] || key}
                           {isOverride && <span style={{fontSize:FS.xs,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
                         </div>
@@ -176,16 +171,6 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
             ))}
           </div>
         )}
-
-        {/* Actions */}
-        <div style={{display:'flex',gap:10,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={save} disabled={saving} style={{flex:2}}>
-            {saving?'Saving...':'Save changes'}
-          </Button>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
+    </Modal>
   )
 }

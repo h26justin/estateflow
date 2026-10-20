@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS, R } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -10,8 +10,9 @@ import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 import { pressable } from '../lib/pressable'
-import { Button, EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { Icon } from '../lib/icons'
+import { calcMonthlyPrice } from '../lib/tierGating'
 import { SkeletonRows, SkeletonTiles } from '../lib/Skeleton'
 import { ensureAal2, totpPrompt } from '../lib/mfaStepUp'
 
@@ -153,7 +154,13 @@ export default function AdminDashboard({ onClose, user }) {
     const trialing = companies.filter(c=>!c.is_free_tier&&(!c.subscriptions?.[0]?.status||c.subscriptions?.[0]?.status==='trialing'))
     const free     = companies.filter(c=>c.is_free_tier)
     const pastDue  = companies.filter(c=>c.subscriptions?.[0]?.status==='past_due')
-    const mrrStripe = active.reduce((s,c)=>s+(c.paid_property_count||c.subscriptions?.[0]?.property_count||0),0) * 2
+    // Tier-aware with the £10 minimum (property_count is the real count, not
+    // the billed quantity). Subscriptions from before the minimum are billed
+    // without it, so this can slightly overstate MRR for those.
+    const mrrStripe = active.reduce((s,c)=>{
+      const sub = c.subscriptions?.[0]
+      return s + calcMonthlyPrice(c.paid_property_count||sub?.property_count||0, sub?.tier||'starter')
+    },0)
     const mrrProps  = companies.reduce((s,c)=>s+(c.real_property_count||0),0) * 2
     const newThisMonth = companies.filter(c=>{
       const d=new Date(c.created_at); const n=new Date()
@@ -183,7 +190,7 @@ export default function AdminDashboard({ onClose, user }) {
   })
   const pill = (status) => {
     const cfg=statusCfg(T)[status]||{label:status,bg:T.border,color:T.muted}
-    return <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 10px',borderRadius:20,background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
+    return <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'3px 10px',borderRadius:20,background:cfg.bg,color:cfg.color}}>{cfg.label}</span>
   }
 
   return (
@@ -198,7 +205,7 @@ export default function AdminDashboard({ onClose, user }) {
             <span style={{fontFamily:mono,fontSize:11,color:T.goldText,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase'}}>Platform Admin</span>
             {metrics.flagged>0&&<span style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:mono,fontSize:FS.xs,background:T.red+'22',color:T.red,padding:'2px 8px',borderRadius:10}}><Icon name="flag" size={11}/> {metrics.flagged} flagged</span>}
           </div>
-          <button onClick={onClose} style={{fontFamily:mono,fontSize:12,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 16px',cursor:'pointer'}}>← Back to app</button>
+          <Button variant="secondary" size="sm" onClick={onClose}>← Back to app</Button>
         </div>
 
         {/* Tabs */}
@@ -256,29 +263,22 @@ export default function AdminDashboard({ onClose, user }) {
 
       {/* ── DELETE MODAL ── */}
       {deleteTarget&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
-          <div style={{background:T.surface,border:`2px solid ${T.red}44`,borderRadius:18,width:'100%',maxWidth:440,padding:'32px 28px'}}>
-            <div style={{textAlign:'center',marginBottom:24}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:12,color:T.red}}><Icon name="alert-triangle" size={40}/></div>
-              <h2 style={{fontSize:18,fontWeight:700,color:T.red,marginBottom:8}}>Delete user account</h2>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.
-              </p>
-            </div>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',display:'block',marginBottom:8}}>Enter your admin password</label>
-            <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
-              onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
-              onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
-            {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:16}}>{deleteError}</div>}
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setDeleteTarget(null)} style={{flex:1}}>Cancel</Button>
-              <Button variant="danger" onClick={handleDeleteUser} disabled={deleting||!deletePassword} style={{flex:2}}>
-                {deleting?'Deleting…':'Delete permanently'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={()=>!deleting&&setDeleteTarget(null)} size="sm" zIndex={600}
+          title="Delete user account"
+          description={<>Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.</>}
+          footer={<>
+            <Button variant="secondary" onClick={()=>setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="danger" onClick={handleDeleteUser} disabled={deleting||!deletePassword}>
+              {deleting?'Deleting…':'Delete permanently'}
+            </Button>
+          </>}>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:8}}>Enter your admin password</label>
+          <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
+            onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
+            onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:R.sm,padding:'10px 14px'}}/>
+          {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:8}}>{deleteError}</div>}
+        </Modal>
       )}
     </div>
   )
@@ -322,20 +322,20 @@ function RevenueTab({ companies, users, metrics, T, fmt }) {
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:'16px 18px'}}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>{k.label}</div>
             <div style={{fontSize:24,fontWeight:700,color:k.color,letterSpacing:'-0.02em',marginBottom:3}}>{k.value}</div>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>
 
       <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px'}}>
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:20}}>New signups — last 12 months</div>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:20}}>New signups — last 12 months</div>
         <div style={{display:'flex',gap:8,alignItems:'flex-end',height:120}}>
           {monthlySignups.map((m,i)=>(
             <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,fontWeight:700}}>{m.count||''}</div>
               <div style={{width:'100%',background:T.gold+(m.count>0?'':'11'),borderRadius:'4px 4px 0 0',
                 height:`${Math.max((m.count/maxSignups)*90,m.count>0?4:0)}px`,transition:'height 0.3s'}}/>
-              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center'}}>{m.label}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,textAlign:'center'}}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -352,9 +352,9 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
     <div>
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search company or email…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
+          style={{flex:1,minWidth:220,fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
-          style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
+          style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
           <option value="all">All statuses</option>
           {Object.entries(statusCfg(T)).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -370,7 +370,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
             <div key={h} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{h}</div>
           ))}
         </div>
-        {filtered.length===0&&<div style={{padding:32,textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>No accounts match your filter</div>}
+        {filtered.length===0&&<div style={{padding:32,textAlign:'center',fontFamily:SANS,fontSize:FS.base,color:T.muted}}>No accounts match your filter</div>}
         {filtered.map(co=>{
           const status = co.is_free_tier?'free_tier':(co.subscriptions?.[0]?.status||'trialing')
           const props  = co.paid_property_count||co.subscriptions?.[0]?.property_count||0
@@ -393,7 +393,7 @@ function AccountsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
               <div style={{fontFamily:mono,fontSize:12,color:props>0?T.green:T.muted}}>{props>0?props:'—'} {props>0&&<span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>billed</span>}</div>
               <div style={{fontFamily:mono,fontSize:12,color:mrr>0?T.green:T.muted}}>{mrr>0?fmt(mrr):'—'}</div>
               <div style={{display:'flex',alignItems:'center',gap:6}} {...pressable(e=>{e.stopPropagation();toggleFreeTier(co.id,co.is_free_tier)}, { role: 'switch', 'aria-checked': !!co.is_free_tier, 'aria-label': 'Free tier' })}>
-                <span style={{fontFamily:mono,fontSize:FS.xs,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                 <div style={{width:36,height:20,borderRadius:10,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',opacity:saving===co.id?0.5:1,transition:'background 0.2s'}}>
                   <div style={{position:'absolute',top:2,left:co.is_free_tier?18:2,width:16,height:16,borderRadius:8,background:'white',transition:'left 0.2s'}}/>
                 </div>
@@ -539,12 +539,12 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
   return (
     <div>
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:24}}>
-        <button onClick={onBack} style={{fontFamily:mono,fontSize:11,background:'none',border:'1px solid '+T.border,color:T.muted,borderRadius:8,padding:'6px 14px',cursor:'pointer'}}>Back</button>
+        <Button variant="secondary" size="sm" onClick={onBack}>Back</Button>
         {co.flagged&&<span style={{fontFamily:mono,fontSize:11,background:T.red+'22',color:T.red,padding:'4px 12px',borderRadius:8}}>Flagged</span>}
         <div style={{flex:1,display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>
           <span style={{fontSize:18,fontWeight:700,color:T.text}}>{co.name}</span>
-          <span style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'3px 12px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
+          <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'3px 12px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
         </div>
       </div>
 
@@ -574,22 +574,20 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             <div style={{display:'grid',gap:10}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Rename company</span>
-                <button onClick={()=>{setRenameName(co.name||'');setRenameAbbr(co.abbr||'');setShowRename(true)}}
-                  style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:'1px solid '+T.border,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                <Button variant="secondary" size="sm" onClick={()=>{setRenameName(co.name||'');setRenameAbbr(co.abbr||'');setShowRename(true)}}>
                   Rename
-                </button>
+                </Button>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.red}}>Delete company</span>
-                <button onClick={handleAdminDeleteCompany}
-                  style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:7,border:'1px solid '+T.red+'44',background:'transparent',color:T.red,cursor:'pointer'}}>
+                <Button variant="secondary" destructive size="sm" onClick={handleAdminDeleteCompany}>
                   Delete
-                </button>
+                </Button>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Free tier</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
+                  <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.is_free_tier?T.goldText:T.muted}}>{co.is_free_tier?'Free':'Paid'}</span>
                   <div {...pressable(()=>requireConfirm(co.is_free_tier?'Remove free tier':'Grant free tier', co.is_free_tier?`Remove free tier from "${co.name}". They will need an active subscription.`:`Grant free tier to "${co.name}". They will not be billed.`, async()=>{ onToggleFreeTier() }))} style={{width:44,height:24,borderRadius:12,background:co.is_free_tier?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.is_free_tier?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
@@ -598,7 +596,7 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span style={{fontFamily:mono,fontSize:12,color:T.text}}>Flag account</span>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontFamily:mono,fontSize:11,color:co.flagged?T.red:T.muted}}>{co.flagged?'Flagged':'Clear'}</span>
+                  <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.flagged?T.red:T.muted}}>{co.flagged?'Flagged':'Clear'}</span>
                   <div {...pressable(()=>requireConfirm(co.flagged?'Unflag account':'Flag account', co.flagged?`Remove the flag from "${co.name}".`:`Flag "${co.name}" for review. This does not affect the account but marks it for admin attention.`, async()=>{ onToggleFlag() }))} style={{width:44,height:24,borderRadius:12,background:co.flagged?T.red:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
                     <div style={{position:'absolute',top:3,left:co.flagged?22:3,width:18,height:18,borderRadius:9,background:'white',transition:'left 0.2s'}}/>
                   </div>
@@ -611,27 +609,23 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Trial controls</div>
             <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:10}}>
               <select value={extendDays} onChange={e=>setExtendDays(Number(e.target.value))}
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'7px 10px',flex:1}}>
                 {[7,14,30,60,90].map(d=><option key={d} value={d}>{'+'+d+' days'}</option>)}
               </select>
-              <button onClick={extendTrial} disabled={extending||endingTrial}
-                style={{fontFamily:mono,fontSize:12,padding:'8px 16px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700}}>
+              <Button variant="primary" size="sm" onClick={extendTrial} disabled={extending||endingTrial}>
                 {extending?'…':'Extend'}
-              </button>
+              </Button>
             </div>
             {/* End trial — destructive, lives below Extend so the
                 non-destructive action is the default tap target. */}
-            <button onClick={endTrialNow} disabled={endingTrial||extending}
-              style={{fontFamily:mono,fontSize:11,padding:'8px 12px',borderRadius:8,
-                border:`1px solid ${T.red}44`,background:T.red+'11',color:T.red,
-                cursor:endingTrial?'wait':'pointer',fontWeight:700,width:'100%'}}>
+            <Button variant="secondary" destructive size="sm" onClick={endTrialNow} disabled={endingTrial||extending} style={{width:'100%'}}>
               {endingTrial?'Ending…':'End trial now — require payment'}
-            </button>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:6,lineHeight:1.5}}>
+            </Button>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:6,lineHeight:1.5}}>
               Sets trial end to today and flips subscription to <em>past due</em>.
               Customer sees “Add payment method” next time they sign in.
             </div>
-            {trialMsg&&<div style={{fontFamily:mono,fontSize:11,color:trialMsg.startsWith('Failed')?T.red:T.green,marginTop:10}}>{trialMsg}</div>}
+            {trialMsg&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:trialMsg.startsWith('Failed')?T.red:T.green,marginTop:10}}>{trialMsg}</div>}
           </div>
         </div>
       </div>
@@ -640,76 +634,72 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
         <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Admin notes</div>
         <div style={{display:'flex',gap:10,marginBottom:16}}>
           <textarea value={newNote} onChange={e=>setNewNote(e.target.value)} rows={2} placeholder="Add a note about this account..."
-            style={{flex:1,fontFamily:mono,fontSize:12,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none'}}/>
-          <button onClick={submitNote} disabled={addingNote||!newNote.trim()}
-            style={{fontFamily:mono,fontSize:12,padding:'0 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer',fontWeight:700,alignSelf:'stretch'}}>
+            style={{flex:1,fontFamily:SANS,fontSize:FS.sm,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none'}}/>
+          <Button variant="primary" size="sm" onClick={submitNote} disabled={addingNote||!newNote.trim()} style={{alignSelf:'stretch'}}>
             {addingNote?'…':'Add'}
-          </button>
+          </Button>
         </div>
         {notes.length===0&&<EmptyState compact icon="file-text" title="No notes yet" body="Add an internal note about this company above."/>}
         {notes.map(n=>(
           <div key={n.id} style={{padding:'12px 0',borderBottom:'1px solid '+T.border,display:'flex',gap:12,alignItems:'flex-start'}}>
             <div style={{flex:1}}>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6,marginBottom:4}}>{n.note}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.6,marginBottom:4}}>{n.note}</div>
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{new Date(n.created_at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
-            <button onClick={()=>deleteNote(n.id)} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer'}}>x</button>
+            <Button variant="ghost" size="sm" icon="x" aria-label="Delete note" onClick={()=>deleteNote(n.id)} />
           </div>
         ))}
       </div>
 
       {showRename&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'1px solid '+T.border}}>
-            <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
-            <div style={{marginBottom:12}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-              <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-            </div>
-            <div style={{marginBottom:20}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-              <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setShowRename(false)} style={{flex:1}}>Cancel</Button>
-              <Button onClick={handleAdminRename} disabled={renameSaving} style={{flex:2}}>
-                {renameSaving?'Saving...':'Save'}
-              </Button>
-            </div>
+        <Modal onClose={()=>setShowRename(false)} size="sm" zIndex={700} title="Rename company"
+          footer={<>
+            <Button variant="secondary" onClick={()=>setShowRename(false)}>Cancel</Button>
+            <Button onClick={handleAdminRename} disabled={renameSaving}>
+              {renameSaving?'Saving...':'Save'}
+            </Button>
+          </>}>
+          <div style={{marginBottom:12}}>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+            <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
-        </div>
+          <div>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+            <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
+          </div>
+        </Modal>
       )}
 
       {adminAction&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
-              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password to confirm</label>
-              <input aria-label="Enter your admin password to confirm" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
-                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
-                autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-              {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
-              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
-                {adminRunning?'Verifying...':'Confirm'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <AdminPasswordModal action={adminAction} label="Enter your admin password to confirm" pw={adminPw} err={adminPwErr} running={adminRunning}
+          onPwChange={v=>{setAdminPw(v);setAdminPwErr('')}} onConfirm={confirmAdminAction}
+          onCancel={()=>{setAdminAction(null);setAdminPw('')}} T={T}/>
       )}
     </div>
   )
 }
+// Admin password re-entry before a privileged action (impersonate, delete …).
+function AdminPasswordModal({ action, label, pw, err, running, onPwChange, onConfirm, onCancel, T }) {
+  return (
+    <Modal onClose={()=>!running&&onCancel()} size="sm" zIndex={800} title={action.label} description={action.desc}
+      footer={<>
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button variant={action.danger?'danger':'primary'} onClick={onConfirm} disabled={running||!pw}>
+          {running?'Verifying...':'Confirm'}
+        </Button>
+      </>}>
+      <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:6}}>{label}</label>
+      <input aria-label={label} type="password" value={pw} onChange={e=>onPwChange(e.target.value)}
+        onKeyDown={e=>e.key==='Enter'&&onConfirm()}
+        autoFocus placeholder="Your password"
+        style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
+      {err&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
+    </Modal>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -896,24 +886,23 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
     return <span style={{fontFamily:mono,fontSize:FS.xs,background:cfg.bg,color:cfg.c,padding:'2px 8px',borderRadius:10,fontWeight:700}}>{cfg.l}</span>
   }
 
-  const btnSm = (color, bg, border) => ({fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${border||T.border}`,background:bg||'transparent',color:color||T.muted,fontWeight:600})
 
   return (
     <div>
       {/* ── TOP BAR: search + view toggle + global actions ── */}
       <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by company, email, or abbreviation…"
-          style={{flex:1,minWidth:220,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
+          style={{flex:1,minWidth:220,fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 14px'}}/>
         <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,padding:2,gap:2}}>
           {[['by-company','By company'],['by-user','By user']].map(([k,l])=>(
             <button key={k} onClick={()=>setView(k)}
-              style={{fontFamily:mono,fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.goldText:T.muted,fontWeight:view===k?700:400}}>
+              style={{fontFamily:SANS,fontSize:FS.sm,padding:'6px 12px',borderRadius:6,border:'none',cursor:'pointer',background:view===k?T.gold+'22':'transparent',color:view===k?T.goldText:T.muted,fontWeight:view===k?700:400}}>
               {l}
             </button>
           ))}
         </div>
-        <button onClick={()=>setMergeOpen(true)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>Merge companies</button>
-        <button onClick={exportCSV} style={btnSm()}>↓ Export CSV</button>
+        <Button variant="secondary" size="sm" onClick={()=>setMergeOpen(true)}>Merge companies</Button>
+        <Button variant="secondary" size="sm" onClick={exportCSV}>↓ Export CSV</Button>
       </div>
 
       {/* ── BY COMPANY VIEW ── */}
@@ -922,12 +911,12 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
           <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'center'}}>
             <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{filteredCompanies.length} {filteredCompanies.length===1?'company':'companies'}</span>
             <div style={{flex:1}}/>
-            <button onClick={expandAll} style={btnSm()}>Expand all</button>
-            <button onClick={collapseAll} style={btnSm()}>Collapse all</button>
+            <Button variant="secondary" size="sm" onClick={expandAll}>Expand all</Button>
+            <Button variant="secondary" size="sm" onClick={collapseAll}>Collapse all</Button>
           </div>
 
           {filteredCompanies.length===0 && (
-            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'40px 20px',textAlign:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
+            <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'40px 20px',textAlign:'center',fontFamily:SANS,fontSize:FS.base,color:T.muted}}>
               No companies match your search.
             </div>
           )}
@@ -951,7 +940,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     <span style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4,background:coColor+'22',color:coColor,flexShrink:0}}>{co.abbr}</span>
                     <div style={{minWidth:0}}>
                       <div style={{fontSize:14,fontWeight:700,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{co.name}</div>
-                      <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {owner ? (userName(owner) ? `${userName(owner)} · ${owner.email}` : owner.email) : (co.owner_email || 'No owner')}
                       </div>
                     </div>
@@ -1008,27 +997,27 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     <div style={{borderTop:`1px dashed ${T.border}`,paddingTop:14,marginTop:10}}>
                       <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:10}}>Company actions</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        <button onClick={()=>setAddUserTarget(co)} style={btnSm(T.blue, T.blue+'11', T.blue+'44')}>+ Add user access</button>
-                        <button onClick={async ()=>{
+                        <Button variant="secondary" size="sm" onClick={()=>setAddUserTarget(co)} icon="plus">Add user access</Button>
+                        <Button variant="secondary" size="sm" onClick={async ()=>{
                           const nm = await confirmDialog({ title:'Rename company', prompt:true, defaultValue:co.name, confirmLabel:'Next' })
                           if(!nm||!nm.trim()) return
                           const ab = await confirmDialog({ title:'New abbreviation', prompt:true, defaultValue:co.abbr||'', confirmLabel:'Rename' })
                           if(ab===null) return
                           doRenameCompany(co,nm.trim(),ab.trim())
-                        }} style={btnSm()}>Rename</button>
-                        <button onClick={()=>setTransferTarget(co)} style={btnSm()}>↗ Transfer ownership</button>
-                        <button onClick={async ()=>{
+                        }}>Rename</Button>
+                        <Button variant="secondary" size="sm" onClick={()=>setTransferTarget(co)}>↗ Transfer ownership</Button>
+                        <Button variant="secondary" size="sm" onClick={async ()=>{
                           const d = await confirmDialog({ title:'Extend trial by how many days?', prompt:true, defaultValue:'30', confirmLabel:'Extend' })
                           if(d&&!isNaN(+d)) doExtendTrial(co,+d)
-                        }} style={btnSm()}>Extend trial</button>
-                        <button onClick={()=>doToggleFreeTier(co)} style={btnSm(co.is_free_tier?T.goldText:T.muted, co.is_free_tier?T.gold+'11':'transparent')}>
+                        }}>Extend trial</Button>
+                        <Button variant={co.is_free_tier?'primary':'secondary'} size="sm" aria-pressed={!!co.is_free_tier} onClick={()=>doToggleFreeTier(co)}>
                           {co.is_free_tier ? 'Free tier' : 'Grant free tier'}
-                        </button>
-                        <button onClick={()=>doToggleFlag(co)} style={btnSm(co.flagged?T.red:T.muted, co.flagged?T.red+'11':'transparent', co.flagged?T.red+'44':T.border)}>
+                        </Button>
+                        <Button variant="secondary" size="sm" destructive={!!co.flagged} aria-pressed={!!co.flagged} onClick={()=>doToggleFlag(co)}>
                           {co.flagged ? 'Flagged' : 'Flag account'}
-                        </button>
+                        </Button>
                         <div style={{flex:1}}/>
-                        <button onClick={()=>doDeleteCompany(co)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete company</button>
+                        <Button variant="secondary" destructive size="sm" onClick={()=>doDeleteCompany(co)}>Delete company</Button>
                       </div>
                     </div>
                   </div>
@@ -1043,7 +1032,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
                 <span style={{fontFamily:mono,fontSize:11,color:T.amber,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em'}}>Users without companies ({orphanUsers.length})</span>
               </div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:12,lineHeight:1.6}}>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12,lineHeight:1.6}}>
                 These users signed up but don't own or have access to any company. They may need a company created for them, or may be test accounts that can be deleted.
               </div>
               {orphanUsers.map(u => (
@@ -1064,9 +1053,9 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     </div>
                   </div>
                   <div style={{display:'flex',gap:6}}>
-                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>+ Create company</button>
-                    <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
-                    {u.id!==currentUser?.id && <button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
+                    <Button variant="secondary" size="sm" onClick={()=>setCreateCoTarget(u)} icon="plus">Create company</Button>
+                    <Button variant="secondary" size="sm" onClick={()=>setResetConfirm(u)}>Reset pwd</Button>
+                    {u.id!==currentUser?.id && <Button variant="secondary" destructive size="sm" onClick={()=>onDelete(u)}>Delete</Button>}
                   </div>
                 </div>
               ))}
@@ -1126,7 +1115,7 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                     {u.last_active_at ? fmtTimeAgo(u.last_active_at) : <span style={{color:T.faint}}>never</span>}
                   </div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <button onClick={async ()=>{
+                    <Button variant="secondary" destructive size="sm" onClick={async ()=>{
                       if(!await confirmDialog({
                         title: `Impersonate ${u.email}?`,
                         body: "You'll see their data (read-only). Logged to audit trail.",
@@ -1144,11 +1133,11 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
                       }).then(()=>{})
                       window.location.href = '/#/dashboard'
                       window.location.reload()
-                    }} style={btnSm(T.red, T.red+'11', T.red+'44')}>Impersonate</button>
-                    <button onClick={()=>setAccessTarget(u)} style={btnSm(T.goldText, T.gold+'11', T.gold+'44')}>Manage access</button>
-                    <button onClick={()=>setCreateCoTarget(u)} style={btnSm()}>+ Company</button>
-                    <button onClick={()=>setResetConfirm(u)} style={btnSm()}>Reset pwd</button>
-                    {!isMe&&<button onClick={()=>onDelete(u)} style={btnSm(T.red, 'transparent', T.red+'44')}>Delete</button>}
+                    }}>Impersonate</Button>
+                    <Button variant="secondary" size="sm" onClick={()=>setAccessTarget(u)}>Manage access</Button>
+                    <Button variant="secondary" size="sm" onClick={()=>setCreateCoTarget(u)} icon="plus">Company</Button>
+                    <Button variant="secondary" size="sm" onClick={()=>setResetConfirm(u)}>Reset pwd</Button>
+                    {!isMe&&<Button variant="secondary" destructive size="sm" onClick={()=>onDelete(u)}>Delete</Button>}
                   </div>
                 </div>
               )
@@ -1160,49 +1149,20 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       )}
 
       {/* ── PASSWORD CONFIRMATION MODAL ── */}
-      {adminAction && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
-              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.07em'}}>Enter your admin password</label>
-              <input aria-label="Enter your admin password" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
-                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
-                autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-              {adminPwErr&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{adminPwErr}</div>}
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
-              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
-                {adminRunning?'Verifying...':'Confirm'}
-              </Button>
-            </div>
-          </div>
-        </div>
+      {adminAction&&(
+        <AdminPasswordModal action={adminAction} label="Enter your admin password" pw={adminPw} err={adminPwErr} running={adminRunning}
+          onPwChange={v=>{setAdminPw(v);setAdminPwErr('')}} onConfirm={confirmAdminAction}
+          onCancel={()=>{setAdminAction(null);setAdminPw('')}} T={T}/>
       )}
 
       {/* ── RESET PASSWORD MODAL ── */}
       {resetConfirm && (
-        <div onClick={()=>setResetConfirm(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:T.goldText}}><Icon name="key" size={32}/></div>
-              <h3 style={{fontFamily:mono,fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
-              <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.7}}>
-                {"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.
-              </p>
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setResetConfirm(null)} style={{flex:1}}>Cancel</Button>
-              <Button onClick={()=>sendReset(resetConfirm.email)} style={{flex:2}}>Send reset email</Button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={()=>setResetConfirm(null)} size="sm" zIndex={700} title="Send password reset?"
+          description={<>{"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.</>}
+          footer={<>
+            <Button variant="secondary" onClick={()=>setResetConfirm(null)}>Cancel</Button>
+            <Button onClick={()=>sendReset(resetConfirm.email)}>Send reset email</Button>
+          </>}/>
       )}
 
       {/* ── MANAGE ACCESS MODAL ── */}
@@ -1286,11 +1246,11 @@ function UserRow({ user, role, co, T, onManageAccess, onManageRole, onReset, onR
         </div>
       </div>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'flex-end'}}>
-        {onManageRole && !isOwner && <button onClick={onManageRole} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.gold}44`,background:T.gold+'11',color:T.goldText,fontWeight:700}}>Role</button>}
-        {onManageAccess && <button onClick={onManageAccess} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Access</button>}
-        {onReset && <button onClick={onReset} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Reset</button>}
-        {onRemove && <button onClick={onRemove} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.amber}44`,background:'transparent',color:T.amber}}>Remove</button>}
-        {onDelete && <button onClick={onDelete} style={{fontFamily:mono,fontSize:FS.xs,padding:'3px 9px',borderRadius:5,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Delete</button>}
+        {onManageRole && !isOwner && <Button variant="secondary" size="sm" onClick={onManageRole}>Role</Button>}
+        {onManageAccess && <Button variant="secondary" size="sm" onClick={onManageAccess}>Access</Button>}
+        {onReset && <Button variant="secondary" size="sm" onClick={onReset}>Reset</Button>}
+        {onRemove && <Button variant="secondary" size="sm" onClick={onRemove} style={{border:`1px solid ${T.amber}44`, color:T.amber}}>Remove</Button>}
+        {onDelete && <Button variant="secondary" destructive size="sm" onClick={onDelete}>Delete</Button>}
       </div>
     </div>
   )
@@ -1318,21 +1278,23 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:460,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Create company for user</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Create company for user"
+      description={<>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!name.trim()||!pw}>{saving?'Creating...':'Create company'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
           <input aria-label="Company name" value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Vale Property Group"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 100px',gap:10,marginBottom:12}}>
           <div>
             <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
             <input aria-label="Abbreviation" value={abbr} onChange={e=>setAbbr(e.target.value.toUpperCase().slice(0,5))} placeholder="VPG"
-              style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
           <div>
             <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Colour</label>
@@ -1341,18 +1303,13 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
           </div>
         </div>
         <div style={{marginBottom:16,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!name.trim()||!pw} style={{flex:2}}>{saving?'Creating...':'Create company'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1380,18 +1337,17 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:520,padding:'28px',border:`2px solid ${T.red}44`}}>
-        <div style={{textAlign:'center',marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'center',marginBottom:8,color:T.red}}><Icon name="zap" size={36}/></div>
-          <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:6}}>Merge companies</h3>
-          <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>All properties and shared access from source will move into target. The source company will be permanently deleted.</p>
-        </div>
+    <Modal onClose={()=>!saving&&onClose()} size="md" zIndex={800} title="Merge companies"
+      description="All properties and shared access from source will move into target. The source company will be permanently deleted."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="danger" onClick={submit} disabled={saving||!sourceId||!targetId||!pw}>{saving?'Merging...':'Merge and delete source'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Source company (will be deleted)</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Source company (will be deleted)</label>
           <select aria-label="Source company (will be deleted)" value={sourceId} onChange={e=>setSourceId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
@@ -1400,34 +1356,28 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
         <div style={{textAlign:'center',margin:'8px 0',fontFamily:mono,fontSize:18,color:T.muted}}>↓</div>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Target company (keeps everything)</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Target company (keeps everything)</label>
           <select aria-label="Target company (keeps everything)" value={targetId} onChange={e=>setTargetId(e.target.value)}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}>
             <option value="">Select company...</option>
             {companies.filter(c=>c.id!==sourceId).map(c=><option key={c.id} value={c.id}>{c.name} ({c.abbr}) · {c.real_property_count||0} props · {c.owner_email||'—'}</option>)}
           </select>
         </div>
 
         {source && target && (
-          <div style={{background:T.bg,borderRadius:10,padding:'12px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,lineHeight:1.7}}>
+          <div style={{background:T.bg,borderRadius:10,padding:'12px 14px',marginBottom:14,fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.7}}>
             {(source.real_property_count||0)} properties will move from <strong style={{color:source.color||T.goldText}}>{source.name}</strong> into <strong style={{color:target.color||T.goldText}}>{target.name}</strong>, then <strong style={{color:T.red}}>{source.name}</strong> will be deleted.
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button variant="danger" onClick={submit} disabled={saving||!sourceId||!targetId||!pw} style={{flex:2}}>{saving?'Merging...':'Merge and delete source'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1454,20 +1404,22 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Transfer ownership</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Transfer ownership"
+      description={<>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!selectedUser||!pw}>{saving?'Transferring...':'Transfer ownership'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search new owner by email</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Search new owner by email</label>
           <input aria-label="Search new owner by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {search && !selectedUser && (
           <div style={{maxHeight:200,overflowY:'auto',marginBottom:12,background:T.bg,borderRadius:8,border:`1px solid ${T.border}`}}>
-            {filtered.length===0 ? <div style={{padding:12,fontFamily:mono,fontSize:11,color:T.muted,textAlign:'center'}}>No matching users</div>
+            {filtered.length===0 ? <div style={{padding:12,fontFamily:SANS,fontSize:FS.sm,color:T.muted,textAlign:'center'}}>No matching users</div>
               : filtered.map(u => {
                 const n = userName(u)
                 return (
@@ -1487,19 +1439,13 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Transferring...':'Transfer ownership'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1539,20 +1485,22 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Add user access</h3>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Add user access"
+      description={<>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!selectedUser||!pw}>{saving?'Adding...':'Grant access'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Search user by email</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Search user by email</label>
           <input aria-label="Search user by email" value={search} onChange={e=>{setSearch(e.target.value);setSelectedUser(null)}} autoFocus placeholder="user@example.com"
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
         </div>
 
         {!selectedUser && (
           <div style={{maxHeight:220,overflowY:'auto',marginBottom:12,background:T.bg,borderRadius:8,border:`1px solid ${T.border}`}}>
-            {filtered.length===0 ? <div style={{padding:14,fontFamily:mono,fontSize:11,color:T.muted,textAlign:'center'}}>{search ? 'No matching users' : 'Start typing to search'}</div>
+            {filtered.length===0 ? <div style={{padding:14,fontFamily:SANS,fontSize:FS.sm,color:T.muted,textAlign:'center'}}>{search ? 'No matching users' : 'Start typing to search'}</div>
               : filtered.map(u => {
                 const n = userName(u)
                 return (
@@ -1571,26 +1519,20 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         )}
 
         {selectedUser && (
-          <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:mono,fontSize:11,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:SANS,fontSize:FS.sm,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span>Grant access to: <strong style={{color:T.goldText}}>{selectedUser.email}</strong></span>
-            <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:mono,fontSize:FS.xs,cursor:'pointer'}}>change</button>
+            <Button variant="ghost" size="sm" onClick={()=>{setSelectedUser(null);setSearch('')}}>Change</Button>
           </div>
         )}
 
         <div style={{marginBottom:16,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Your admin password</label>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Your admin password</label>
           <input aria-label="Your admin password" type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr('')}}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            style={{width:'100%',fontFamily:mono,fontSize:13,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-          {err && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:6}}>{err}</div>}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
+          {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Adding...':'Grant access'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1644,15 +1586,14 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
   })
 
   return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:700,padding:'40px 16px',overflowY:'auto'}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,width:'100%',maxWidth:600,padding:'28px 32px'}}>
-        <div style={{marginBottom:20}}>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Manage company access</h2>
-          <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.6}}>
-            Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>.
-            Owned companies cannot be removed here.
-          </p>
-        </div>
+    <Modal onClose={onClose} size="md" zIndex={700} title="Manage company access"
+      description={<>Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>. Owned companies cannot be removed here.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save access'}
+        </Button>
+      </>}>
 
         <div style={{maxHeight:420,overflowY:'auto',border:`1px solid ${T.border}`,borderRadius:10,marginBottom:16}}>
           {sorted.map(co => {
@@ -1674,16 +1615,8 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
           )}
         </div>
 
-        {error && <div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:12}}>{error}</div>}
-
-        <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save access'}
-          </Button>
-        </div>
-      </div>
-    </div>
+        {error && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red}}>{error}</div>}
+    </Modal>
   )
 }
 
@@ -1815,29 +1748,28 @@ function PlatformTab({ user, companies, T }) {
       <div>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 24px',marginBottom:16}}>
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Platform announcements</div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:14,lineHeight:1.6}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:14,lineHeight:1.6}}>
             Announcements appear as a dismissable banner at the top of the app for all users.
           </div>
 
           <div style={{marginBottom:12}}>
             <textarea value={newMsg} onChange={e=>setNewMsg(e.target.value)} rows={3} placeholder="Announcement message…"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',marginBottom:8}}/>
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.sm,background:T.bg,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'10px 12px',resize:'none',marginBottom:8}}/>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
               <select value={newType} onChange={e=>setNewType(e.target.value)}
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}>
                 <option value="info">Info (blue)</option>
                 <option value="warning">Warning (amber)</option>
                 <option value="success">Success (green)</option>
               </select>
               <input value={newLinkText} onChange={e=>setNewLinkText(e.target.value)} placeholder="Link text (optional)"
-                style={{fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}/>
+                style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px'}}/>
             </div>
             <input value={newLink} onChange={e=>setNewLink(e.target.value)} placeholder="Link URL (optional)"
-              style={{width:'100%',fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',marginBottom:12}}/>
-            <button onClick={addAnnouncement} disabled={saving||!newMsg.trim()}
-              style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',background:T.gold,color:T.surface,cursor:'pointer'}}>
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 10px',marginBottom:12}}/>
+            <Button variant="primary" size="sm" onClick={addAnnouncement} disabled={saving||!newMsg.trim()}>
               {saving?'Publishing…':'Publish announcement'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1849,10 +1781,10 @@ function PlatformTab({ user, companies, T }) {
               <div key={a.id} style={{padding:'12px 20px',borderBottom:`1px solid ${T.border}`,display:'flex',gap:12,alignItems:'flex-start'}}>
                 <div style={{width:8,height:8,borderRadius:4,background:typeColors[a.type]||typeColors.info,marginTop:4,flexShrink:0}}/>
                 <div style={{flex:1}}>
-                  <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>{a.message}</div>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.6}}>{a.message}</div>
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:3}}>{new Date(a.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
                 </div>
-                <button onClick={()=>deactivate(a.id)} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:'4px 8px',borderRadius:4}}>Dismiss</button>
+                <Button variant="ghost" size="sm" onClick={()=>deactivate(a.id)}>Dismiss</Button>
               </div>
             ))}
           </div>

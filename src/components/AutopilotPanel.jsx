@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { useState, useEffect, useCallback } from 'react'
+import { MONO, FS, SANS, R } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
 import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
 import { SkeletonRows } from '../lib/Skeleton'
 
@@ -52,6 +51,28 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
   const highCount = actions.filter(a => a.severity === 'high').length
   const top = actions.slice(0, 4)
 
+  // Nothing to review (or still loading): one compact line instead of a
+  // full-width card holding a single sentence.
+  if (loading || actions.length === 0) {
+    return (
+      <div className="card" style={{ padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <Icon name="robot" size={15} color={T.muted}/>
+        <h2 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: T.text }}>Portfolio Autopilot</h2>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, color: loading ? T.faint : T.green, display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+          {!loading && <Icon name="check-circle" size={12} color={T.green}/>}
+          {loading ? 'Checking for actions…' : 'No actions awaiting review'}
+        </span>
+        <span style={{ flex: 1 }}/>
+        {!loading && onOpenFull && (
+          <button type="button" onClick={onOpenFull}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 28, fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            Open Autopilot<Icon name="arrow-right" size={11}/>
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="card" style={{ padding: 18, marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -63,36 +84,24 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
             </span>
           )}
         </h2>
-        {actions.length > 0 && (
-          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
-        )}
+        <Button variant="secondary" size="sm" onClick={onOpenFull}>Review all →</Button>
       </div>
 
-      {loading ? (
-        <SkeletonRows rows={3} height={44}/>
-      ) : actions.length === 0 ? (
-        <div style={{ fontFamily: MONO, color: T.green, fontSize: 12, padding: 16 }}>
-          No actions awaiting review
-        </div>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {top.map(a => {
-              const meta = KIND_META[a.kind] || { icon: '•', label: a.kind }
-              const col = a.severity === 'high' ? T.red : a.severity === 'medium' ? T.amber : T.muted
-              return (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderLeft: `3px solid ${col}`, background: T.bg, borderRadius: 8 }}>
-                  <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={14}/>:meta.icon}</span>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
-            AI-drafted suggestions — review before acting. Nothing is sent automatically.
-          </div>
-        </>
-      )}
+      <div style={{ display: 'grid', gap: 6 }}>
+        {top.map(a => {
+          const meta = KIND_META[a.kind] || { icon: '•', label: a.kind }
+          const col = a.severity === 'high' ? T.red : a.severity === 'medium' ? T.amber : T.muted
+          return (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderLeft: `3px solid ${col}`, background: T.bg, borderRadius: 8 }}>
+              <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={14}/>:meta.icon}</span>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
+        AI-drafted suggestions — review before acting. Nothing is sent automatically.
+      </div>
     </div>
   )
 }
@@ -230,14 +239,14 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {filtered.length > 1 && (
             <>
-              <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
-              <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</Button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')} destructive>Dismiss all {filtered.length} shown</Button>
             </>
           )}
-          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+          <Button variant="secondary" size="sm" onClick={load}>↻ Refresh</Button>
         </div>
       </div>
-      <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
+      <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
       </p>
 
@@ -249,7 +258,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
             return (
               <button key={c.id} onClick={() => setCoFilter(c.id)}
                 style={{
-                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                   background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
                   color: coFilter === c.id ? (c.color || T.goldText) : T.muted,
@@ -273,7 +282,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
             return (
               <button key={k} onClick={() => setKindFilter(k)}
                 style={{
-                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${kindFilter === k ? T.gold : T.border}`,
                   background: kindFilter === k ? T.gold + '22' : 'transparent',
                   color: kindFilter === k ? T.goldText : T.muted,
@@ -301,7 +310,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
           <div key={group.sev} style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: sevColor(group.sev) }} />
-              <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: MONO }}>
+              <h2 style={{ fontSize: FS.body, fontWeight: 700, fontFamily: SANS }}>
                 {sevLabel(group.sev)} <span style={{ color: T.muted }}>({group.items.length})</span>
               </h2>
             </div>
@@ -326,36 +335,20 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           </div>
                         )}
                         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-gold"
-                            style={{ fontSize: 12 }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleAct(a)}
-                          >
+                          <Button variant="primary" size="sm" disabled={busyId === a.id} onClick={() => handleAct(a)}>
                             Mark actioned
-                          </button>
+                          </Button>
                           {a.draft_body && (
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 12 }}
-                              disabled={busyId === a.id}
-                              onClick={() => setViewing(a)}
-                            >
+                            <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => setViewing(a)}>
                               Copy draft
-                            </button>
+                            </Button>
                           )}
-                          <button
-                            className="btn btn-ghost"
-                            style={{ fontSize: 12, color: T.muted }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleDismiss(a)}
-                          >
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleDismiss(a)}>
                             Dismiss
-                          </button>
-                          <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === a.id}
-                            onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
+                          </Button>
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
                             Snooze 30d
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -377,7 +370,6 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 function DraftModal({ action, onClose }) {
   const { T } = useTheme()
   const [copied, setCopied] = useState(false)
-  const initialRef = useRef(null)
 
   async function copy() {
     try {
@@ -391,32 +383,16 @@ function DraftModal({ action, onClose }) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Drafted action"
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) safeOverlayClose(false, onClose) }}
-    >
-      <FocusTrap onEscape={onClose} initialFocusRef={initialRef}>
-        <div className="card" style={{ maxWidth: 540, width: '100%', padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{action.title}</h3>
-            <button ref={initialRef} aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 10px', margin: '-6px -10px' }}>×</button>
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
-            {action.draft_body}
-          </div>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
-            AI-generated draft. Review and edit before sending — Properly does not send this for you.
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
-          </div>
-        </div>
-      </FocusTrap>
-    </div>
+    <Modal onClose={onClose} size="md" zIndex={1000} title={action.title}
+      description="AI-generated draft. Review and edit before sending — Properly does not send this for you."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button onClick={copy}>{copied ? 'Copied' : 'Copy draft'}</Button>
+      </>}>
+      <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: R.sm, padding: 16, color: T.text }}>
+        {action.draft_body}
+      </div>
+    </Modal>
   )
 }
 

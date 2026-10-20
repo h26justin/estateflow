@@ -5,7 +5,7 @@
 //   actual    thin dark bar   (what really happened)
 // Delayed / overdue rows are marked red. A dashed line marks today.
 import { useMemo } from 'react'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 import {
   flatStages, isoDate, addDays, daysBetween, expectedStart, expectedEnd, stageDelay, STAGE_STATUS_CFG,
 } from '../../lib/refurbWorkspace'
@@ -33,7 +33,7 @@ export default function Gantt({ stages, today = new Date(), onOpen, T, maxRows, 
   const rows = useMemo(() => flatStages(stages).filter(s => s.status !== 'skipped'), [stages])
   const shown = maxRows ? rows.slice(0, maxRows) : rows
   const range = useMemo(() => rangeOf(rows, today), [rows, today])
-  if (!range) return <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '10px 0' }}>{emptyText}</div>
+  if (!range) return <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, padding: '10px 0' }}>{emptyText}</div>
   const total = Math.max(1, daysBetween(range.start, range.end))
   const pos = d => (Math.max(0, Math.min(total, daysBetween(range.start, d))) / total) * 100
   const span = (a, b) => {
@@ -80,7 +80,7 @@ export default function Gantt({ stages, today = new Date(), onOpen, T, maxRows, 
         </div>
       })}
       {maxRows && rows.length > maxRows && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, padding: '6px 4px' }}>+ {rows.length - maxRows} more stages</div>}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8 }}>
         <span><span style={{ display: 'inline-block', width: 18, height: 9, border: `1.5px dashed ${T.muted}`, borderRadius: 5, verticalAlign: 'middle', marginRight: 5 }} />Planned</span>
         <span><span style={{ display: 'inline-block', width: 18, height: 8, background: T.gold, borderRadius: 4, verticalAlign: 'middle', marginRight: 5 }} />Forecast</span>
         <span><span style={{ display: 'inline-block', width: 18, height: 4, background: T.text, borderRadius: 2, verticalAlign: 'middle', marginRight: 5 }} />Actual</span>

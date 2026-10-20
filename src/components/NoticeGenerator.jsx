@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, SANS } from '../lib/styles'
+import { MONO, SANS, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { Button } from './ui'
-import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
+import { isFormDirty } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import {
   GROUNDS, groundById, groundLabel, periodLabel, JURISDICTION_NOTE,
@@ -113,8 +112,6 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
 
   const [initialForm] = useState(form)
   const isDirty = step !== 'disclaimer' && (Object.keys(checklist).length > 0 || isFormDirty(initialForm, form))
-  const overlayClose = safeOverlayClose(isDirty, onClose, confirmDiscard)
-  const escapeClose  = () => overlayClose({ target: null, currentTarget: null })
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
   function toggleGround(id) {
@@ -181,14 +178,11 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     }
   }
 
-  const btnPrimary = (enabled) => ({ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 18px', borderRadius: 8, border: 'none', background: enabled ? T.gold : T.border, color: enabled ? '#1A2530' : T.muted, cursor: enabled ? 'pointer' : 'not-allowed' })
 
   // ─── DISCLAIMER STEP ─────────────────────────────────────────────────
   if (step === 'disclaimer') {
     return (
-      <div className="overlay" onClick={overlayClose}>
-        <FocusTrap onEscape={escapeClose}>
-        <div className="modal" style={{ maxWidth: 580 }} role="dialog" aria-modal="true" aria-labelledby="notice-disclaimer-title">
+      <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="md" labelledBy="notice-disclaimer-title">
           <div style={{ padding: '24px 28px 0' }}>
             <h2 id="notice-disclaimer-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, color: T.text }}>
               {meta.label} ({meta.form}): read before continuing
@@ -225,14 +219,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <button type="button" onClick={() => setStep('checklist')} style={{ ...btnPrimary(true), background: T.amber }}>
+              <Button onClick={() => setStep('checklist')}>
                 I understand, continue
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
-        </FocusTrap>
-      </div>
+        </Modal>
     )
   }
 
@@ -243,9 +235,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     const hasNotApplicable = items.some(it => checklist[it.id] === 'na')
 
     return (
-      <div className="overlay" onClick={overlayClose}>
-        <FocusTrap onEscape={escapeClose}>
-        <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="notice-checklist-title">
+      <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="md" labelledBy="notice-checklist-title">
           <div style={{ padding: '22px 26px 0' }}>
             <h2 id="notice-checklist-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
               Pre-flight checklist
@@ -276,7 +266,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
                         <button key={opt.v} type="button" aria-pressed={active}
                           onClick={() => setChecklist(c => ({ ...c, [it.id]: opt.v }))}
                           style={{
-                            fontFamily: mono, fontSize: 11, fontWeight: 700, minWidth: 44, minHeight: 32,
+                            fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, minWidth: 44, minHeight: 32,
                             padding: '4px 10px', borderRadius: 6,
                             border: `1px solid ${active ? opt.activeBd : T.border}`,
                             background: active ? opt.activeBg : 'transparent',
@@ -305,9 +295,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
               </Button>
             </div>
           </div>
-        </div>
-        </FocusTrap>
-      </div>
+        </Modal>
     )
   }
 
@@ -323,9 +311,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   const g8 = ground8Threshold({ rentAmount: form.rent_amount, frequency: form.rent_frequency })
 
   return (
-    <div className="overlay" onClick={overlayClose}>
-      <FocusTrap onEscape={escapeClose}>
-      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="notice-form-title">
+    <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="lg" labelledBy="notice-form-title">
         <div style={{ padding: '20px 26px 0' }}>
           <h2 id="notice-form-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             {meta.label}: {meta.form} content
@@ -487,9 +473,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
             </div>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

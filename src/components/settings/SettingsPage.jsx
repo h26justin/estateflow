@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy, useCallback } from 'react'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { useTheme } from '../../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../../lib/icons'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { NAV_TOGGLE_OPTIONS, DEFAULT_NAV_KEYS, SETTINGS_PAGES, resolveSettingsKey, settingsKeyFromHash } from '../../lib/nav'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS } from '../../lib/complianceCatalogue'
 import BillingPage from '../BillingPage'
@@ -26,6 +26,7 @@ import { ReferralPanel } from './ReferralPanel'
 import { AccountTypePanel } from './AccountTypePanel'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { canWriteCompany } from '../../lib/permissions'
+import { Button } from '../ui'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('../HelpCenter'))
@@ -42,7 +43,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono, permissionsMa
         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
           <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Company</span>
           <select value={coId} onChange={e=>setCoId(e.target.value)}
-            style={{fontFamily:mono,fontSize:12,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
+            style={{fontFamily:SANS,fontSize:FS.sm,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
             {companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -184,13 +185,13 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
   const FEATURES = [
     {key:'feature_compliance',  label:'Compliance & Certificates', desc:'Track gas safety, EICR, EPC, HMO licences and other certificates with expiry alerts', icon:'shield-check'},
-    {key:'feature_tenancy',     label:'Tenancy Details',           desc:'Store tenant contact details, deposit info, rent review dates and break clauses', icon:'users'},
+    {key:'feature_tenancy',     label:'Tenancy details',           desc:'Store tenant contact details, deposit info, rent review dates and break clauses', icon:'users'},
     {key:'feature_maintenance', label:'Maintenance & Repairs',     desc:'Log repair jobs with contractor details, costs and status tracking', icon:'wrench'},
     {key:'feature_documents',   label:'Document Storage',          desc:'Upload and store tenancy agreements, certificates and other documents', icon:'folder'},
-    {key:'feature_expenses',    label:'Expenses Tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'wallet'},
-    {key:'feature_reports',     label:'Reports & Export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'pie-chart'},
-    {key:'feature_statements',  label:'Statement Importer',        desc:'Upload PNE and RMS rental statements to automatically log rent payments, management fees and maintenance costs', icon:'file-text'},
-    {key:'feature_tenant_portal',    label:'Tenant Portal',             desc:'Allow tenants to log in and access their own portal — see rent history, tenancy details and documents', icon:'home', section:'tenant'},
+    {key:'feature_expenses',    label:'Expenses tracker',          desc:'Track all property expenses to calculate true net profit per property', icon:'wallet'},
+    {key:'feature_reports',     label:'Reports & export',          desc:'Generate P&L reports and export data to CSV for your accountant', icon:'pie-chart'},
+    {key:'feature_statements',  label:'Statement importer',        desc:'Upload PNE and RMS rental statements to automatically log rent payments, management fees and maintenance costs', icon:'file-text'},
+    {key:'feature_tenant_portal',    label:'Tenant portal',             desc:'Allow tenants to log in and access their own portal — see rent history, tenancy details and documents', icon:'home', section:'tenant'},
     {key:'feature_tenant_messaging', label:'Tenant Messaging',          desc:'Allow tenants to send messages to you directly through the portal — you reply from the inbox on your dashboard', icon:'mail', section:'tenant'},
     {key:'feature_tenant_repairs',   label:'Tenant Repair Requests',    desc:'Allow tenants to submit maintenance requests with photos — appears in your inbox instantly', icon:'wrench', section:'tenant'},
     {key:'feature_tenant_documents', label:'Tenant Document Access',    desc:'Allow tenants to download documents you have shared with them from the portal', icon:'file-text', section:'tenant'},
@@ -225,7 +226,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
   const mono = MONO
   const sectionStyle = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 28px', marginBottom: 16 }
   const fieldStyle = { marginBottom: 14 }
-  const labelStyle = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }
+  const labelStyle = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   // Toggle list + seed default both come from lib/nav.js — the previous
   // local copies disagreed with the runtime rail (no Insurance row here, and
@@ -291,7 +292,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     <div className="fade">
       <div style={{marginBottom:24}}>
         <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Settings</h1>
-        <p style={{fontFamily:mono,color:T.muted,fontSize:12}}>{currentPage.desc}</p>
+        <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm}}>{currentPage.desc}</p>
       </div>
 
       {/* Settings navigation: five pages, each a stack of sections. Desktop
@@ -308,7 +309,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 const active = p.key===currentPage.key
                 return (
                   <button key={p.key} onClick={()=>setSettingsTab(p.key)} aria-current={active?'page':undefined} style={{
-                    fontFamily:mono,fontSize:11,padding:'6px 13px',borderRadius:20,cursor:'pointer',
+                    fontFamily:SANS,fontSize:FS.sm,padding:'6px 13px',borderRadius:20,cursor:'pointer',
                     border:`1px solid ${active?T.gold:T.border}`,background:active?T.gold:'transparent',
                     color:active?CV.onGold:T.muted,fontWeight:active?700:400,
                   }}>{p.label}</button>
@@ -319,7 +320,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <label style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Jump to</span>
                 <select value={activeSection} onChange={e=>setSettingsTab(e.target.value)}
-                  style={{flex:1,fontFamily:mono,fontSize:12,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
+                  style={{flex:1,fontFamily:SANS,fontSize:FS.sm,padding:'6px 10px',borderRadius:8,background:T.bg,color:T.text,border:`1px solid ${T.border}`}}>
                   {currentPage.sections.map(sec=><option key={sec.key} value={sec.key}>{sec.label}</option>)}
                 </select>
               </label>
@@ -330,7 +331,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           return (
             <div key={p.key}>
               <button onClick={()=>setSettingsTab(p.key)} aria-current={active?'page':undefined} style={{
-                fontFamily:mono,fontSize:12,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
+                fontFamily:SANS,fontSize:FS.sm,padding:'8px 11px',borderRadius:8,cursor:'pointer',textAlign:'left',width:'100%',
                 border:'none',borderLeft:`3px solid ${active?T.gold:'transparent'}`,background:active?T.gold+'18':'transparent',
                 color:active?T.text:T.muted,fontWeight:active?700:400,transition:'background 0.15s,color 0.15s',
               }}
@@ -344,7 +345,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                       <a role="listitem" key={sec.key} href={`#/settings/${sec.key}`}
                         onClick={e=>{e.preventDefault();setSettingsTab(sec.key)}}
                         aria-current={on?'location':undefined}
-                        style={{fontFamily:mono,fontSize:11,padding:'5px 10px',textDecoration:'none',
+                        style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 10px',textDecoration:'none',
                           color:on?(sec.key==='admin'?T.red:T.goldText):T.muted,fontWeight:on?700:400}}>{sec.label}</a>
                     )
                   })}
@@ -365,7 +366,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             return (
               <button key={c.id} onClick={()=>setSettingsCoFilter(c.id)}
                 style={{
-                  fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+                  fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${active?accent:T.border}`,
                   background:active?accent+'22':'transparent',
                   color:active?accent:T.muted,fontWeight:active?700:400,
@@ -384,31 +385,31 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           ? <SkeletonRows rows={3} height={36}/>
           : <>
             <div style={sectionStyle}>
-              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Personal Information</div>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Personal information</div>
               <div style={fieldStyle}>
-                <label style={labelStyle} htmlFor="settings-full-name">Full Name</label>
+                <label style={labelStyle} htmlFor="settings-full-name">Full name</label>
                 <input id="settings-full-name" autoComplete="name" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name"/>
               </div>
               <div style={fieldStyle}>
-                <label style={labelStyle} htmlFor="settings-phone">Phone Number</label>
+                <label style={labelStyle} htmlFor="settings-phone">Phone number</label>
                 <input id="settings-phone" type="tel" autoComplete="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 000000"/>
               </div>
               <div style={fieldStyle}>
-                <label style={labelStyle} htmlFor="settings-email">Email Address</label>
+                <label style={labelStyle} htmlFor="settings-email">Email address</label>
                 <input id="settings-email" value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
-                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:5}}>To change your email or password, see Security &amp; Data below.</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:5}}>To change your email or password, see Security &amp; Data below.</div>
               </div>
-              <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
-                {profileSaving ? 'Saving…' : 'Save Profile'}
-              </button>
+              <Button variant="primary" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
+                {profileSaving ? 'Saving…' : 'Save profile'}
+              </Button>
             </div>
 
             <AccountTypePanel T={T} mono={mono} user={user} accountType={accountType} setAccountType={setAccountType}/>
 
             <div style={sectionStyle}>
-              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App Tour</div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
-              <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>Replay tour</button>
+              <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App tour</div>
+              <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
+              <Button variant="secondary" size="sm" onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>Replay tour</Button>
             </div>
           </>
       )}
@@ -418,39 +419,39 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {show('security') && (
         <>
           <div style={sectionStyle}>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Email Address</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change email address</div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>New Email Address</label>
+              <label style={labelStyle}>New email address</label>
               <input aria-label="New Email Address" value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
             </div>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
-            <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
-              {emailSaving ? 'Sending…' : 'Update Email'}
-            </button>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
+            <Button variant="primary" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
+              {emailSaving ? 'Sending…' : 'Update email'}
+            </Button>
           </div>
           <div style={sectionStyle}>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change Password</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change password</div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Current Password</label>
+              <label style={labelStyle}>Current password</label>
               <input aria-label="Current Password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Your current password"/>
             </div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>New Password</label>
+              <label style={labelStyle}>New password</label>
               <input aria-label="New Password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} type={showPw?'text':'password'} placeholder="At least 8 characters"/>
             </div>
             <div style={fieldStyle}>
-              <label style={labelStyle}>Confirm New Password</label>
+              <label style={labelStyle}>Confirm new password</label>
               <input aria-label="Confirm New Password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} type={showPw?'text':'password'} placeholder="Repeat new password"/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
               <input type="checkbox" id="showpwS" checked={showPw} onChange={e=>setShowPw(e.target.checked)} style={{width:'auto',margin:0}}/>
-              <label htmlFor="showpwS" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
+              <label htmlFor="showpwS" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-              <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
-                {pwSaving ? 'Updating…' : 'Update Password'}
-              </button>
-              <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send Reset Email Instead</button>
+              <Button variant="primary" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
+                {pwSaving ? 'Updating…' : 'Update password'}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={sendResetEmail}>Send reset email instead</Button>
             </div>
           </div>
           <TwoFactorPanel T={T}/>
@@ -464,22 +465,22 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {show('display') && (
         <>
           <div style={sectionStyle}>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Colour Mode</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Colour mode</div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div>
                 <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>Theme</div>
-                <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{darkMode?'Dark mode — easier on the eyes':'Light mode — clean and bright'}</div>
               </div>
               <div style={{display:'flex',gap:8}}>
                 <button onClick={async()=>{setDarkMode(true);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:true})}catch(e){}}}
-                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                     border:`1px solid ${darkMode?T.gold:T.border}`,
                     background:darkMode?T.gold+'22':'transparent',
                     color:darkMode?T.goldText:T.muted,transition:'all 0.2s'}}>
                   Dark
                 </button>
                 <button onClick={async()=>{setDarkMode(false);try{await api.upsertUserProfile(user?.id,user?.email,{dark_mode:false})}catch(e){}}}
-                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,cursor:'pointer',
                     border:`1px solid ${!darkMode?T.gold:T.border}`,
                     background:!darkMode?T.gold+'22':'transparent',
                     color:!darkMode?T.goldText:T.muted,transition:'all 0.2s'}}>
@@ -502,14 +503,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
                 <button onClick={async()=>{setYieldBasis('cost');try{await api.upsertUserProfile(user?.id,user?.email,{yield_basis:'cost'})}catch(e){}}}
-                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
                     border:`1px solid ${yieldBasis==='cost'?T.gold:T.border}`,
                     background:yieldBasis==='cost'?T.gold+'22':'transparent',
                     color:yieldBasis==='cost'?T.goldText:T.muted,transition:'all 0.2s'}}>
                   Purchase + refurb cost
                 </button>
                 <button onClick={async()=>{setYieldBasis('value');try{await api.upsertUserProfile(user?.id,user?.email,{yield_basis:'value'})}catch(e){}}}
-                  style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
                     border:`1px solid ${yieldBasis==='value'?T.gold:T.border}`,
                     background:yieldBasis==='value'?T.gold+'22':'transparent',
                     color:yieldBasis==='value'?T.goldText:T.muted,transition:'all 0.2s'}}>
@@ -525,19 +526,19 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {sectionHeading('notifications')}
       {show('notifications') && (
         <div style={sectionStyle}>
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Alert Preferences</div>
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginBottom:16,lineHeight:1.6}}>Control which alerts appear in your Smart Alerts dashboard panel.</div>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Alert preferences</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:16,lineHeight:1.6}}>Control which alerts appear in your Smart Alerts dashboard panel.</div>
           {[
             {key:'rent_arrears',      label:'Rent Arrears',      desc:'Alert when a property has overdue rent'},
             {key:'lease_expiry',      label:'Lease Expiry',      desc:'Alert when tenancy agreements are expiring'},
             {key:'compliance_expiry', label:'Compliance Expiry', desc:'Alert for gas, electrical, EPC certificates nearing expiry'},
             {key:'vacant_properties', label:'Vacant Properties', desc:'Alert when properties are sitting vacant'},
-            {key:'weekly_summary',    label:'Weekly Summary',    desc:'Email every Monday morning: rent in vs expected, arrears, certificates due and tenancies ending'},
+            {key:'weekly_summary',    label:'Weekly summary',    desc:'Email every Monday morning: rent in vs expected, arrears, certificates due and tenancies ending'},
           ].map(item=>(
             <div key={item.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${T.border}`}}>
               <div>
                 <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{item.label}</div>
-                <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{item.desc}</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{item.desc}</div>
               </div>
               <button role="switch" aria-checked={!!notifs[item.key]} aria-label={item.label} onClick={()=>setNotifs(n=>({...n,[item.key]:!n[item.key]}))} style={{border:'none',padding:0,
                 width:42,height:24,borderRadius:12,cursor:'pointer',transition:'background 0.2s',flexShrink:0,
@@ -548,9 +549,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               </button>
             </div>
           ))}
-          <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
-            {notifSaving ? 'Saving…' : 'Save Preferences'}
-          </button>
+          <Button variant="primary" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
+            {notifSaving ? 'Saving…' : 'Save preferences'}
+          </Button>
         </div>
       )}
 
@@ -577,7 +578,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
-                      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{feature.desc}</div>
+                      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{feature.desc}</div>
                     </div>
                     {/* Toggle switch */}
                     <button role="switch" aria-checked={isOn} aria-label={feature.label} disabled={isSaving} onClick={()=>!isSaving&&toggleFeature(company.id, feature.key, isOn)}
@@ -596,7 +597,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
                     </button>
-                    <span style={{fontFamily:MONO,fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                    <span style={{fontFamily:SANS,fontSize:FS.sm,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn?'ON':'OFF'}
                     </span>
                   </div>
@@ -605,7 +606,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
 
             {/* Tenant portal features */}
             <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6,marginTop:16,paddingTop:16,borderTop:`1px solid ${T.border}`}}>Tenant portal features</div>
-            <div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:10,lineHeight:1.6}}>Control what tenants can do when they log into their portal for this company.</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:10,lineHeight:1.6}}>Control what tenants can do when they log into their portal for this company.</div>
             {FEATURES.filter(f=>f.section==='tenant').map(feature=>{
                 const isOn = settings[feature.key] !== false
                 const isSaving = saving===`${company.id}-${feature.key}`
@@ -617,8 +618,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                     <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(feature.icon)?<Icon name={feature.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{feature.icon}</span>}</span>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{feature.label}</div>
-                      <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{feature.desc}</div>
-                      {disabled && <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
+                      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{feature.desc}</div>
+                      {disabled && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:3}}>Enable Tenant Portal first</div>}
                     </div>
                     <button role="switch" aria-checked={isOn} aria-label={feature.label} disabled={isSaving||disabled} onClick={()=>!isSaving&&!disabled&&toggleFeature(company.id, feature.key, isOn)}
                       style={{
@@ -636,7 +637,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                         boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                       }}/>
                     </button>
-                    <span style={{fontFamily:MONO,fontSize:11,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                    <span style={{fontFamily:SANS,fontSize:FS.sm,color:isOn&&!disabled?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                       {isSaving?'…':isOn&&!disabled?'ON':'OFF'}
                     </span>
                   </div>
@@ -657,7 +658,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {show('compliance') && <>
       <div style={{...sectionStyle,paddingBottom:18}}>
         <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Compliance tracking</div>
-        <div style={{fontFamily:mono,fontSize:12,color:T.text,lineHeight:1.6}}>
+        <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,lineHeight:1.6}}>
           Choose which certificates, licences and paperwork the Compliance page tracks for each company.
           Items that don't apply to a property (no gas supply, not an HMO) are skipped automatically —
           set those flags on each property's edit form.
@@ -683,7 +684,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                       <span style={{flexShrink:0,display:'flex'}}>{ICON_NAMES.includes(req.icon)?<Icon name={req.icon} size={20} color={T.gold}/>:<span style={{fontSize:20}}>{req.icon}</span>}</span>
                       <div style={{flex:1,minWidth:200}}>
                         <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{req.label}{req.cycleMonths ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,fontWeight:400,marginLeft:8}}>{req.cycleMonths>=12?`every ${req.cycleMonths/12}yr${req.cycleMonths>12?'s':''}`:`every ${req.cycleMonths}mo`}</span> : null}</div>
-                        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{req.desc}</div>
+                        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{req.desc}</div>
                       </div>
                       <button role="switch" aria-checked={isOn} aria-label={req.label} disabled={isSaving} onClick={()=>!isSaving&&toggleComplianceTracked(company.id, req.key, isOn)}
                         style={{
@@ -701,7 +702,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                           boxShadow:'0 1px 3px rgba(0,0,0,0.3)',
                         }}/>
                       </button>
-                      <span style={{fontFamily:MONO,fontSize:11,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
+                      <span style={{fontFamily:SANS,fontSize:FS.sm,color:isOn?company.color:T.muted,fontWeight:600,width:20,flexShrink:0}}>
                         {isSaving?'…':isOn?'ON':'OFF'}
                       </span>
                     </div>
@@ -737,7 +738,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {show('navbar') && (
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Navigation bar</div>
-          <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:16}}>Choose which sections appear in your navigation. Dashboard, Properties and Settings are always shown.</div>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,marginBottom:16}}>Choose which sections appear in your navigation. Dashboard, Properties and Settings are always shown.</div>
           <div style={{display:'grid',gap:10}}>
             {NAV_TOGGLE_OPTIONS.map(item=>{
               const enabled = (userNavPrefs||[]).includes(item.key)
@@ -745,7 +746,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 <div key={item.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',background:T.bg,borderRadius:10,border:`1px solid ${T.border}`}}>
                   <div style={{display:'flex',alignItems:'center',gap:10}}>
                     <span style={{display:'flex',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={18}/>:<span style={{fontSize:18}}>{item.icon}</span>}</span>
-                    <span style={{fontFamily:mono,fontSize:13,color:T.text}}>{item.label}</span>
+                    <span style={{fontFamily:SANS,fontSize:FS.base,color:T.text}}>{item.label}</span>
                   </div>
                   <button role="switch" aria-checked={enabled} aria-label={item.label} onClick={()=>saveNavPref(item.key,!enabled)}
                     style={{border:'none',padding:0,width:44,height:24,borderRadius:12,background:enabled?T.gold:T.border,cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
@@ -826,8 +827,8 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
       {sectionHeading('reporting')}
       {show('reporting') && (
         <div style={sectionStyle}>
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default Reporting Period</div>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20,lineHeight:1.7}}>
+          <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default reporting period</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:20,lineHeight:1.7}}>
             Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
           </div>
           {scopedCompanies.map(company => {
@@ -854,7 +855,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
                   {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
                     <button key={opt.k} onClick={()=>saveSettings({year_type:opt.k})}
-                    style={{fontFamily:mono,fontSize:11,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
+                    style={{fontFamily:SANS,fontSize:FS.sm,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
                       border:`2px solid ${yearType===opt.k?T.gold:T.border}`,
                       background:yearType===opt.k?T.gold+'11':T.bg,
                       color:yearType===opt.k?T.goldText:T.text,transition:'all 0.2s'}}>
@@ -900,14 +901,14 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
           {isAdmin&&(
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
-              <div style={{fontFamily:mono,fontSize:12,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio, and what each member may do there (Viewer, Rent Tracker Editor, Editor or Admin).</div>
-              <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16}}>Signed in as <span style={{color:T.goldText}}>{user?.email}</span></div>
-              <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowAccessModal(true)}>Manage User Access</button>
+              <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio, and what each member may do there (Viewer, Rent Tracker Editor, Editor or Admin).</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:16}}>Signed in as <span style={{color:T.goldText}}>{user?.email}</span></div>
+              <Button variant="primary" size="sm" onClick={()=>setShowAccessModal(true)}>Manage user access</Button>
             </div>
           )}
           <div style={sectionStyle}>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Audit Log</div>
-            <div style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:16,lineHeight:1.7}}>A full record of all actions taken in your account — for GDPR compliance and dispute resolution.</div>
+            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Audit log</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:16,lineHeight:1.7}}>A full record of all actions taken in your account — for GDPR compliance and dispute resolution.</div>
             <AuditLogPanel user={user} companies={companies} T={T}/>
           </div>
         </>

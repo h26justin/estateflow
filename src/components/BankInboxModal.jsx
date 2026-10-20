@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
@@ -109,19 +108,17 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const propertyForId = id => properties.find(p => p.id === id)
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 760 }} role="dialog" aria-modal="true" aria-labelledby="bank-inbox-title">
+    <Modal onClose={onClose} size="lg" labelledBy="bank-inbox-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div>
             <h2 id="bank-inbox-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Bank Inbox
             </h2>
-            <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+            <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginTop: 4 }}>
               Review and match incoming transactions to rent.
             </p>
           </div>
-          <button onClick={syncNow} className="btn btn-ghost" style={{ fontSize: 11 }}>↻ Sync</button>
+          <Button variant="secondary" size="sm" onClick={syncNow}>↻ Sync</Button>
         </div>
 
         <div style={{ padding: '14px 26px 22px' }}>
@@ -130,7 +127,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
             {['unmatched', 'all'].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 style={{
-                  fontFamily: mono, fontSize: 11, fontWeight: 600,
+                  fontFamily: SANS, fontSize: FS.sm, fontWeight: 600,
                   padding: '5px 14px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${filter === f ? T.gold : T.border}`,
                   background: filter === f ? T.gold + '22' : 'transparent',
@@ -184,7 +181,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           {t.counterparty || t.description || '—'}
                         </div>
                         {t.description && t.counterparty && (
-                          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{t.description}</div>
+                          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{t.description}</div>
                         )}
                         {matched && (
                           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.green, marginTop: 4 }}>
@@ -194,13 +191,13 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                       </div>
                       <div style={{ flexShrink: 0 }}>
                         {matched ? (
-                          <button onClick={() => unmatch(t.id)} className="btn btn-ghost" style={{ fontSize: FS.xs }}>
+                          <Button variant="secondary" size="sm" onClick={() => unmatch(t.id)}>
                             Unmatch
-                          </button>
+                          </Button>
                         ) : isCredit ? (
                           <button onClick={() => openMatcher(t.id)}
                             style={{
-                              fontFamily: mono, fontSize: 11, fontWeight: 700,
+                              fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                               padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
                               border: `1px solid ${T.gold}`, background: T.gold + '22', color: T.goldText,
                             }}>
@@ -218,7 +215,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           Match this {fmtAmount(t.amount)} payment to…
                         </div>
                         <select value={selPropId} onChange={e => { setSelPropId(e.target.value); setSelRpId('') }}
-                          style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, marginBottom: 8 }}>
+                          style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, marginBottom: 8 }}>
                           <option value="">— Choose a property —</option>
                           {Object.values(unpaidByProperty).map(({ property }) => (
                             <option key={property.id} value={property.id}>{property.address}</option>
@@ -226,7 +223,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                         </select>
                         {selPropId && (
                           <select value={selRpId} onChange={e => setSelRpId(e.target.value)}
-                            style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, marginBottom: 8 }}>
+                            style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, padding: '8px 10px', background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, marginBottom: 8 }}>
                             <option value="">— Choose a month —</option>
                             {unpaidByProperty[selPropId]?.unpaid.map(rp => (
                               <option key={rp.id} value={rp.id}>
@@ -236,8 +233,8 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           </select>
                         )}
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button onClick={() => setMatchingId(null)} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-                          <button onClick={confirmMatch} disabled={!selRpId} className="btn btn-gold" style={{ fontSize: 11 }}>Confirm match</button>
+                          <Button variant="secondary" size="sm" onClick={() => setMatchingId(null)}>Cancel</Button>
+                          <Button variant="primary" size="sm" onClick={confirmMatch} disabled={!selRpId}>Confirm match</Button>
                         </div>
                       </div>
                     )}
@@ -248,11 +245,9 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12, padding: '9px 18px' }}>Close</button>
+            <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
@@ -10,7 +9,7 @@ import RolePermissionsModal from '../RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../../lib/permissions'
 import { ShareableLinksTab } from './ShareableLinksTab'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState, Modal } from '../ui'
 
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 
@@ -225,16 +224,12 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
   })
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
-      <div className="modal" style={{maxWidth:660}}>
-        <div style={{padding:'22px 26px'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>User Access Management</h2>
-            <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
-          </div>
-          <p style={{fontFamily:mono,fontSize:11,color:T.muted,marginBottom:20}}>
-            Manage who can access your companies. Send invitations to new users.
-          </p>
+    <>
+    <Modal onClose={onClose} isDirty={newEmail.trim().length > 0} confirmFn={confirmDiscard} size="lg"
+      title="User access management"
+      description="Manage who can access your companies. Send invitations to new users."
+      footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+        <div>
 
           {/* Tabs */}
           <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:'wrap'}}>
@@ -251,26 +246,25 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
 
           {/* ── INVITE NEW USER ── */}
           <div style={{background:T.bg,borderRadius:10,padding:'14px 16px',marginBottom:20,border:`1px solid ${T.border}`}}>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>Invite user by email</label>
+            <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,}}>Invite user by email</label>
             <div style={{display:'flex',gap:8,marginTop:8,flexWrap:'wrap'}}>
               <input value={newEmail} onChange={e=>setNewEmail(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&sendInvite()}
                 placeholder="colleague@example.com"
-                style={{flex:1,minWidth:200,fontFamily:mono,fontSize:12,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
+                style={{flex:1,minWidth:200,fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
-                <label htmlFor="invite-admin" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
+                <label htmlFor="invite-admin" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
               </div>
-              <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}}
-                onClick={sendInvite} disabled={adding||!newEmail.trim()}>
-                {adding ? 'Sending…' : 'Send Invite'}
-              </button>
+              <Button variant="primary" size="sm" onClick={sendInvite} disabled={adding||!newEmail.trim()}>
+                {adding ? 'Sending…' : 'Send invite'}
+              </Button>
             </div>
             {/* Company selector — only show if more than 1 company */}
             {companies.length > 1 && (
               <div style={{marginTop:10}}>
                 <button onClick={()=>setShowCoSelect(s=>!s)}
-                  style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                  style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
                   {showCoSelect ? '▲ Hide' : '▼ Choose'} which companies ({selectedCoIds.length} of {companies.length} selected)
                 </button>
                 {showCoSelect && (
@@ -280,7 +274,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                       return (
                         <button key={co.id}
                           onClick={()=>setSelectedCoIds(prev=>sel?prev.filter(id=>id!==co.id):[...prev,co.id])}
-                          style={{fontFamily:mono,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',transition:'all 0.15s',
+                          style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',transition:'all 0.15s',
                             border:`1px solid ${sel?co.color:T.border}`,
                             background:sel?co.color+'22':'transparent',
                             color:sel?co.color:T.muted}}>
@@ -293,7 +287,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
               </div>
             )}
 
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:8,lineHeight:1.6}}>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8,lineHeight:1.6}}>
               An invitation link will be sent. They must sign up at <span style={{color:T.goldText}}>www.ownproperly.com</span> to accept it.
             </div>
           </div>
@@ -323,16 +317,16 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                               <button onClick={()=>setAllCompanies(u.id,u.email,true)}
                                 disabled={!!saving||hasAll(u)}
-                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
+                                style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.green}`,color:T.green,background:T.green+'11',opacity:hasAll(u)?0.4:1}}>
                                 All ✓
                               </button>
                               <button onClick={()=>setAllCompanies(u.id,u.email,false)}
                                 disabled={!!saving||hasNone(u)}
-                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
+                                style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.amber}`,color:T.amber,background:T.amber+'11',opacity:hasNone(u)?0.4:1}}>
                                 None ✗
                               </button>
                               <button onClick={()=>removeUser(u.id)}
-                                style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11'}}>
+                                style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11'}}>
                                 Remove
                               </button>
                             </div>
@@ -343,7 +337,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                               return (
                                 <button key={co.id} onClick={()=>toggleCompany(u.id,co.id,u.email)}
                                   disabled={!!saving}
-                                  style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'6px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                                     border:`1px solid ${has?co.color:T.border}`,
                                     background:has?co.color+'22':'transparent',
                                     color:has?co.color:T.muted}}>
@@ -374,18 +368,18 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                                   <div key={co.id} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                                     <span style={{fontFamily:mono,fontSize:FS.xs,color:co.color||T.goldText,minWidth:56}}>{co.abbr}</span>
                                     {locked
-                                      ? <span title={lockReason} style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,border:`1px solid ${T.border}`,color:T.muted,background:T.surface}}>
+                                      ? <span title={lockReason} style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,border:`1px solid ${T.border}`,color:T.muted,background:T.surface}}>
                                           {isCompanyOwner ? 'Owner' : (ROLE_OPTION_LABELS[current] || current)}
                                         </span>
                                       : <select value={current} disabled={!!saving} aria-label={`Role for ${u.email} on ${co.name}`}
                                           onChange={e=>changeRole(u,co,e.target.value)}
-                                          style={{fontFamily:mono,fontSize:11,padding:'4px 8px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,cursor:saving?'wait':'pointer'}}>
+                                          style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 8px',borderRadius:6,border:`1px solid ${T.border}`,background:T.surface,color:T.text,cursor:saving?'wait':'pointer'}}>
                                           {ROLE_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
                                         </select>}
                                     {busyHere && <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>Saving…</span>}
                                     {!locked && !busyHere && (
                                       <button onClick={()=>setRoleTarget({user:u,company:co,accessRow:row})}
-                                        style={{fontFamily:mono,fontSize:FS.xs,color:T.goldText,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
+                                        style={{fontFamily:SANS,fontSize:FS.sm,color:T.goldText,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline',textUnderlineOffset:2}}>
                                         Advanced…
                                       </button>
                                     )}
@@ -405,7 +399,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
               {/* ── INVITES TAB ── */}
               {tab==='invites' && (
                 invites.length===0
-                  ? <div style={{fontFamily:mono,fontSize:11,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
+                  ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,textAlign:'center',padding:32,background:T.bg,borderRadius:10}}>
                       No pending invitations.
                     </div>
                   : <div style={{display:'grid',gap:8}}>
@@ -422,7 +416,7 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                             </div>
                           </div>
                           <button onClick={()=>cancelInvite(inv.id)}
-                            style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11',flexShrink:0}}>
+                            style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}`,color:T.red,background:T.red+'11',flexShrink:0}}>
                             Cancel
                           </button>
                         </div>
@@ -436,10 +430,8 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
               )}
             </>
           }
-
-          <button className="btn btn-ghost" style={{width:'100%',marginTop:16,fontSize:12}} onClick={onClose}>Close</button>
         </div>
-      </div>
+    </Modal>
 
       {/* Advanced per-key overrides for one member on one company. Reuses the
           platform-admin modal; its z-index sits above this overlay. */}
@@ -457,6 +449,6 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
             reloadRows()
           }}/>
       )}
-    </div>
+    </>
   )
 }

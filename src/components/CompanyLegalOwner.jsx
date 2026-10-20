@@ -5,7 +5,7 @@
 // treated as personal). See fetchMtdPropertyScope in src/lib/api/mtd.js.
 
 import { useState } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import {
   LEGAL_OWNER_PERSONAL, LEGAL_OWNER_LIMITED, isMissingLegalOwnerColumnError,
@@ -30,8 +30,8 @@ export function LegalOwnerChoice({ value, onChange, disabled = false, idPrefix =
           const id = `${idPrefix}-${v}`
           return (
             <label key={v} htmlFor={id}
-              style={{ flex: '1 1 180px', display: 'flex', gap: 8, alignItems: 'flex-start', fontFamily: MONO, fontSize: 11,
-                padding: '9px 10px', margin: 0, borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', textTransform: 'none', letterSpacing: 'normal',
+              style={{ flex: '1 1 180px', display: 'flex', gap: 8, alignItems: 'flex-start', fontFamily: SANS, fontSize: FS.sm,
+                padding: '9px 10px', margin: 0, borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', textTransform: 'none', 
                 border: `1px solid ${checked ? T.gold : T.border}`,
                 background: checked ? T.gold + '18' : 'transparent',
                 color: checked ? T.goldText : T.muted, opacity: disabled ? 0.6 : 1 }}>
@@ -45,7 +45,7 @@ export function LegalOwnerChoice({ value, onChange, disabled = false, idPrefix =
           )
         })}
       </div>
-      <p id={helpId} style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.5, margin: '6px 0 0' }}>
+      <p id={helpId} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5, margin: '6px 0 0' }}>
         {LEGAL_OWNER_HELP}
       </p>
     </fieldset>
@@ -79,7 +79,7 @@ export default function CompanyLegalOwnerSetting({ company, canEdit, onUpdateCom
       <LegalOwnerChoice T={T} value={company.legal_owner ?? null} onChange={save}
         disabled={!canEdit || saving} idPrefix={`co-legal-owner-${company.id}`}/>
       {company.legal_owner == null && (
-        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginTop: 6 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginTop: 6 }}>
           Not set yet — treated as personal until you choose.
         </div>
       )}

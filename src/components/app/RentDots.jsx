@@ -4,9 +4,10 @@ import { monthDominantStatus } from '../../lib/rentStats'
 import { evaluateProperty, groupByMonth, STATE_LABEL } from '../../lib/rentEngine'
 import { activePlan } from '../../lib/paymentPlans'
 import * as api from '../../lib/api'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
+import { fmtDate } from '../../lib/format'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -77,14 +78,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
   const missedDays = statuses.filter(s=>s==='overdue'||s==='missed').length
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
-      onClick={onClose}>
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:20,width:300,boxShadow:'0 8px 32px rgba(0,0,0,0.2)'}}
-        onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-          <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
-          <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
-        </div>
+    <Modal onClose={onClose} size={360} zIndex={2000} title={monthName}>
         {monthEval && (() => {
           const m = monthEval
           const pair = enginePair(m, darkMode)
@@ -107,11 +101,11 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
           return (
             <div style={{marginBottom:12,paddingBottom:12,borderBottom:`1px solid ${T.border}`}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
+                <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'2px 8px',borderRadius:20,background:pair?.bg,color:pair?.text,border:`1px solid ${pair?.text}44`}}>{STATE_LABEL[m.state] || m.state}</span>
                 {m.needsBackfill && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.amber+'22',color:T.amber}}>Needs backfill</span>}
                 {m.state === 'legacy' && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.border,color:T.muted}}>Legacy data</span>}
                 {m.override && <span style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:20,background:T.blue+'22',color:T.blue}}>Override</span>}
-                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>no tenancy record</span>}
+                {ev?.fallback && <span title="No tenancy record yet: using the property's rent and due day" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>no tenancy record</span>}
               </div>
               <div style={{display:'grid',gap:4}}>
                 {rows.map(([l,v])=>(
@@ -131,23 +125,23 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                   ))}
                 </div>
               )}
-              {ev?.reasons?.length > 0 && <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
+              {ev?.reasons?.length > 0 && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:6}}>{ev.reasons.join(' · ')}</div>}
               {m.override && <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:4}}>Override by {m.override.created_by ? 'a user' : 'system'} on {new Date(m.override.created_at).toLocaleDateString('en-GB')}: {m.override.reason}</div>}
               {canEdit && m.state !== 'legacy' && m.state !== 'stl' && m.state !== 'future' && (
                 ovOpen ? (
                   <div style={{marginTop:8,display:'grid',gap:6}}>
-                    <select value={ovState} onChange={e=>setOvState(e.target.value)} style={{fontFamily:mono,fontSize:11}}>
+                    <select value={ovState} onChange={e=>setOvState(e.target.value)} style={{fontFamily:SANS,fontSize:FS.sm}}>
                       {['paid','due','part_paid','missed','not_collectible','pending_review'].map(k=><option key={k} value={k}>{STATE_LABEL[k]}{k==='pending_review'?' (set aside for review, not a write-off)':''}</option>)}
                       {m.override && <option value="clear">Remove override</option>}
                     </select>
-                    <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:mono,fontSize:11,resize:'vertical'}}/>
+                    <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:SANS,fontSize:FS.sm,resize:'vertical'}}/>
                     <div style={{display:'flex',gap:6}}>
-                      <button className="btn btn-gold" style={{fontSize:11}} onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</button>
-                      <button className="btn" style={{fontSize:11}} onClick={()=>setOvOpen(false)}>Cancel</button>
+                      <Button variant="secondary" size="sm" onClick={()=>setOvOpen(false)}>Cancel</Button>
+                      <Button size="sm" onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</Button>
                     </div>
                   </div>
                 ) : (
-                  <button className="btn" style={{fontSize:FS.xs,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
+                  <Button variant="secondary" size="sm" style={{marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</Button>
                 )
               )}
             </div>
@@ -183,15 +177,14 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
               <span style={{color:T.muted}}> {l}</span>
             </div>
           ))}
-          {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{payment.period_start} → {payment.period_end}</div>}
+          {payment.period_start&&<div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginLeft:'auto'}}>{fmtDate(payment.period_start)} → {fmtDate(payment.period_end)}</div>}
         </div>
         {onDayTracker
           ? <Button size="sm" fullWidth onClick={()=>{onClose();onDayTracker()}}>
               View full day tracker →
             </Button>
-          : <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
-      </div>
-    </div>
+          : <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
+    </Modal>
   )
 }
 
@@ -258,7 +251,7 @@ export const RentDots = ({payments, onUpdate, filterYear, onDayTracker, stlIds, 
             onMouseEnter={e=>{if(!isFuture){e.currentTarget.style.transform='scale(1.12)';e.currentTarget.style.boxShadow=`0 2px 8px ${pair.text}55`}}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='none'}}
           >
-            <span style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',letterSpacing:'0.02em'}}>{name}</span>
+            <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:letterColor,lineHeight:1,userSelect:'none',}}>{name}</span>
             {eng?.needsBackfill && <span aria-hidden="true" style={{position:'absolute',top:2,right:3,width:6,height:6,borderRadius:'50%',background:CV.amber}}/>}
             {eng?.override && <span aria-hidden="true" style={{position:'absolute',bottom:2,right:3,width:6,height:6,borderRadius:'50%',border:`1.5px solid ${pair.text}`}}/>}
             {eng && eng.state!=='legacy' && activePlan(property?.payment_plans||[], eng.evals?.[0]?.periodEnd) && <span aria-hidden="true" title="Historic arrears on a payment plan" style={{position:'absolute',top:2,left:3,width:6,height:6,borderRadius:'50%',background:CV.blue}}/>}

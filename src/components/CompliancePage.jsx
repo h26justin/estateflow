@@ -17,14 +17,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty, meesTargetLabel } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Insurance']]
@@ -34,7 +34,7 @@ const SUBS = [['overview', 'Overview'], ['matrix', 'Matrix'], ['insurance', 'Ins
 function CoPill({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: company.color || T.goldText, background: col + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // One requirement line on a property card: status glyph + label + detail.
@@ -90,7 +90,7 @@ function ReqRow({ req, status, T, onClick, property }) {
     const meesDays = daysUntilDate(MEES_DEADLINE_ISO)
     if (meesDays !== null) {
       color = T.amber
-      detail = meesDays > 0 ? `${meesDays.toLocaleString('en-GB')}d to C` : 'below band C'
+      detail = meesTargetLabel()
       title = `${req.label} — band ${band}, below the 2030 MEES target of C. Certificate valid ${days}d.`
     }
   }
@@ -104,23 +104,31 @@ function ReqRow({ req, status, T, onClick, property }) {
         {req.short}
         {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
       </span>
-      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
+      <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
     </button>
   )
 }
 
 // PRS database readiness pill — the Renters' Rights Act database (late
 // 2026) will require registering each let property with its compliance
-// record. Green when the statutory set is in date, amber with a gap count
-// (tooltip lists them) otherwise. Hidden for non-let properties.
-function PrsPill({ property, T }) {
+// record. Green "PRS ready" only when the statutory set is in date AND the
+// card itself has no expired or missing legal item, so it can never sit in
+// green beside a red "4/14 in date". Otherwise red, listing every gap
+// (PRS core items first, then the card's other legal gaps). Hidden for
+// non-let properties.
+function PrsPill({ property, legalGaps, T }) {
   const prs = prsReadiness(property)
   if (!prs) return null
-  const color = prs.ready ? T.green : T.amber
+  // De-duplicate: prsReadiness already reports gas/EICR/EPC/licences.
+  const prsLabels = new Set(['gas_safety', 'eicr', 'epc', 'hmo', 'selective_licence'])
+  const others = (legalGaps || []).filter(g => !prsLabels.has(g.key)).map(g => `${g.label} ${g.state}`)
+  const gaps = [...prs.gaps, ...others]
+  const ready = gaps.length === 0
+  const color = ready ? T.green : T.red
   return (
-    <span title={prs.ready ? 'Gas, EICR, EPC and licensing all in date — ready for PRS database registration' : `PRS database gaps:\n• ${prs.gaps.join('\n• ')}`}
-      style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-      {prs.ready ? 'PRS ready' : `PRS: ${prs.gaps.length} gap${prs.gaps.length === 1 ? '' : 's'}`}
+    <span title={ready ? 'Gas, EICR, EPC, licensing and every other legal item in date — ready for PRS database registration' : `Not PRS ready:\n• ${gaps.join('\n• ')}`}
+      style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+      {ready ? 'PRS ready' : `Not PRS ready · ${gaps.length} gap${gaps.length === 1 ? '' : 's'}`}
     </span>
   )
 }
@@ -130,6 +138,9 @@ function PrsPill({ property, T }) {
 function PropertyCard({ property, company, settings, policies, T, openDetail, gotoInsurance }) {
   const summary = propertyComplianceSummary(property, settings, policies)
   const missingRequired = summary.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
+  const legalGaps = summary.rows
+    .filter(r => r.req.tier <= 2 && (r.status.state === 'missing' || r.status.state === 'expired'))
+    .map(r => ({ key: r.req.key, label: r.req.short, state: r.status.state }))
   const scoreColor = (summary.expired > 0 || missingRequired > 0) ? T.red
     : (summary.expiring > 0 || summary.missing > 0) ? T.amber : T.green
   const allGood = summary.expired === 0 && summary.expiring === 0 && missingRequired === 0   // advisory gaps do not spoil a tick
@@ -140,16 +151,16 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
           <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{property.name}</span>
         </button>
         <CoPill company={company} T={T} />
-        {property.prop_type && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{property.prop_type}</span>}
+        {property.prop_type && <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>{property.prop_type}</span>}
         <span style={{ flex: 1 }} />
-        <PrsPill property={property} T={T} />
+        <PrsPill property={property} legalGaps={legalGaps} T={T} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
-        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
           {summary.held}/{summary.total} in date
         </span>
       </div>
       {summary.total === 0
-        ? <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing tracked for this property — check Settings → Compliance Tracking.</div>
+        ? <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>Nothing tracked for this property — check Settings → Compliance Tracking.</div>
         : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
             {summary.rows.map(({ req, status }) => (
               <ReqRow key={req.key} req={req} status={status} T={T} property={property}
@@ -226,7 +237,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                     </span>
                   ))}
                 </div>
-                <span style={{ fontFamily: mono, fontSize: 11, color: T.goldText, whiteSpace: 'nowrap' }}>Review →</span>
+                <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, whiteSpace: 'nowrap' }}>Review →</span>
               </div>
             ))}
           </div>
@@ -253,7 +264,7 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
                 <div {...pressable(() => openDetail(p))} className="pcard" style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center', padding: '9px 14px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                   <div style={{ minWidth: 0, paddingRight: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prop_type}</div>
                   </div>
                   {cols.map(req => <div key={req.key} style={{ textAlign: 'center' }}>{cellPill(cellFor(p, req))}</div>)}
                 </div>
@@ -358,7 +369,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
     setAdded(next); setBulkSaving(false); setBulk(null)
     showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
   }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   const inp = { width: '100%', padding: '7px 8px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontFamily: mono, fontSize: 12 }
 
   // Portfolio-level summary tiles for the overview.
@@ -388,7 +399,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Compliance</h1>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
             Certificates, licences, tenancy paperwork and insurance across {active.length} {active.length === 1 ? 'property' : 'properties'}
           </div>
         </div>
@@ -396,7 +407,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
           {SUBS.map(([k, l]) => (
             <button key={k} onClick={() => changeSub(k)}
               style={{
-                fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${sub === k ? T.gold : T.border}`,
                 background: sub === k ? T.gold + '22' : 'transparent',
                 color: sub === k ? T.goldText : T.muted, fontWeight: sub === k ? 700 : 400,
@@ -415,7 +426,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
               {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
                 <button key={c.id} onClick={() => setCoFilter(c.id)}
                   style={{
-                    fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                    fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                     border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                     background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
                     color: coFilter === c.id ? (c.color || T.goldText) : T.muted, transition: 'all 0.18s',
@@ -430,7 +441,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
             <div className="fade">
               {buildings.length > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-                  {!bulk && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={openBulk}>Log a certificate for a whole building</button>}
+                  {!bulk && <Button variant="primary" size="sm" onClick={openBulk}>Log a certificate for a whole building</Button>}
                 </div>
               )}
               {bulk && (
@@ -448,10 +459,10 @@ export default function CompliancePage({ user, companies = [], properties = [], 
                   <div><label style={lbl}>Expires</label>
                     <input aria-label="Expires" type="date" value={bulk.expiry} onChange={e => setBulk(b => ({ ...b, expiry: e.target.value }))} style={inp} /></div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</button>
-                    <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</button>
+                    <Button variant="primary" size="sm" disabled={bulkSaving || bulkTargets.length === 0} onClick={saveBulk}>{bulkSaving ? 'Saving…' : `Log for ${bulkTargets.length} unit${bulkTargets.length === 1 ? '' : 's'}`}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setBulk(null)} disabled={bulkSaving}>Cancel</Button>
                   </div>
-                  <div style={{ gridColumn: '1 / -1', fontFamily: mono, fontSize: FS.xs, color: T.faint }}>
+                  <div style={{ gridColumn: '1 / -1', fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>
                     Units already in date for this certificate are skipped.{bulkTargets.length === 0 && bulk.building ? ' Every unit in this building is already covered.' : ''}
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 // Maintenance & Repairs UI — extracted from FeatureComponents.jsx
 //
 // Exports a single MaintenanceTab component and keeps JobCard private.
@@ -96,32 +96,32 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Maintenance & Repairs</div>
           <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
         </div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log Job</button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log job</Button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Job Title *</label><input aria-label="Job Title" value={form.title} onChange={e=>s('title',e.target.value)} placeholder="e.g. Fix leaking tap"/></div>
+          <div><label>Job title *</label><input aria-label="Job Title" value={form.title} onChange={e=>s('title',e.target.value)} placeholder="e.g. Fix leaking tap"/></div>
           <div><label>Category</label><select aria-label="Category" value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c} style={{textTransform:'capitalize'}}>{c}</option>)}</select></div>
         </div>
         <div style={{marginBottom:12}}><label>Description</label><textarea aria-label="Description" value={form.description} onChange={e=>s('description',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
           <div><label>Priority</label><select aria-label="Priority" value={form.priority} onChange={e=>s('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p.v} value={p.v} style={{textTransform:'capitalize'}}>{p.v}</option>)}</select></div>
           <div><label>Status</label><select aria-label="Status" value={form.status} onChange={e=>s('status',e.target.value)}>{STATUSES.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}</select></div>
-          <div><label>Date Raised</label><input aria-label="Date Raised" type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
+          <div><label>Date raised</label><input aria-label="Date Raised" type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
           <div><label>Contractor</label><input aria-label="Contractor" value={form.contractor} onChange={e=>s('contractor',e.target.value)} placeholder="e.g. Bob's Plumbing"/></div>
-          <div><label>Contractor Phone</label><input aria-label="Contractor Phone" value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
+          <div><label>Contractor phone</label><input aria-label="Contractor Phone" value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-          <div><label>Quoted Cost</label><MoneyInput aria-label="Quoted Cost" prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
-          <div><label>Actual Cost</label><MoneyInput aria-label="Actual Cost" prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
-          <div><label>Date Resolved</label><input aria-label="Date Resolved" type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
+          <div><label>Quoted cost</label><MoneyInput aria-label="Quoted Cost" prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
+          <div><label>Actual cost</label><MoneyInput aria-label="Actual Cost" prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
+          <div><label>Date resolved</label><input aria-label="Date Resolved" type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>{editJob?'Update Job':'Add Job'}</button>
-          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>{editJob?'Update Job':'Add Job'}</Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
 
@@ -168,7 +168,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
             <div style={{display:'flex',gap:4,marginTop:6,flexWrap:'wrap'}}>
               {job.photos.slice(0,4).map((p,i) => (
                 <span key={i} title={p.name || ''}
-                  style={{fontFamily:MONO,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'2px 6px',borderRadius:4,background:T.bg,border:`1px solid ${T.border}`,color:T.muted}}>
                   {p.name?.slice(0,18) || `photo ${i+1}`}
                 </span>
               ))}
@@ -186,7 +186,7 @@ function JobCard({job, fmt, onEdit, onDelete, PRIORITIES, STATUSES, canEdit = tr
               onApplyPriority={(p) => onEdit({ ...job, priority: p })}
             />
           )}
-          {job.description&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:3}}>{job.description}</div>}
+          {job.description&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:3}}>{job.description}</div>}
           <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint}}>
             {job.contractor&&`Contractor: ${job.contractor}`}
             {job.contractor_phone&&` · ${job.contractor_phone}`}

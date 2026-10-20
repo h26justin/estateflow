@@ -37,18 +37,18 @@ export const ALL_NAV = [
   // (2026-10): it was the only item in a 'Compliance' group, so the rail
   // showed a COMPLIANCE header directly above a Compliance link.
   { key: 'compliance',     label: 'Compliance',     icon: 'shield-check', short: 'Comply',    required: false, group: 'Portfolio',   mobileRank: 5 },
-  { key: 'rent',           label: 'Rent Tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
+  { key: 'rent',           label: 'Rent tracker',   icon: 'pound',        short: 'Rent',      required: false, group: 'Money',       mobileRank: 1 },
   // Short-term-let booking income (Hostaway / Lodgify), kept out of the
   // residential collection rate. Added 2026-09: users whose stored nav_items
   // predate it must switch it on in Settings -> Navigation (the seed default
   // includes it for new accounts). mobileRank 8 so it never displaces an
   // existing bottom-bar slot.
-  { key: 'stl',            label: 'Short-Term Let Income', icon: 'bed',   short: 'STL',       required: false, group: 'Money',       mobileRank: 8 },
+  { key: 'stl',            label: 'Short-term let income', icon: 'bed',   short: 'STL',       required: false, group: 'Money',       mobileRank: 8 },
   // External Loans (2026-09): money lent into a company from outside the
   // mortgage book, with the monthly schedule and a tick per payment. In
   // AUTO_ENABLE_NAV_KEYS so existing accounts get it once. mobileRank 10 so
   // it never displaces an existing bottom-bar slot.
-  { key: 'loans',          label: 'External Loans', icon: 'wallet',       short: 'Loans',     required: false, group: 'Money',       mobileRank: 10 },
+  { key: 'loans',          label: 'External loans', icon: 'wallet',       short: 'Loans',     required: false, group: 'Money',       mobileRank: 10 },
   { key: 'reports',        label: 'Reports',        icon: 'pie-chart',    short: 'Reports',   required: false, group: 'Money',       mobileRank: 3 },
   { key: 'mtd',            label: 'MTD Tax',        icon: 'landmark',     short: 'MTD',       required: false, group: 'Money',       mobileRank: 4 },
   { key: 'deals',          label: 'Deals',          icon: 'target',       short: 'Deals',     required: false, group: 'Growth & AI', mobileRank: 2 },
@@ -92,34 +92,34 @@ export const NAV_TOGGLE_OPTIONS = ALL_NAV.filter(n => !n.required && !n.flag)
 export const SETTINGS_PAGES = [
   { key: 'account', label: 'Account', desc: 'Your profile, sign-in security and personal preferences.', sections: [
     { key: 'account',       label: 'Profile' },
-    { key: 'security',      label: 'Security & Data' },
+    { key: 'security',      label: 'Security & data' },
     { key: 'display',       label: 'Display' },
     { key: 'notifications', label: 'Notifications' },
     { key: 'navbar',        label: 'Navigation' },
   ] },
   { key: 'companies', label: 'Companies & team', desc: 'What each company uses, how it looks to tenants, and who can access it.', sections: [
     { key: 'features',      label: 'Features',          companyScoped: true },
-    { key: 'branding',      label: 'Branding & Logos',  companyScoped: true },
-    { key: 'tenant',        label: 'Tenant Portal',     companyScoped: true },
-    { key: 'team',          label: 'Team & Access' },
+    { key: 'branding',      label: 'Branding & logos',  companyScoped: true },
+    { key: 'tenant',        label: 'Tenant portal',     companyScoped: true },
+    { key: 'team',          label: 'Team & access' },
   ] },
   { key: 'portfolio', label: 'Portfolio', desc: 'Defaults for compliance, deals and reporting.', sections: [
-    { key: 'compliance',    label: 'Compliance Tracking' },
-    { key: 'milestones',    label: 'Deal Milestones' },
+    { key: 'compliance',    label: 'Compliance tracking' },
+    { key: 'milestones',    label: 'Deal milestones' },
     { key: 'reporting',     label: 'Reporting',         companyScoped: true },
   ] },
   { key: 'integrations', label: 'Integrations & data', desc: 'Connected services, statement inbox, backups and deleted items.', sections: [
     { key: 'integrations',  label: 'Integrations',      companyScoped: true },
     { key: 'bookkeeping',   label: 'AI Bookkeeping',    companyScoped: true, conditional: true },
-    { key: 'inbox',         label: 'Statement Inbox',   companyScoped: true },
+    { key: 'inbox',         label: 'Statement inbox',   companyScoped: true },
     { key: 'backups',       label: 'Backups' },
     { key: 'trash',         label: 'Trash' },
     { key: 'admin',         label: 'Developer',         conditional: true },
   ] },
   { key: 'billing', label: 'Billing & help', desc: 'Your plan, referrals and help guides.', sections: [
     { key: 'billing',       label: 'Billing',           companyScoped: true },
-    { key: 'referral',      label: 'Refer a Friend' },
-    { key: 'help',          label: 'Help & Guides' },
+    { key: 'referral',      label: 'Refer a friend' },
+    { key: 'help',          label: 'Help & guides' },
   ] },
 ]
 
@@ -158,11 +158,11 @@ export const SETTINGS_TABS = Object.fromEntries(
 // while a different page is on screen.
 export const VIEW_LABELS = {
   ...Object.fromEntries(ALL_NAV.map(n => [n.key, n.label])),
-  daytracker: 'Day Tracker',
+  daytracker: 'Day tracker',
   feedback: 'Feedback',
   detail: 'Property',
-  'import': 'Import Statement',
-  'statement-audit': 'Rental Statement Audit',
-  'import-data': 'Import Historic Data',
-  'bulk-add': 'Add Block of Flats',
+  'import': 'Import statement',
+  'statement-audit': 'Rental statement audit',
+  'import-data': 'Import historic data',
+  'bulk-add': 'Add block of flats',
 }

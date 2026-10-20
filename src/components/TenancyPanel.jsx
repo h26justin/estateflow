@@ -5,7 +5,7 @@
 // Drafts seeded from the free-text property fields carry needs_confirmation
 // and a note explaining each assumption; a human confirms or corrects them.
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
@@ -17,6 +17,7 @@ import {
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
 } from '../lib/tenancyUtils'
 import { SkeletonRows } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const label = (list, v) => list.find(x => x.v === v)?.l || v || '—'
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -129,7 +130,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       <div style={{ display: 'flex', gap: 6 }}>{right}</div>
     </div>
   )
-  const pill = (text, c) => <span style={{ fontFamily: MONO, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: c + '22', color: c, border: `1px solid ${c}44`, whiteSpace: 'nowrap' }}>{text}</span>
+  const pill = (text, c) => <span style={{ fontFamily: SANS, fontSize: FS.sm, padding: '2px 8px', borderRadius: 20, background: c + '22', color: c, border: `1px solid ${c}44`, whiteSpace: 'nowrap' }}>{text}</span>
   const statusColor = { rented: T.green, notice_given: T.amber, vacant: T.red, refurbishment: T.blue, ended: T.muted }
 
   function TenancyCard({ t, isCurrent }) {
@@ -148,10 +149,10 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
           {isCurrent && pill('Current', T.gold)}
           {t.needs_confirmation && pill('Needs confirmation', T.amber)}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            {canEdit && t.needs_confirmation && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => confirmDraft(t)}>Confirm</button>}
-            {canEdit && <button className="btn" style={{ fontSize: 11 }} onClick={() => startEdit(t)}>Edit</button>}
-            {canEdit && t.status !== 'ended' && <button className="btn" style={{ fontSize: 11 }} onClick={() => endNow(t)}>End tenancy</button>}
-            {canEdit && <button className="btn" style={{ fontSize: 11, color: T.red }} onClick={() => remove(t)} aria-label="Delete tenancy">✕</button>}
+            {canEdit && t.needs_confirmation && <Button variant="primary" size="sm" onClick={() => confirmDraft(t)}>Confirm</Button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={() => startEdit(t)}>Edit</Button>}
+            {canEdit && t.status !== 'ended' && <Button variant="secondary" size="sm" onClick={() => endNow(t)}>End tenancy</Button>}
+            {canEdit && <Button variant="ghost" size="sm" onClick={() => remove(t)} aria-label="Delete tenancy" destructive icon="x" />}
           </div>
         </div>
         <div style={{ display: 'grid', gap: 6 }}>
@@ -160,11 +161,11 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
               <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted, flexShrink: 0 }}>{l}</span>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{v}</div>
-                {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{sub}</div>}
+                {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>{sub}</div>}
               </div>
             </div>
           ))}
-          {t.notes && <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '6px 12px' }}>{t.notes}</div>}
+          {t.notes && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, padding: '6px 12px' }}>{t.notes}</div>}
         </div>
       </div>
     )
@@ -182,15 +183,15 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
     <div style={{ marginBottom: 18 }}>
       {sectionHead('Tenancies', canEdit && editing === null && (
         <>
-          {(tenancies?.length === 0) && <button className="btn" style={{ fontSize: 11 }} onClick={prefillFromProperty}>Prefill from property</button>}
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => startNew()}>+ New tenancy</button>
+          {(tenancies?.length === 0) && <Button variant="secondary" size="sm" onClick={prefillFromProperty}>Prefill from property</Button>}
+          <Button variant="primary" size="sm" onClick={() => startNew()}>+ New tenancy</Button>
         </>
       ))}
 
       {tenancies === null && <SkeletonRows rows={2} height={56}/>}
 
       {tenancies && tenancies.length === 0 && editing === null && (
-        <div className="card" style={{ padding: '16px 18px', marginBottom: 10, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+        <div className="card" style={{ padding: '16px 18px', marginBottom: 10, fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
           No tenancy recorded. The Rent Tracker needs one to know when rent is due and who pays it.
           {canEdit && ' Use "Prefill from property" to start from the rent, due day and end date already on the property, then check each field.'}
         </div>
@@ -235,14 +236,14 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
                 <Field l="Paid to"><select value={form.benefit_paid_to} onChange={e => s('benefit_paid_to', e.target.value)}><option value="">Select…</option><option value="landlord">Landlord directly</option><option value="tenant">Tenant</option></select></Field>
               </div>
               <Field l="Reference / notes"><input value={form.benefit_reference} onChange={e => s('benefit_reference', e.target.value)} /></Field>
-              {!split.ok && <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, color: T.amber }}>{split.message}</div>}
-              {split.ok && (Number(form.benefit_contribution) || Number(form.tenant_contribution)) ? <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 11, color: T.green }}>Contributions tie to the rent.</div> : null}
+              {!split.ok && <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>{split.message}</div>}
+              {split.ok && (Number(form.benefit_contribution) || Number(form.tenant_contribution)) ? <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.green }}>Contributions tie to the rent.</div> : null}
             </div>
           )}
           <div style={{ marginBottom: 14 }}><label>Notes</label><textarea aria-label="Notes" value={form.notes} onChange={e => s('notes', e.target.value)} rows={2} style={{ resize: 'vertical' }} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save tenancy'}</button>
-            <button className="btn" style={{ fontSize: 11 }} onClick={() => setEditing(null)}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save tenancy'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -250,7 +251,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       {cur && <TenancyCard t={cur} isCurrent />}
       {history.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <button className="btn" style={{ fontSize: 11 }} onClick={() => setShowHistory(v => !v)}>{showHistory ? 'Hide' : 'Show'} {history.length} previous {history.length === 1 ? 'tenancy' : 'tenancies'}</button>
+          <Button variant="secondary" size="sm" onClick={() => setShowHistory(v => !v)}>{showHistory ? 'Hide' : 'Show'} {history.length} previous {history.length === 1 ? 'tenancy' : 'tenancies'}</Button>
           {showHistory && <div style={{ marginTop: 10 }}>{history.map(t => <TenancyCard key={t.id} t={t} isCurrent={false} />)}</div>}
         </div>
       )}
@@ -258,9 +259,9 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       {/* Non-chargeable periods */}
       <div style={{ marginTop: 18 }}>
         {sectionHead('Non-chargeable periods', canEdit && !periodForm && (
-          <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm({ start_date: '', end_date: '', reason: 'vacant', notes: '' })}>+ Add period</button>
+          <Button variant="secondary" size="sm" onClick={() => setPeriodForm({ start_date: '', end_date: '', reason: 'vacant', notes: '' })}>+ Add period</Button>
         ))}
-        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Vacant, refurbishment or agreed rent-free periods. These months are excluded from the collection rate.</div>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Vacant, refurbishment or agreed rent-free periods. These months are excluded from the collection rate.</div>
         {periodForm && (
           <div className="card" style={{ padding: '14px 16px', marginBottom: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 10 }}>
@@ -272,8 +273,8 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
             </div>
             <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={periodForm.notes || ''} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={savePeriod}>Save period</button>
-              <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm(null)}>Cancel</button>
+              <Button variant="primary" size="sm" onClick={savePeriod}>Save period</Button>
+              <Button variant="secondary" size="sm" onClick={() => setPeriodForm(null)}>Cancel</Button>
             </div>
           </div>
         )}
@@ -283,10 +284,10 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
             <Icon name="calendar" size={14} color={T.muted} />
             <div style={{ flex: 1, fontSize: 13, color: T.text }}>
               {fmtDate(p.start_date)} → {p.end_date ? fmtDate(p.end_date) : 'ongoing'}
-              <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
+              <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
             </div>
-            {canEdit && <button className="btn" style={{ fontSize: 11 }} onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</button>}
-            {canEdit && <button className="btn" style={{ fontSize: 11, color: T.red }} onClick={() => removePeriod(p)} aria-label="Remove period">✕</button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</Button>}
+            {canEdit && <Button variant="ghost" size="sm" onClick={() => removePeriod(p)} aria-label="Remove period" destructive icon="x" />}
           </div>
         ))}
       </div>

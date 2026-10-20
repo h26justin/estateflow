@@ -1,4 +1,4 @@
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 // BulkAddPropertyModal — wizard for adding many flats in a building at once.
 //
 // Three step flow:
@@ -15,10 +15,9 @@ import { MONO, FS } from '../lib/styles'
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
-import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
-import FocusTrap from '../lib/FocusTrap'
+import { Button, Modal } from './ui'
 
 const mono = MONO
 
@@ -237,7 +236,7 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           <h2 id="bulk-add-property-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             Add a block of flats
           </h2>
-          <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 14 }}>
+          <p style={{ fontFamily: SANS, color: T.muted, fontSize: FS.sm, marginBottom: 14 }}>
             {step === 1 && `Step 1 of 3 — Set up the building and how many units.`}
             {step === 2 && `Step 2 of 3 — Fields shared across all units.`}
             {step === 3 && `Step 3 of 3 — Review and tweak each unit.`}
@@ -307,19 +306,19 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           {/* Action buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, gap: 10 }}>
             <div>
-              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {step > 1 && <button className="btn btn-ghost" onClick={() => setStep(step - 1)} disabled={saving}>← Back</button>}
+              {step > 1 && <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={saving}>← Back</Button>}
               {step < 3 && (
-                <button className="btn btn-gold" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
+                <Button variant="primary" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
                   Next →
-                </button>
+                </Button>
               )}
               {step === 3 && (
-                <button className="btn btn-gold" onClick={handleSave} disabled={!canProceed() || saving}>
+                <Button variant="primary" onClick={handleSave} disabled={!canProceed() || saving}>
                   {saving ? 'Saving…' : `✓ Create ${units.length} ${units.length === 1 ? 'property' : 'properties'}`}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -338,13 +337,9 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
+    <Modal onClose={onClose} labelledBy="bulk-add-property-modal-title" isDirty={isDirty} confirmFn={confirmDiscard} style={{maxWidth: step === 3 ? 920 : 640}}>
         {inner}
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 
@@ -420,7 +415,7 @@ function Step1({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 120, overflowY: 'auto' }}>
           {units.slice(0, 8).map((u, i) => (
-            <div key={i} style={{ fontFamily: mono, fontSize: 11, color: T.text }}>
+            <div key={i} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>
               <span style={{ fontWeight: 700 }}>{u.name}</span>
               {u.address && <span style={{ color: T.muted }}> · {u.address}</span>}
             </div>
@@ -473,7 +468,7 @@ function Step2({
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <button onClick={() => setPricingMode('total')}
-            style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
+            style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'total' ? T.gold : T.border}`,
               background: pricingMode === 'total' ? T.gold + '22' : 'transparent',
               color: pricingMode === 'total' ? T.goldText : T.muted,
@@ -481,7 +476,7 @@ function Step2({
             Total for whole building (split evenly)
           </button>
           <button onClick={() => setPricingMode('per_unit')}
-            style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
+            style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'per_unit' ? T.gold : T.border}`,
               background: pricingMode === 'per_unit' ? T.gold + '22' : 'transparent',
               color: pricingMode === 'per_unit' ? T.goldText : T.muted,
@@ -521,7 +516,7 @@ function Step2({
           </>
         )}
         {pricingMode === 'per_unit' && (
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, fontStyle: 'italic' }}>
             Enter each unit's purchase price and mortgage on the next step.
           </div>
         )}
@@ -635,7 +630,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
           </tbody>
         </table>
       </div>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, fontStyle: 'italic' }}>
         Tip: change a value in the first row, then click "Fill down" in the column header to copy it to all rows.
       </div>
     </>
@@ -645,7 +640,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 function FillDownLink({ onClick, T }) {
   return (
     <button onClick={onClick} title="Fill this column with the first row's value"
-      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: FS.xs, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
+      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: FS.sm, fontFamily: SANS, marginLeft: 6, textDecoration: 'underline' }}>
       ↓ Fill
     </button>
   )

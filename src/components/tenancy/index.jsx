@@ -1,4 +1,4 @@
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 // Tenancy sub-tabs: extracted from FeatureComponents.jsx for maintainability.
 // All five components accept `T` (theme tokens) as a prop and use the shared
 // api module — no theme-context dependency, no other cross-cutting state.
@@ -57,7 +57,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px', outline:'none', width:'100%' }
-  const lbl = { fontFamily:mono, fontSize:FS.xs, color:T.muted, display:'block', marginBottom:5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color:T.muted, display:'block', marginBottom:5 }
   const errStyle = { fontFamily:mono, fontSize:FS.xs, color:T.red, display:'block', marginTop:4 }
 
   const isExpired = (date) => date && new Date(date) < new Date()
@@ -72,7 +72,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
         <div>
           <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Right to rent checks</div>
-          <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
+          <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginTop:3 }}>Landlords are legally required to check tenants have the right to rent in the UK.</div>
         </div>
         <Button size="sm" icon="plus" style={{ flexShrink:0 }} onClick={() => { setForm({}); setTriedSave(false); setShowForm(true) }}>
           Add check
@@ -138,7 +138,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
                 {expired && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>EXPIRED</span>}
                 {expiring && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.amber+'22', color:T.amber }}>Expiring soon</span>}
                 {followUpDue && <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.blue+'22', color:T.blue }}>Follow-up due</span>}
-                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
+                <button onClick={()=>{setForm(r);setTriedSave(false);setShowForm(true)}} style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, background:'none', border:`1px solid ${T.border}`, borderRadius:6, padding:'3px 8px', cursor:'pointer' }}>Edit</button>
               </div>
             </div>
             <div style={{ display:'flex', gap:16, marginTop:8, flexWrap:'wrap' }}>
@@ -146,7 +146,7 @@ export function RightToRentTab({ propertyId, userId, showToast, T }) {
               {r.expiry_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:expired?T.red:expiring?T.amber:T.muted }}>Expires: {r.expiry_date}</span>}
               {r.follow_up_date && <span style={{ fontFamily:mono, fontSize:FS.xs, color:followUpDue?T.blue:T.muted }}>Follow-up: {r.follow_up_date}</span>}
             </div>
-            {r.notes && <div style={{ fontFamily:mono, fontSize:11, color:T.muted, marginTop:6 }}>{r.notes}</div>}
+            {r.notes && <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginTop:6 }}>{r.notes}</div>}
           </div>
         )
       })}
@@ -190,14 +190,14 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Deposit protection</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3 }}>You must protect deposits within 30 days of receipt and provide prescribed information to tenants.</div>
         </div>
         <Button size="sm" icon="plus" style={{ flexShrink: 0 }} onClick={() => { setForm({}); setShowForm(true) }}>
           Add record
@@ -247,10 +247,10 @@ export function DepositProtectionTab({ propertyId, userId, showToast, T }) {
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {r.prescribed_info_sent !== 'yes' && (
-                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
+                <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.amber+'22', color: T.amber }}>Prescribed info not sent</span>
               )}
               <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.green+'22', color: T.green }}>Protected</span>
-              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+              <button onClick={() => { setForm(r); setShowForm(true) }} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
             </div>
           </div>
         </div>
@@ -318,18 +318,18 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Legal notices</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Prepare and track possession (section 8) and rent increase (section 13) notices. England only; section 21 ended on 1 May 2026.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3 }}>Prepare and track possession (section 8) and rent increase (section 13) notices. England only; section 21 ended on 1 May 2026.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <button onClick={() => setGenerator('s8')}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.text, cursor: 'pointer' }}>
+            style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.amber}`, background: T.amber + '14', color: T.text, cursor: 'pointer' }}>
             Prepare Form 3A
           </button>
           <Button variant="secondary" size="sm" onClick={openRentIncrease}>
@@ -413,8 +413,8 @@ export function NoticeTrackerTab({ propertyId, userId, showToast, T, property })
                 )}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
-                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
+                <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.color+'22', color: st.color }}>{st.label}</span>
+                <button onClick={() => { setForm(n); setShowForm(true) }} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, background: 'none', border: `1px solid ${T.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
               </div>
             </div>
           </div>
@@ -451,14 +451,14 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rent history</div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3 }}>Track every rent change with dates and review schedules.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Button variant="secondary" size="sm" onClick={() => setShowForm4A(true)}>
@@ -553,7 +553,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
                       {r.next_review_date && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.blue, marginTop: 2 }}>Review: {r.next_review_date}</div>}
                     </div>
                   </div>
-                  {r.notes && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
+                  {r.notes && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>{r.notes}</div>}
                 </div>
               </div>
             )
@@ -620,7 +620,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
         </div>
         {!showForm && (
           <button onClick={() => { setForm({ new_end_date: '', new_rent: rentPcm || '' }); setTriedSave(false); setShowForm(true) }}
-            style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
+            style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
             Renew tenancy
           </button>
         )}
@@ -628,7 +628,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
       {showForm && (
         <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label htmlFor="tr-end-date" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
+            <label htmlFor="tr-end-date" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
@@ -636,7 +636,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
             {triedSave && !form.new_end_date && <span id="tr-end-date-err" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }}>Required</span>}
           </div>
           <div>
-            <label htmlFor="tr-new-rent" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
+            <label htmlFor="tr-new-rent" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 4, display: 'block' }}>New rent (optional)</label>
             <MoneyInput id="tr-new-rent" prefix="£" value={form.new_rent} onChange={v => setForm(p => ({ ...p, new_rent: v }))}
               placeholder="Same as current"
               style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>

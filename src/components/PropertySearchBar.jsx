@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo, useId } from 'react'
 import { Icon } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { rankProperties } from '../lib/propertySearch'
 import { PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
+import useSlashFocus from '../lib/useSlashFocus'
 
 // ── PROPERTY SEARCH BAR ───────────────────────────────────────────────────
 // Always-visible type-ahead for jumping straight to a property. Lives in the
@@ -46,24 +47,9 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
     return () => document.removeEventListener('mousedown', onDown)
   }, [open])
 
-  // "/" focuses the bar — skipped while the user is typing somewhere else,
-  // while a modifier is held (that's a browser shortcut), and while any
-  // dialog is on screen so we never yank focus out from under a modal.
-  useEffect(() => {
-    if (!slashToFocus) return
-    function onKey(e) {
-      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target
-      const tag = (t?.tagName || '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
-      if (document.querySelector('[role="dialog"]')) return
-      e.preventDefault()
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [slashToFocus])
+  // "/" focuses the bar (shared rules: not while typing elsewhere, not with
+  // a modifier held, never out from under an open dialog).
+  useSlashFocus(inputRef, slashToFocus, { select: true })
 
   function choose(p) {
     if (!p) return
@@ -113,7 +99,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           style={{
-            flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.text, fontFamily: MONO, fontSize: 12, padding: 0, height: '100%',
+            flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.text, fontFamily: SANS, fontSize: FS.base, padding: 0, height: '100%',
           }}/>
         {q
           ? <button onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Clear search"
@@ -128,7 +114,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
           boxShadow: '0 12px 36px rgba(0,0,0,0.22)', overflow: 'hidden', maxHeight: 340, overflowY: 'auto',
         }}>
           {results.length === 0 ? (
-            <div style={{ padding: '16px 14px', fontFamily: MONO, fontSize: 11, color: T.muted }}>
+            <div style={{ padding: '16px 14px', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
               No property matches "{q.trim()}"
             </div>
           ) : results.map((p, i) => {
@@ -151,7 +137,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
                     {p.name || p.address || 'Untitled property'}
                   </div>
                   {p.address && p.address !== p.name && (
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.address}
                     </div>
                   )}

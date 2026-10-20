@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
+import { Button } from './ui'
 
 /**
  * ActionMenu — a "..." button that opens a dropdown of actions.
@@ -28,12 +29,18 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
   const { T } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
   const mono = MONO
 
   useEffect(() => {
     if (!open) return
+    // Move focus into the menu so keyboard users land on the first action.
+    const first = menuRef.current?.querySelector('[role="menuitem"]:not([disabled])')
+    if (first) first.focus()
     function onClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    function onKey(e)  { if (e.key === 'Escape') setOpen(false) }
+    // Escape closes and hands focus back to the ⋯ trigger.
+    function onKey(e)  { if (e.key === 'Escape') { setOpen(false); triggerRef.current?.focus() } }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -47,17 +54,21 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
 
   return (
     <span ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <button
-        className="btn btn-ghost"
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={buttonLabel}
-        style={{ fontSize: 11, color: T.muted, borderColor: T.border, padding: '6px 10px' }}>
+      <Button variant="secondary" size="sm" iconOnly ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel}>
         ⋯
-      </button>
+      </Button>
       {open && (
-        <div role="menu"
+        <div role="menu" ref={menuRef} aria-label={buttonLabel}
+          onKeyDown={e => {
+            // Up/Down arrows move between the enabled items (wrapping).
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+            e.preventDefault()
+            const els = [...(menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])') || [])]
+            if (!els.length) return
+            const i = els.indexOf(document.activeElement)
+            const next = e.key === 'ArrowDown' ? (i + 1) % els.length : (i - 1 + els.length) % els.length
+            els[next].focus()
+          }}
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
@@ -76,7 +87,7 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
             }
             const color = item.destructive ? T.red : T.text
             return (
-              <button key={i} role="menuitem"
+              <button key={i} role="menuitem" type="button"
                 disabled={item.disabled}
                 onClick={() => { setOpen(false); item.onSelect && item.onSelect() }}
                 style={{
@@ -84,14 +95,16 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
                   width: '100%', textAlign: 'left',
                   padding: '8px 12px',
                   border: 'none', background: 'transparent',
-                  fontFamily: mono, fontSize: 12,
+                  fontFamily: SANS, fontSize: FS.sm,
                   color: item.disabled ? T.faint : color,
                   cursor: item.disabled ? 'not-allowed' : 'pointer',
                   borderRadius: 6,
                   transition: 'background 0.1s',
                 }}
                 onMouseEnter={e => { if (!item.disabled) e.currentTarget.style.background = T.bg }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                onFocus={e => { if (!item.disabled) e.currentTarget.style.background = T.bg }}
+                onBlur={e => { e.currentTarget.style.background = 'transparent' }}>
                 {item.icon && (
                   <span style={{ width: 16, textAlign: 'center', flexShrink: 0, opacity: item.disabled ? 0.5 : 1 }}>
                     {typeof item.icon === 'string' && ICON_NAMES.includes(item.icon)

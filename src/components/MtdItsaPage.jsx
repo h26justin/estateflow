@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { fmt, fmtMoney2dp, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
-import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
   buildQuarterlySummary, quarterStatusLabel,
 } from '../lib/mtdItsa'
+import { Button, Modal } from './ui'
 
 // ── MTD ITSA PAGE ──────────────────────────────────────────────────
 // HMRC Making Tax Digital for Income Tax Self Assessment.
@@ -170,7 +170,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
         <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 6, letterSpacing: '-0.01em' }}>
           Making Tax Digital — Income Tax
         </h1>
-        <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, maxWidth: 640, lineHeight: 1.6 }}>
+        <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, maxWidth: 640, lineHeight: 1.6 }}>
           HMRC requires quarterly updates of property and self-employment income from 6 April 2026 if your qualifying income is over £50,000, from 6 April 2027 if over £30,000, and from 6 April 2028 if over £20,000. We build each quarterly update from your data automatically.
         </p>
       </div>
@@ -187,10 +187,10 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
       {/* Limited-company warning — they shouldn't be on this page */}
       {accountType === 'limited_company' && (
         <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.amber, marginBottom: 4 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.base, fontWeight: 600, color: T.amber, marginBottom: 4 }}>
             MTD ITSA doesn't apply to limited companies
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5 }}>
             You've told us you operate via a limited company. Your tax return is Corporation Tax (CT600) filed annually with HMRC — not the quarterly MTD ITSA regime this page is for. If you also hold properties personally, switch your account type to "Both" in <strong>Settings → Tax setup</strong>.
           </div>
         </div>
@@ -201,23 +201,23 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
       {/* HMRC connection banner */}
       {!settings?.nino && accountType !== 'limited_company' && (
         <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: T.amber, marginBottom: 4 }}>Set up your HMRC details</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.base, fontWeight: 600, color: T.amber, marginBottom: 4 }}>Set up your HMRC details</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 10, lineHeight: 1.5 }}>
             Add your National Insurance Number and HMRC property business ID to enable quarterly filing.
           </div>
-          <button onClick={() => setShowSettings(true)} className="btn btn-gold" style={{ fontSize: 12 }}>
+          <Button variant="primary" size="sm" onClick={() => setShowSettings(true)}>
             Configure HMRC settings
-          </button>
+          </Button>
         </div>
       )}
 
       {settings?.sandbox_mode && settings?.nino && (
-        <div style={{ background: T.blue+'12', border: `1px solid ${T.blue}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.blue, lineHeight: 1.5 }}>
+        <div style={{ background: T.blue+'12', border: `1px solid ${T.blue}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: SANS, fontSize: FS.sm, color: T.blue, lineHeight: 1.5 }}>
           ℹ <strong>Practice mode is on.</strong> Submissions return a mock <code>SANDBOX-…</code> reference — nothing reaches HMRC yet. When you're ready to file for real, untick "Sandbox mode" in Settings and then "Connect HMRC" below to sign in via gov.uk.
         </div>
       )}
       {!settings?.sandbox_mode && settings?.nino && !settings?.hmrc_access_token && (
-        <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: MONO, fontSize: 11, color: T.amber, lineHeight: 1.5 }}>
+        <div style={{ background: T.amber+'14', border: `1px solid ${T.amber}44`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontFamily: SANS, fontSize: FS.sm, color: T.amber, lineHeight: 1.5 }}>
           ⚠ <strong>Sandbox mode is off, but HMRC isn't connected yet.</strong> Click "Connect HMRC" below to sign in via gov.uk — until then submissions still return a mock reference.
         </div>
       )}
@@ -236,9 +236,9 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             </button>
           ))}
         </div>
-        <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 11 }}>
+        <Button variant="secondary" size="sm" onClick={() => setShowSettings(s => !s)}>
           Settings
-        </button>
+        </Button>
       </div>
 
       {/* Settings panel */}
@@ -264,7 +264,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <span style={{ fontSize: 17, fontWeight: 700, color: T.text }}>Quarter {q.quarter}</span>
-                  <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
+                  <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: toneColor+'22', color: toneColor }}>
                     {status.label}
                   </span>
                 </div>
@@ -309,7 +309,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                   {issues.map((i, idx) => <li key={idx}>{i}</li>)}
                 </ul>
                 <button onClick={() => setShowSettings(true)}
-                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: MONO, fontSize: FS.xs, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
+                  style={{ background: 'none', border: `1px solid ${T.amber}66`, borderRadius: 6, padding: '4px 10px', fontFamily: SANS, fontSize: FS.sm, color: T.amber, cursor: 'pointer', fontWeight: 700, marginTop: 2 }}>
                   Open settings
                 </button>
               </div>
@@ -317,22 +317,16 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {!isLocked && (
-                <button onClick={() => previewQ(q)} className="btn btn-ghost" style={{ fontSize: 11 }}
-                  disabled={!!busy}>
+                <Button variant="secondary" size="sm" onClick={() => previewQ(q)} disabled={!!busy}>
                   {busy === `preview-${q.quarter}` ? 'Calculating…' : (cached ? 'Refresh preview' : 'Build draft')}
-                </button>
+                </Button>
               )}
               {cached && !isLocked && (
-                <button
-                  onClick={() => submitToHmrc(sub)}
-                  className="btn btn-gold"
-                  style={{ fontSize: 11, opacity: issues.length > 0 ? 0.4 : 1, cursor: issues.length > 0 ? 'not-allowed' : 'pointer' }}
-                  disabled={!!busy || !sub?.id || issues.length > 0}
-                  title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')}>
+                <Button variant="primary" size="sm" onClick={() => submitToHmrc(sub)} disabled={!!busy || !sub?.id || issues.length > 0} title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')} style={{opacity: issues.length > 0 ? 0.4 : 1}}>
                   {busy === `submit-${q.quarter}`
                     ? 'Submitting…'
                     : (settings?.sandbox_mode || !liveAvailable ? 'Rehearse (practice mode)' : 'Submit to HMRC')}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -391,15 +385,15 @@ function SettingsPanel({ T, settings, liveAvailable, onSaved }) {
       <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 14 }}>HMRC Settings</div>
       <div style={{ display: 'grid', gap: 12 }}>
         <div>
-          <label>National Insurance Number</label>
+          <label>National Insurance number</label>
           <input aria-label="National Insurance Number" value={nino} onChange={e => setNino(e.target.value)} placeholder="QQ123456C"
             style={{ fontFamily: MONO, textTransform: 'uppercase' }}/>
         </div>
         <div>
-          <label>HMRC Property Business ID</label>
+          <label>HMRC property business ID</label>
           <input aria-label="HMRC Property Business ID" value={businessId} onChange={e => setBusinessId(e.target.value)} placeholder="From HMRC online account"
-            style={{ fontFamily: MONO }}/>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
+            style={{ fontFamily: SANS }}/>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>
             Sign in to gov.uk → Self Assessment → "My businesses" to find this.
           </div>
         </div>
@@ -419,9 +413,9 @@ function SettingsPanel({ T, settings, liveAvailable, onSaved }) {
         </div>
       </div>
       <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }} disabled={saving}>
+        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save settings'}
-        </button>
+        </Button>
       </div>
 
       {/* ── HMRC OAuth connection ── */}
@@ -510,24 +504,24 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
       {connected && !expired ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: T.green+'22', color: T.green }}>
               Connected
             </span>
             <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
               Token expires {expiresAt.toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
             </span>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
             We can now file quarterly submissions on your behalf. Tokens refresh automatically before they expire.
           </div>
-          <button onClick={disconnect} disabled={busy} className="btn btn-ghost" style={{ fontSize: 11 }}>
+          <Button variant="secondary" size="sm" onClick={disconnect} disabled={busy}>
             {busy ? 'Working…' : 'Disconnect'}
-          </button>
+          </Button>
         </>
       ) : (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (expired ? T.amber : T.border), color: (expired ? T.amber : T.muted) }}>
               {expired ? 'Token expired' : 'Not connected'}
             </span>
           </div>
@@ -536,9 +530,9 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
               ? 'Your HMRC session has expired (PSD2 / consent lifetime). Reconnect to keep filing.'
               : 'Connect your gov.uk account so we can file MTD ITSA submissions on your behalf. We use HMRC\'s OAuth — your gov.uk credentials never touch our servers.'}
           </div>
-          <button onClick={connect} disabled={busy} className="btn btn-gold" style={{ fontSize: 12 }}>
+          <Button variant="primary" size="sm" onClick={connect} disabled={busy}>
             {busy ? 'Redirecting…' : (expired ? 'Reconnect HMRC' : 'Connect HMRC')}
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -550,14 +544,12 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 function PreviewModal({ T, q, data, busy, onSave, onClose }) {
   const { summary, payments, expenses } = data
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="mtd-preview-title">
+    <Modal onClose={onClose} size="md" labelledBy="mtd-preview-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="mtd-preview-title" style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             Quarter {q.quarter} preview
           </h2>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 16 }}>
             {formatDate(q.from)} → {formatDate(q.to)} · Aggregated from {payments.length} rent payment{payments.length===1?'':'s'} + {expenses.length} expense{expenses.length===1?'':'s'}
           </p>
         </div>
@@ -586,20 +578,18 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
             </>
           )}
 
-          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
+          <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
             Saving this as a draft locks the quarter snapshot. You can refresh anytime before submission to HMRC.
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12 }}>Cancel</button>
-            <button onClick={onSave} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+            <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={onSave} disabled={!!busy}>
               {busy === `save-${q.quarter}` ? 'Saving…' : 'Save draft'}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

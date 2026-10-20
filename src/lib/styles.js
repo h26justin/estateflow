@@ -19,7 +19,17 @@
 export const MONO = "'DM Mono',monospace"
 
 // UI / heading / body / button face — OwnProperly redesign (design/redesign-2026).
-// DM Mono stays reserved for money, dates, metrics and eyebrow labels.
+//
+// TYPOGRAPHY RULE (one voice per job):
+//   MONO  → numbers, money, dates and metrics in data; numeric table columns;
+//           small eyebrow / section labels (uppercase allowed, 11–12px);
+//           keyboard hints; codes and IDs.
+//   SANS  → everything people read as words: body copy, descriptions, helper
+//           and empty-state text, buttons, chips / filters, form labels, menu
+//           items, nav, toasts, modal text, notes. Sentence case, no forced
+//           uppercase, normal letter-spacing.
+// Recipes: `eyebrow` / `monoLabel` (mono caps), `fieldLabel`, `bodyText`,
+// `helpText` (sans).
 export const SANS =
   "'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
@@ -30,10 +40,14 @@ export const SANS =
 // Type scale (px). NOTHING BELOW 11px: FS.xs is the floor for any text,
 // including eyebrow labels and table captions. Older code still has 8–10px
 // sizes; migrate them up to FS.xs when touched.
-export const FS = { xs: 11, sm: 12, base: 13, md: 15, lg: 18, xl: 24, xxl: 30 }
+//   xs 11 eyebrow / caption · sm 12 helper · base 13 UI text · body 14 body copy
+//   md 15 · lead 16 spec body · lg 18 · h3 20 · xl 24 · xxl 30 H1
+export const FS = { xs: 11, sm: 12, base: 13, body: 14, md: 15, lead: 16, lg: 18, h3: 20, xl: 24, xxl: 30 }
 
-// Corner radius (px). `pill` for fully rounded chips.
-export const R = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 }
+// Corner radius (px) — design/redesign-2026 spec:
+//   sm 8 chips / inputs / small buttons · md 12 buttons / tiles
+//   lg 16 cards / modals · xl 18 hero cards · pill 999 fully rounded pills
+export const R = { sm: 8, md: 12, lg: 16, xl: 18, pill: 999 }
 
 // Spacing, 4-pt scale (px): SP[1] = 4, SP[2] = 8 … SP[12] = 48.
 export const SP = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32, 10: 40, 12: 48 }
@@ -50,7 +64,8 @@ export const CV = {
 
 // ── TYPOGRAPHY ────────────────────────────────────────────────────────────
 
-// Small uppercase mono label. Used above inputs and on small captions.
+// Small uppercase mono eyebrow — section / column labels ("RENT ROLL",
+// "COMPLIANCE"). Not for form fields (use `fieldLabel`) or prose.
 export const monoLabel = (T) => ({
   fontFamily: MONO,
   fontSize: FS.xs,
@@ -61,23 +76,36 @@ export const monoLabel = (T) => ({
   marginBottom: 6,
 })
 
-// Mono body text in muted colour. Used for explanatory paragraphs.
-export const monoMuted = (T) => ({
-  fontFamily: MONO,
+export const eyebrow = monoLabel
+
+// Form-field label (sans, sentence case). Matches the global <label> rule and
+// <Field> in src/components/ui.
+export const fieldLabel = (T) => ({
+  fontFamily: SANS,
   fontSize: FS.sm,
+  fontWeight: 600,
   color: T.muted,
-  lineHeight: 1.6,
+  display: 'block',
+  marginBottom: 6,
 })
 
-// Mono body text in primary colour.
-export const monoText = (T) => ({
-  fontFamily: MONO,
-  fontSize: FS.sm,
+// Body copy in primary colour — descriptions, modal text, notes.
+export const bodyText = (T) => ({
+  fontFamily: SANS,
+  fontSize: FS.base,
   color: T.text,
   lineHeight: 1.6,
 })
 
-// Faint mono — for tertiary annotations like "as of 2026-04-01".
+// Helper / explanatory text in muted colour — under fields, in empty states.
+export const helpText = (T) => ({
+  fontFamily: SANS,
+  fontSize: FS.sm,
+  color: T.muted,
+  lineHeight: 1.55,
+})
+
+// Faint mono — for tertiary data annotations like "as of 2026-04-01".
 export const monoFaint = (T) => ({
   fontFamily: MONO,
   fontSize: FS.xs,
@@ -86,7 +114,7 @@ export const monoFaint = (T) => ({
 
 // Section heading style. `h2` size by default.
 export const heading = (T, level = 2) => {
-  const sizes = { 1: FS.xxl, 2: 26, 3: 16 }
+  const sizes = { 1: FS.xxl, 2: 26, 3: FS.lead }
   return {
     fontFamily: SANS,
     fontSize: sizes[level] || sizes[2],
@@ -111,7 +139,7 @@ export const card = (T) => ({
 export const modalInner = (T) => ({
   background: T.surface,
   border: `1px solid ${T.border}`,
-  borderRadius: 18,
+  borderRadius: R.lg,
   padding: '24px 28px',
 })
 
@@ -127,12 +155,12 @@ export const well = (T) => ({
 
 // Text input / textarea / select. Spread on top: `style={{...inp(T), width: 200}}`.
 export const inp = (T) => ({
-  fontFamily: MONO,
+  fontFamily: SANS,
   fontSize: FS.base,
   background: T.bg,
   border: `1px solid ${T.border}`,
   color: T.text,
-  borderRadius: R.md,
+  borderRadius: R.sm,
   padding: '10px 14px',
   outline: 'none',
   width: '100%',
@@ -140,45 +168,52 @@ export const inp = (T) => ({
 })
 
 // ── BUTTONS ───────────────────────────────────────────────────────────────
-// Note: .btn / .btn-gold / .btn-ghost CSS classes live in src/styles/app.css,
-// and new code should prefer <Button> from src/components/ui. These
-// factories are for cases where inline styling is
-// needed (e.g. dynamic colours, or in components rendered before App mounts
-// like the marketing site).
-
-export const btnGold = (T) => ({
-  background: T.gold,
-  color: '#1A2530',
-  fontFamily: MONO,
+// The button system is <Button> from src/components/ui (variants primary /
+// secondary / ghost / danger, sizes sm / md / lg). Its visuals live in
+// src/styles/app.css (.ui-btn*), and the legacy .btn / .btn-gold / .btn-ghost
+// / .btn-danger classes are aliased to the same rules.
+//
+// These inline factories exist only for places that cannot take a class (e.g.
+// rendered outside the app stylesheet). They mirror the Button md variants so
+// they render the same; prefer <Button> everywhere else. Hover states need
+// the class, so these have none.
+const btnBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: SP[2],
+  fontFamily: SANS,
   fontSize: FS.base,
-  fontWeight: 700,
-  padding: '11px 22px',
-  borderRadius: 10,
-  border: 'none',
+  fontWeight: 600,
+  lineHeight: 1.2,
+  padding: '10px 18px',
+  minHeight: 40,
+  borderRadius: R.md,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
+}
+
+// primary
+export const btnGold = (T) => ({
+  ...btnBase,
+  background: T.gold,
+  color: CV.onGold,
+  border: `1px solid ${T.gold}`,
 })
 
+// secondary (outline)
 export const btnGhost = (T) => ({
+  ...btnBase,
   background: 'transparent',
-  color: T.muted,
-  fontFamily: MONO,
-  fontSize: FS.base,
-  padding: '10px 22px',
-  borderRadius: 10,
+  color: T.text,
   border: `1px solid ${T.border}`,
-  cursor: 'pointer',
 })
 
 export const btnDanger = (T) => ({
+  ...btnBase,
   background: T.red,
-  color: 'white',
-  fontFamily: MONO,
-  fontSize: FS.base,
-  fontWeight: 700,
-  padding: '11px 22px',
-  borderRadius: 10,
-  border: 'none',
-  cursor: 'pointer',
+  color: '#FFFFFF',
+  border: `1px solid ${T.red}`,
 })
 
 // ── BADGES / PILLS ────────────────────────────────────────────────────────
@@ -189,12 +224,12 @@ export const pill = (accent) => ({
   alignItems: 'center',
   gap: 5,
   padding: '3px 10px',
-  borderRadius: 20,
+  borderRadius: R.pill,
   background: accent + '22',
   border: `1px solid ${accent}44`,
   color: accent,
-  fontSize: FS.xs,
-  fontFamily: MONO,
+  fontSize: FS.sm,
+  fontFamily: SANS,
   fontWeight: 600,
 })
 
@@ -257,8 +292,8 @@ export const statusPill = (key, darkMode) => {
     background: c.bg,
     color: c.text,
     border: `1px solid ${c.text}33`,
-    fontFamily: MONO,
-    fontSize: FS.xs,
+    fontFamily: SANS,
+    fontSize: FS.sm,
     fontWeight: 600,
     whiteSpace: 'nowrap',
   }

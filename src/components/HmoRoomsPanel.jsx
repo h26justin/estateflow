@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { SOON_DAYS } from '../lib/complianceStatus'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { naturalCompare } from '../lib/addressUtils'
@@ -13,7 +13,7 @@ import {
   rollupRooms, daysUntilExpiry, setPropertyHmo,
   ROOM_STATUSES, LICENCE_TYPES, LICENCE_STATUSES,
 } from '../lib/api/hmoRooms'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // ── HMO ROOMS PANEL ──────────────────────────────────────────────────
@@ -177,7 +177,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>Let by the room (HMO)</div>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
             {isHmo
               ? 'Rooms are let individually — manage each room and the HMO licence below.'
               : 'This property is let as a whole, not room by room.'}
@@ -203,7 +203,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
       </div>
 
       {!isHmo && (
-        <div style={{ background: T.bg, border: `1px dashed ${T.border}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, textAlign: 'center', fontFamily: MONO, fontSize: 11, color: T.muted }}>
+        <div style={{ background: T.bg, border: `1px dashed ${T.border}`, borderRadius: 10, padding: '12px 16px', marginBottom: 16, textAlign: 'center', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
           Not an HMO — this property isn't let by the room.
           {(rooms.length > 0 || licences.length > 0) && ' Existing room and licence records are kept below.'}
           {canEdit && ' Turn the switch on to manage rooms and HMO licences.'}
@@ -243,7 +243,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
           </span>
         </h3>
         {editable && !addingRoom && (
-          <button onClick={startAddRoom} className="btn btn-ghost" style={{ fontSize: 11 }}>+ Add room</button>
+          <Button variant="secondary" size="sm" onClick={startAddRoom}>+ Add room</Button>
         )}
       </div>
 
@@ -294,10 +294,10 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
             <textarea id="room-notes" value={roomForm.notes} onChange={e => setRoomForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button type="button" onClick={cancelRoom} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-            <button type="submit" disabled={savingRoom} className="btn btn-gold" style={{ fontSize: 11 }}>
+            <Button variant="secondary" size="sm" type="button" onClick={cancelRoom}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" disabled={savingRoom}>
               {savingRoom ? 'Saving…' : editingRoomId ? 'Save changes' : 'Add room'}
-            </button>
+            </Button>
           </div>
           </form>
         </div>
@@ -324,7 +324,7 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
           </span>
         </h3>
         {editable && !addingLic && (
-          <button onClick={startAddLic} className="btn btn-ghost" style={{ fontSize: 11 }}>+ Add licence</button>
+          <Button variant="secondary" size="sm" onClick={startAddLic}>+ Add licence</Button>
         )}
       </div>
 
@@ -373,10 +373,10 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
             <textarea id="lic-notes" value={licForm.notes} onChange={e => setLicForm(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-            <button type="button" onClick={cancelLic} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-            <button type="submit" disabled={savingLic} className="btn btn-gold" style={{ fontSize: 11 }}>
+            <Button variant="secondary" size="sm" type="button" onClick={cancelLic}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit" disabled={savingLic}>
               {savingLic ? 'Saving…' : editingLicId ? 'Save changes' : 'Add licence'}
-            </button>
+            </Button>
           </div>
           </form>
         </div>
@@ -427,12 +427,12 @@ function RoomRow({ room, T, canEdit, flagged, onEdit, onRemove }) {
             {room.tenancy_end && ` to ${dateGB(room.tenancy_end)}`}
           </div>
           {room.notes && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{room.notes}</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{room.notes}</div>
           )}
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(room)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onEdit(room)} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
             <button onClick={() => onRemove(room)} aria-label={`Remove ${room.room_name}`} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}
@@ -457,7 +457,7 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderLeft: `3px solid ${accent}`, borderRadius: 10, padding: '12px 14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 4 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             {licTypeLabel(licence.licence_type)}
             <span style={{ marginLeft: 8, color: accent, fontSize: FS.xs, padding: '1px 6px', background: accent + '22', borderRadius: 8 }}>{licStatusLabel(licence.status)}</span>
           </div>
@@ -470,12 +470,12 @@ function LicenceCard({ licence, T, canEdit, onEdit, onRemove }) {
             <div style={{ fontFamily: MONO, fontSize: 11, color: accent, marginTop: 6, fontWeight: 700 }}>{reminder}</div>
           )}
           {licence.notes && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{licence.notes}</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{licence.notes}</div>
           )}
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(licence)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onEdit(licence)} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
             <button onClick={() => onRemove(licence)} aria-label="Remove licence" style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}

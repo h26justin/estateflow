@@ -1,16 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { parseStatement } from '../lib/statementParser'
 import { parseForImport, fromLegacyParse } from '../lib/statementImport'
 import { extractPdfTextFromFile } from '../lib/pdfExtract'
-import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
-import FocusTrap from '../lib/FocusTrap'
 import StatementImportReview from './StatementImportReview'
 import { pressable } from '../lib/pressable'
+import { Button, Modal } from './ui'
 
 // ── MANAGING-AGENT STATEMENT IMPORT ─────────────────────────────────────────
 // Upload a PNE / RMS statement (or open one received by email), Properly
@@ -124,7 +123,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
         <div style={{padding:'20px 24px',borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
             <div>
-              <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>Import Statement</h2>
+              <h2 id="statement-importer-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}>Import statement</h2>
               <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
                 {step==='upload'&&'Upload a PNE or RMS rental statement PDF'}
                 {step==='preview'&&`Import review · ${fileName} · ${parsed?.lines.length || 0} lines read`}
@@ -164,10 +163,10 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                         <div key={d.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:T.bg,borderRadius:8,flexWrap:'wrap'}}>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                           <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
-                          {co && <span style={{fontFamily:MONO,fontSize:FS.xs,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
+                          {co && <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
                           {done
                             ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
-                            : <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
+                            : <Button variant="primary" size="sm" onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</Button>}
                         </div>
                       )
                     })}
@@ -183,7 +182,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
                 <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="file-text" size={36} color={T.faint}/></div>
                 <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:6}}>Drop your statement PDF here</div>
-                <div style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:16}}>or click to browse</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:16}}>or click to browse</div>
                 <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
                   {[{l:'PNE Asset Management',c:T.gold},{l:'Rook Matthews Sayer',c:T.blue}].map(x=>(
                     <span key={x.l} style={{fontFamily:MONO,fontSize:FS.xs,color:x.c,background:x.c+'22',padding:'3px 10px',borderRadius:20,border:`1px solid ${x.c}44`}}>{x.l}</span>
@@ -194,7 +193,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 onChange={e=>{ if (e.target.files[0]) { setSourceDoc(null); handleFile(e.target.files[0]) } }}/>
 
               {!canEditAnyRent&&(
-                <div style={{marginTop:14,padding:'10px 12px',background:T.amber+'14',border:`1px solid ${T.amber}55`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.muted}}>
+                <div style={{marginTop:14,padding:'10px 12px',background:T.amber+'14',border:`1px solid ${T.amber}55`,borderRadius:8,fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
                   You have read-only access to rent in every company you can see, so a statement can be reviewed here but not imported. Ask an admin for the Rent Tracker Editor role.
                 </div>
               )}
@@ -247,7 +246,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 ))}
               </div>
               {importResults.learned>0&&(
-                <div style={{background:T.green+'14',border:`1px solid ${T.green}44`,borderRadius:8,padding:'10px 12px',margin:'0 auto 16px',maxWidth:520,textAlign:'left',fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>
+                <div style={{background:T.green+'14',border:`1px solid ${T.green}44`,borderRadius:8,padding:'10px 12px',margin:'0 auto 16px',maxWidth:520,textAlign:'left',fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
                   Remembered {importResults.learned} property label{importResults.learned!==1?'s':''} you matched by hand, so future statements match automatically.
                 </div>
               )}
@@ -259,8 +258,8 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   ))}
                 </div>
               )}
-              <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
-              <button className="btn btn-gold" style={{fontSize:12}} onClick={onClose}>Close &amp; refresh</button>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
+              <Button variant="primary" size="sm" onClick={onClose}>Close &amp; refresh</Button>
             </div>
           )}
         </div>
@@ -277,12 +276,8 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth: step === 'preview' ? 1300 : 720, width: step === 'preview' ? '96vw' : undefined, maxHeight:'92vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
+    <Modal onClose={onClose} labelledBy="statement-importer-title" isDirty={step !== 'upload' && step !== 'done'} confirmFn={confirmDiscard} style={{maxWidth: step === 'preview' ? 1300 : 720, width: step === 'preview' ? '96vw' : undefined, maxHeight:'92vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
         {inner}
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

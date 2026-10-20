@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { SignedPhoto } from '../../lib/SignedPhoto'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -10,6 +10,7 @@ import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { EmptyState, Button } from '../ui'
+import { fmtDate } from '../../lib/format'
 
 // ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = [
@@ -200,7 +201,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>
           {uploading?'Uploading...':'Drop files here or click to browse'}
         </div>
-        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginBottom:12}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12}}>
           PDF, images, Word docs — any file type accepted
         </div>
         <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
@@ -221,7 +222,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
       {/* Filter bar */}
       {docs.length>0&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
         <button onClick={()=>setFilterCategory('all')}
-          style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+          style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 10px',borderRadius:20,cursor:'pointer',
             border:`1px solid ${filterCategory==='all'?T.gold:T.border}`,
             background:filterCategory==='all'?T.gold+'22':'transparent',
             color:filterCategory==='all'?T.goldText:T.muted}}>
@@ -229,7 +230,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
         </button>
         {DOC_CATEGORIES.filter(c=>docs.some(d=>d.category===c.value)).map(c=>(
           <button key={c.value} onClick={()=>setFilterCategory(c.value)}
-            style={{fontFamily:MONO,fontSize:FS.xs,padding:'3px 10px',borderRadius:20,cursor:'pointer',
+            style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 10px',borderRadius:20,cursor:'pointer',
               border:`1px solid ${filterCategory===c.value?T.gold:T.border}`,
               background:filterCategory===c.value?T.gold+'22':'transparent',
               color:filterCategory===c.value?T.goldText:T.muted}}>
@@ -249,7 +250,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                   style={{width:'100%',aspectRatio:'4 / 3',objectFit:'cover',borderRadius:10,border:`1px solid ${T.border}`,display:'block'}}/>
                 {isAdmin&&<button onClick={()=>handleDelete(doc)} aria-label="Move photo to Trash" title="Move to Trash"
                   style={{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:11,border:'none',background:'rgba(0,0,0,0.6)',color:'white',cursor:'pointer',fontSize:12,lineHeight:1,padding:0}}>×</button>}
-                <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,marginTop:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{doc.name}</div>
                 <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(doc.created_at)}</div>
               </div>
             ))}
@@ -306,7 +307,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       <div style={{flex:1,minWidth:150}}>
                         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:2}}>{doc.name}</div>
                         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                          <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,
+                          <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.goldText,
                             background:T.gold+'22',padding:'1px 6px',borderRadius:20}}>
                             <Icon name={cat.icon} size={12} style={{display:'inline-block',verticalAlign:'-2px'}}/> {cat.label}
                           </span>
@@ -325,43 +326,27 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       {/* Actions */}
                       <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap'}}>
                         {ocrEligible && isAdmin && status !== 'processing' && (
-                          <button onClick={runOcr} disabled={ocrRunning === doc.id}
-                            style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
-                              background: status === 'completed' ? T.surface : T.gold+'22',
-                              color: status === 'completed' ? T.muted : T.goldText,
-                              border: `1px solid ${T.gold}44`,
-                              borderRadius:8,cursor: ocrRunning === doc.id ? 'wait' : 'pointer',opacity: ocrRunning === doc.id ? 0.6 : 1}}>
+                          <Button variant="secondary" size="sm" onClick={runOcr} disabled={ocrRunning === doc.id} style={{opacity: ocrRunning === doc.id ? 0.6 : 1}}>
                             {ocrRunning === doc.id ? 'Extracting…' : status === 'completed' ? 'Re-extract' : 'Extract'}
-                          </button>
+                          </Button>
                         )}
                         {status === 'completed' && (
-                          <button onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}
-                            style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
-                              background:T.surface,color:T.text,border:`1px solid ${T.border}`,
-                              borderRadius:8,cursor:'pointer'}}>
+                          <Button variant="secondary" size="sm" onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}>
                             {isExpanded ? '▲ Hide' : '▼ View fields'}
-                          </button>
+                          </Button>
                         )}
-                        <button onClick={async()=>{
+                        <Button variant="secondary" size="sm" onClick={async()=>{
                           try {
                             const url = await api.getDocumentSignedUrl(doc.file_path)
                             if (url) window.open(url, '_blank', 'noopener,noreferrer')
                             else showToast('Could not generate view link', 'error')
                           } catch(e) { showToast('Could not view: ' + (e.message||'unknown'), 'error') }
-                        }}
-                          style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',
-                            background:T.surface,color:T.goldText,border:`1px solid ${T.gold}44`,
-                            borderRadius:8,cursor:'pointer'}}>
+                        }}>
                           View
-                        </button>
-                        {isAdmin&&<button onClick={()=>handleDelete(doc)}
-                          style={{fontFamily:MONO,fontSize:11,padding:'5px 10px',
-                            background:T.surface,color:T.muted,border:`1px solid ${T.border}`,
-                            borderRadius:8,cursor:'pointer',transition:'color 0.15s, border-color 0.15s'}}
-                          onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
-                          onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>
+                        </Button>
+                        {isAdmin&&<Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(doc)}>
                           Delete
-                        </button>}
+                        </Button>}
                       </div>
                     </div>
 
@@ -374,7 +359,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           </div>
                         </div>
                         {extractedFields._parse_error ? (
-                          <div style={{fontFamily:MONO,fontSize:11,color:T.amber,lineHeight:1.6}}>
+                          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,lineHeight:1.6}}>
                             <strong>Raw AI response (couldn't parse as JSON):</strong>
                             <div style={{background:T.bg,padding:10,borderRadius:6,marginTop:6,whiteSpace:'pre-wrap',maxHeight:280,overflow:'auto'}}>{extractedFields._raw_response}</div>
                           </div>
@@ -430,14 +415,14 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           if (linked) {
                             return (
                               <div style={{marginTop:10,padding:'10px 12px',background:T.green+'11',border:`1px solid ${T.green}44`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.green,display:'flex',alignItems:'center',gap:8}}>
-                                <span>Linked to Compliance — {candidate.cert_name} expires {candidate.expiry_date}</span>
+                                <span>Linked to Compliance — {candidate.cert_name} expires {fmtDate(candidate.expiry_date)}</span>
                               </div>
                             )
                           }
                           return (
                             <div style={{marginTop:10,padding:'10px 12px',background:T.gold+'11',border:`1px dashed ${T.gold}66`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
                               <div style={{fontFamily:MONO,fontSize:11,color:T.text,lineHeight:1.5}}>
-                                Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{candidate.expiry_date}</strong>.
+                                Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{fmtDate(candidate.expiry_date)}</strong>.
                               </div>
                               <Button size="sm" icon={complianceBusy===doc.id ? undefined : 'plus'} onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id} style={{whiteSpace:'nowrap'}}>
                                 {complianceBusy===doc.id ? 'Adding…' : 'Add to Compliance'}
@@ -445,7 +430,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             </div>
                           )
                         })()}
-                        <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:10,lineHeight:1.5}}>
+                        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:10,lineHeight:1.5}}>
                           AI extraction is best-effort. Always verify critical values against the original document.
                         </div>
                       </div>

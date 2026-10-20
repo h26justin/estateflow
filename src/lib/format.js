@@ -71,6 +71,17 @@ export function sumMoney(values) {
 export const fmtPct = (n, decimals = 1) => (Number(n) || 0).toFixed(decimals) + '%'
 
 /**
+ * Format a yield percentage, or "—" when there isn't a meaningful one.
+ * A property with no rent (void, refurb) or no cost/value basis has no
+ * yield, and "0.0%" reads like a real (terrible) figure — show a dash.
+ *   fmtYield(6.73) → "6.7%"
+ *   fmtYield(0)    → "—"
+ *   fmtYield(NaN)  → "—"
+ */
+export const hasYield = (n) => { const v = Number(n); return n != null && Number.isFinite(v) && v > 0 }
+export const fmtYield = (n, decimals = 1) => hasYield(n) ? Number(n).toFixed(decimals) + '%' : NAN_DISPLAY
+
+/**
  * Format a plain number with thousand separators (no currency symbol).
  * For things like "1,234 properties" or counters.
  *   fmtNum(1234)      → "1,234"

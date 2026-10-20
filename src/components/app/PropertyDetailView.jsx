@@ -3,14 +3,16 @@ import { canDo } from '../../lib/permissions'
 import * as api from '../../lib/api'
 import CalcExplain from '../CalcExplain'
 import ActionMenu from '../ActionMenu'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit } from '../../lib/propertyCalcs'
 import { ComplianceTab, TenancyTab, ExpensesTab, OverviewTab, FinancialsTab, DocumentsTab, MaintenanceTab, RightToRentTab, DepositProtectionTab, NoticeTrackerTab, RentHistoryTab, TenancyRenewalAlert, TenancyPanel, RefurbPropertyTab, HmoRoomsPanel, EpcPlanner, RentCollectionPanel, ESignPanel, ReferencingPanel } from './lazyViews'
 import { fmt } from '../../lib/appFmt'
+import { fmtDate } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 import { RentDots } from './RentDots'
 import { RentTab } from './RentTab'
 import { Icon } from '../../lib/icons'
+import { Button } from '../ui'
 
 // Property detail view: header, tab bar and every per-property tab.
 // Moved verbatim from App.jsx; every value it reads is passed in explicitly.
@@ -23,7 +25,7 @@ export function PropertyDetailView({
 }) {
   return (
     <div className="fade">
-      <button className="btn btn-ghost" style={{marginBottom:20,fontSize:11}} onClick={closeDetail}>&lt;- Back</button>
+      <Button variant="secondary" size="sm" onClick={closeDetail} style={{marginBottom:20}}>← Back</Button>
       <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 280px',gap:18,alignItems:'start'}}>
         <div style={{minWidth:0}}>
           <div className="card" style={{padding:isMobile?'18px 16px':'24px 28px',marginBottom:16}}>
@@ -31,14 +33,14 @@ export function PropertyDetailView({
               <div style={{flex:'1 1 auto',minWidth:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,flexWrap:'wrap'}}><CompanyPill company={selected.company}/><Badge status={selected.status}/></div>
                 <h1 style={{fontSize:22,fontWeight:700,letterSpacing:'-0.02em',marginBottom:3}}>{selected.name}</h1>
-                <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{selected.address}</div>
-                <div style={{fontFamily:MONO,fontSize:11,color:T.faint}}>{selected.prop_type}</div>
-                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}><Icon name="building" size={12}/>{selected.managed_by}</div>}
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{selected.address}</div>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint}}>{selected.prop_type}</div>
+                {selected.managed_by&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,padding:'2px 10px',borderRadius:20,background:T.card,border:`1px solid ${T.border}`,fontFamily:SANS,fontSize:FS.sm,color:T.muted}}><Icon name="building" size={12}/>{selected.managed_by}</div>}
                 {selected.archived_at&&<div style={{display:'inline-flex',alignItems:'center',gap:5,marginTop:4,marginLeft:6,padding:'2px 10px',borderRadius:20,background:T.bg,border:`1px solid ${T.border}`,fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>Archived {new Date(selected.archived_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>}
               </div>
               <div style={{display:'flex',gap:8}}>
                 {(canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive) && (
-                  <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</button>
+                  <Button variant="primary" size="sm" onClick={()=>{setEditProp(selected);setShowAddProp(true)}}>Edit</Button>
                 )}
                 {(() => {
                   const canEdit = canDo(permissionsMap, selected.company_id, 'edit_properties') || devModeActive
@@ -147,9 +149,9 @@ export function PropertyDetailView({
                       </span>
                     )}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>setDetailTab('rent')}>
+                  <Button variant="secondary" size="sm" onClick={()=>setDetailTab('rent')}>
                     Full history →
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Year of dots */}
@@ -168,7 +170,7 @@ export function PropertyDetailView({
                     <div key={i} style={{background:T.bg,borderRadius:8,padding:'10px 12px'}}>
                       <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:3}}>{item.l}</div>
                       <div style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:item.c}}>{item.v}</div>
-                      {item.sub&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{item.sub}</div>}
+                      {item.sub&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:2}}>{item.sub}</div>}
                     </div>
                   ))}
                 </div>
@@ -192,9 +194,9 @@ export function PropertyDetailView({
                 <div className="card" style={{padding:'14px 20px',marginTop:14,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
                   <div>
                     <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Insurance</div>
-                    <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>No policies cover this property yet.</div>
+                    <div style={{fontFamily:SANS,fontSize:FS.base,color:T.muted}}>No policies cover this property yet.</div>
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</button>
+                  <Button variant="secondary" size="sm" onClick={()=>{window.location.hash='#/compliance/insurance'}}>Add policy →</Button>
                 </div>
               )
             }
@@ -208,7 +210,7 @@ export function PropertyDetailView({
                   <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>
                     Insurance · {myPolicies.length} {myPolicies.length===1?'policy':'policies'}
                   </div>
-                  <button className="btn btn-ghost" style={{fontSize:FS.xs}} onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</button>
+                  <Button variant="secondary" size="sm" onClick={()=>{window.location.hash='#/compliance/insurance'}}>Manage →</Button>
                 </div>
                 <div style={{display:'grid',gap:6}}>
                   {sorted.map(pol => {
@@ -226,9 +228,9 @@ export function PropertyDetailView({
                             {pol.policy_name}
                             {isCompanyWide && <span style={{fontSize:FS.xs,color:T.muted,marginLeft:6,fontWeight:400}}>· company-wide</span>}
                           </div>
-                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{pol.provider || '—'} · expires {pol.expiry_date}</div>
+                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{pol.provider || '—'} · expires {fmtDate(pol.expiry_date)}</div>
                         </div>
-                        <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:color}}>{status}</div>
+                        <div style={{textAlign:'right',fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:color}}>{status}</div>
                         <div style={{textAlign:'right',fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{fmt(pol.premium)}/yr</div>
                       </div>
                     )
@@ -248,20 +250,20 @@ export function PropertyDetailView({
             </div>
             {selected.notes&&<div className="card" style={{padding:'16px 20px'}}>
               <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Notes</div>
-              <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.8}}>{selected.notes}</div>
             </div>}
           </div>}
           {detailTab==='refurb'&&<RefurbPropertyTab property={selected} companies={companies} properties={properties} permissionsMap={permissionsMap} devModeActive={devModeActive} showToast={showToast} onPropertyPatch={(id, patch)=>setProperties(prev=>prev.map(p=>p.id===id?{...p,...patch}:p))} openRefurbs={()=>{setSelectedId(null);setView('refurbs')}}/>}
           {detailTab==='rent'&&<RentTab selected={selected} fmt={fmt} setEditingPayment={setEditingPayment} isAdmin={isAdmin} user={user} showToast={showToast} setProperties={setProperties} onDayTracker={()=>setView('daytracker')} canEdit={canDo(permissionsMap, selected.company_id, 'edit_rent') || devModeActive}/>}
           {detailTab==='financials'&&<FinancialsTab selected={selected} fmt={fmt} calcMonthlyMortgage={calcMonthlyMortgage} calcGrossYield={p=>calcGrossYield(p,yieldBasis)} calcMonthlyProfit={calcMonthlyProfit} isAdmin={isAdmin} user={user} showToast={showToast} canViewFinancial={canDo(permissionsMap, selected.company_id, 'view_financial') || devModeActive} canEditFinancial={canDo(permissionsMap, selected.company_id, 'edit_financial') || devModeActive}/>}
           {false&&<div style={{display:'grid',gap:12}}>
-            {[{title:'Purchase & Costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
+            {[{title:'Purchase & costs',items:[{l:'Purchase Price',v:fmt(selected.purchase_price)},{l:'Deposit',v:fmt(selected.deposit)},{l:'Mortgage Amount',v:fmt(selected.mortgage_amount)},{l:'Stamp Duty',v:fmt(selected.stamp_duty)},{l:'Legal Fees',v:fmt(selected.legal_fees)},{l:'Refurb Cost',v:fmt(selected.refurb_cost)}]},{title:'Mortgage',items:[{l:'Rate',v:selected.mortgage_rate?(selected.mortgage_rate*100).toFixed(2)+'%':'-'},{l:'Term',v:selected.mortgage_term?selected.mortgage_term+' years':'-'},{l:'Monthly (Repay)',v:fmt(calcMonthlyMortgage(selected))},{l:'Monthly (IO)',v:selected.mortgage_amount&&selected.mortgage_rate?fmt(selected.mortgage_amount*selected.mortgage_rate/12):'-'}]},{title:'Returns',items:[{l:'Monthly Rent',v:fmt(selected.rent_pcm),gold:true},{l:'Annual Rent',v:fmt((selected.rent_pcm||0)*12),gold:true},{l:'Gross Yield',v:calcGrossYield(selected, yieldBasis).toFixed(2)+'%',gold:true},{l:'Monthly Profit',v:fmt(calcMonthlyProfit(selected)),green:calcMonthlyProfit(selected)>0},{l:'Annual Profit',v:fmt(calcMonthlyProfit(selected)*12),green:calcMonthlyProfit(selected)>0}]}].map((section,si)=>(
               <div key={si} className="card" style={{padding:'18px 22px'}}>
                 <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>{section.title}</div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                   {section.items.map((item,i)=>(
                     <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8}}>
-                      <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                      <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{item.l}</span>
                       <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:item.gold?T.goldText:item.green?T.green:T.text}}>{item.v}</span>
                     </div>
                   ))}
@@ -294,7 +296,7 @@ export function PropertyDetailView({
                     <button key={k}
                       onClick={()=>setDetailTab(k==='details' ? 'tenancy' : k)}
                       style={{
-                        fontFamily:MONO,fontSize:11,padding:'8px 14px',
+                        fontFamily:SANS,fontSize:FS.sm,padding:'8px 14px',
                         border:'none',borderBottom:`2px solid ${subTab===k?T.gold:'transparent'}`,
                         background:'transparent',cursor:'pointer',
                         color:subTab===k?T.text:T.muted,
@@ -308,12 +310,12 @@ export function PropertyDetailView({
                   <button onClick={()=>setShowReferencing(true)}
                     style={{
                       marginLeft:'auto',marginBottom:6,
-                      fontFamily:MONO,fontSize:11,fontWeight:700,
+                      fontFamily:SANS,fontSize:FS.sm,fontWeight:700,
                       padding:'5px 12px',borderRadius:6,
                       border:`1px solid ${T.gold}66`,background:T.gold+'14',color:T.goldText,
                       cursor:'pointer',display:'flex',alignItems:'center',gap:6,
                     }}>
-                    Tenant Referencing
+                    Tenant referencing
                     <span style={{fontSize:FS.xs,fontWeight:700,letterSpacing:'0.08em',padding:'1px 5px',borderRadius:3,background:T.gold+'33',color:T.goldText}}>EARLY</span>
                   </button>
                 </div>
@@ -336,16 +338,16 @@ export function PropertyDetailView({
         </div>
         <div style={{display:'grid',gap:12}}>
           <div className="card" style={{padding:'18px 20px'}}>
-            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick Stats</div>
+            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Quick stats</div>
             {(() => {
               const cv = selected.current_value || selected.est_value || 0
               const totalCapIn = (selected.deposit||0)+(selected.stamp_duty||0)+(selected.legal_fees||0)+(selected.refurb_cost||0)
               const eq = cv - (selected.mortgage_amount||0)
               const ltvNum = cv && selected.mortgage_amount ? (selected.mortgage_amount/cv)*100 : null
               return [
-                {l:'Total Capital In', v:fmt(totalCapIn),
+                {l:'Total capital in', v:fmt(totalCapIn),
                   explain: {
-                    title: 'Total Capital In',
+                    title: 'Total capital in',
                     formula: 'Deposit + Stamp Duty + Legal Fees + Refurb Cost',
                     inputs: [
                       { label: 'Deposit',     value: fmt(selected.deposit) },
@@ -358,9 +360,9 @@ export function PropertyDetailView({
                       ? "Heads up: this property has no mortgage recorded. For cash purchases, you may want to add the Purchase Price into Deposit so this number reflects the true cash you put in."
                       : "Cash you actually put in (excluding the mortgage). For mortgage purchases this is your real out-of-pocket.",
                   }},
-                {l:'Current Value', v:fmt(cv),
+                {l:'Current value', v:fmt(cv),
                   explain: {
-                    title: 'Current Value',
+                    title: 'Current value',
                     formula: 'Current Value (or Estimated Value as fallback)',
                     inputs: [
                       { label: 'Current Value',   value: selected.current_value ? fmt(selected.current_value) : '— (not set)' },
@@ -393,7 +395,7 @@ export function PropertyDetailView({
               ]
             })().map((item,i)=>(
               <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 10px',background:T.bg,borderRadius:8,marginBottom:6}}>
-                <span style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{item.l}</span>
+                <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{item.l}</span>
                 <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:2}}>
                   {item.v}
                   {item.explain && <CalcExplain {...item.explain}/>}
@@ -404,7 +406,7 @@ export function PropertyDetailView({
           {(selected.arrears||0)>0&&<div className="card" style={{padding:'16px 18px',borderLeft:`3px solid ${T.red}`}}>
             <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:6}}>Rent Arrears</div>
             <div style={{fontFamily:MONO,fontSize:22,fontWeight:700,color:T.red,marginBottom:4}}>{fmt(selected.arrears)}</div>
-            {selected.notes&&<div style={{fontFamily:MONO,fontSize:11,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
+            {selected.notes&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.6}}>{selected.notes}</div>}
           </div>}
         </div>
       </div>

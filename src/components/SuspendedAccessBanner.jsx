@@ -21,7 +21,7 @@
 // account owner signing in and paying. They get the trial-expired gate
 // on their own session, which is the right place for the action.
 
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { ChromeLogo } from './Logo'
 
 export default function SuspendedAccessBanner({ suspended = [], user, T, onSignOut }) {
@@ -60,7 +60,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
           <div style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 8 }}>
             Your access has been paused
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.7 }}>
             You're a collaborator on {suspended.length === 1 ? 'a company' : `${suspended.length} companies`}{' '}
             whose subscription{suspended.length === 1 ? ' is' : 's are'} not currently active. Access will return
             automatically once the account owner updates their billing — no action needed on your end.
@@ -85,7 +85,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
                   href={`mailto:${ownerEmail}?subject=${encodeURIComponent('Properly subscription needs updating')}&body=${encodeURIComponent(`Hi,\n\nMy Properly access to ${cos.map(c => c.name).join(', ')} has been paused. Could you update the subscription so I can get back in?\n\nThanks`)}`}
                   style={{
                     display: 'inline-block', marginTop: 2,
-                    fontFamily: MONO, fontSize: 11, color: T.goldText,
+                    fontFamily: SANS, fontSize: FS.sm, color: T.goldText,
                     textDecoration: 'underline',
                   }}>
                   Email them
@@ -126,7 +126,7 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
         <div style={{
           background: T.card, border: `1px solid ${T.border}`,
           borderRadius: 12, padding: '16px 18px', marginBottom: 18,
-          fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.7,
+          fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.7,
         }}>
           <strong style={{ color: T.text }}>Your data is safe.</strong> Nothing is deleted while
           access is paused. As soon as the account owner re-subscribes, all your data,
@@ -134,14 +134,14 @@ export default function SuspendedAccessBanner({ suspended = [], user, T, onSignO
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
             Signed in as <strong style={{ color: T.text }}>{user?.email}</strong>
             <br/>
             Questions? Email <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText }}>hello@ownproperly.com</a>
           </div>
           <button onClick={onSignOut}
             style={{
-              fontFamily: MONO, fontSize: 11, padding: '8px 16px',
+              fontFamily: SANS, fontSize: FS.sm, padding: '8px 16px',
               borderRadius: 8, border: `1px solid ${T.border}`,
               background: 'transparent', color: T.muted, cursor: 'pointer',
             }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 
 // ── COMMAND PALETTE ─────────────────────────────────────────────────────
 // Cmd+K / Ctrl+K modal for keyboard-driven navigation and quick actions.
@@ -131,7 +131,7 @@ export default function CommandPalette({ open, commands, onClose }) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 2000,
-        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        background: 'var(--scrim)', backdropFilter: 'blur(4px)',
         display: 'flex', justifyContent: 'center',
         paddingTop: '12vh', paddingLeft: 16, paddingRight: 16,
       }}>
@@ -168,7 +168,7 @@ export default function CommandPalette({ open, commands, onClose }) {
         {/* Results */}
         <div ref={listRef} id="cmdk-list" role="listbox" aria-label="Results" style={{ overflowY: 'auto', flex: 1 }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: '32px 20px', textAlign: 'center', fontFamily: MONO, fontSize: 12, color: T.muted }}>
+            <div style={{ padding: '32px 20px', textAlign: 'center', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
               {q ? `No matches for "${q}"` : 'No commands available'}
             </div>
           ) : (
@@ -198,7 +198,7 @@ export default function CommandPalette({ open, commands, onClose }) {
                         {cmd.label}
                       </span>
                       {cmd.hint && (
-                        <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{cmd.hint}</span>
+                        <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{cmd.hint}</span>
                       )}
                     </div>
                   )
@@ -212,7 +212,7 @@ export default function CommandPalette({ open, commands, onClose }) {
         <div style={{
           padding: '8px 16px', borderTop: `1px solid ${T.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontFamily: MONO, fontSize: FS.xs, color: T.muted,
+          fontFamily: SANS, fontSize: FS.sm, color: T.muted,
         }}>
           <div style={{ display: 'flex', gap: 14 }}>
             <span><kbd style={kbdStyle(T)}>↑</kbd> <kbd style={kbdStyle(T)}>↓</kbd> navigate</span>

@@ -27,9 +27,10 @@ import StageDrawer, { TaskList, Updates, HistoryRow, ContractorSelect } from './
 import Gantt from './Gantt'
 import { Icon } from '../../lib/icons'
 import MoneyInput from '../../lib/MoneyInput'
-import { mono, fmt, fmtDate, btn, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
-import { FS } from '../../lib/styles'
+import { mono, fmt, fmtDate, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
+import { FS, SANS } from '../../lib/styles'
 import { SkeletonRows, SkeletonTiles } from '../../lib/Skeleton'
+import { Button } from '../ui'
 
 export const WORKSPACE_TABS = [
   ['overview', 'Overview'],
@@ -384,7 +385,7 @@ export default function RefurbWorkspace({
             {project.archived_at && <Pill color={T.muted} T={T}>Archived</Pill>}
           </div>
           <h2 style={{ margin: 0, fontSize: isMobile ? 21 : 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{project.title && project.title !== 'Refurbishment' ? project.title : `${ws.propertyName} refurb`}</h2>
-          <div style={{ fontFamily: mono, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
         </div>
         <select value={project.stage} disabled={!canEdit} onChange={e => changeOverall(e.target.value)} aria-label="Overall status"
           style={{ ...inputStyle(T), width: 'auto', fontWeight: 700, color: STAGE_CFG[project.stage]?.color }}>
@@ -392,8 +393,8 @@ export default function RefurbWorkspace({
         </select>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-        {onOpenProperty && <button onClick={onOpenProperty} style={btn(T)}>Property record ↗</button>}
-        {project.deal_id && onOpenDeal && <button onClick={onOpenDeal} style={btn(T)}>Linked deal ↗</button>}
+        {onOpenProperty && <Button variant="secondary" size="sm" onClick={onOpenProperty}>Property record ↗</Button>}
+        {project.deal_id && onOpenDeal && <Button variant="secondary" size="sm" onClick={onOpenDeal}>Linked deal ↗</Button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px', marginTop: 12, fontSize: FS.base }}>
         <Detail label="Address" value={property?.address || '—'} T={T} wide />
@@ -429,15 +430,15 @@ export default function RefurbWorkspace({
 
   return <div className="fade">
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-      <button onClick={onBack} style={btn(T)}>← All refurbs</button>
+      <Button variant="secondary" size="sm" onClick={onBack}>← All refurbs</Button>
       {canEdit && <div style={{ display: 'flex', gap: 6 }}>
-        {(project.stage === 'complete' || project.archived_at) && <button onClick={toggleArchive} style={btn(T)}>{project.archived_at ? 'Restore from archive' : 'Archive'}</button>}
-        <button onClick={onDelete} style={btn(T, 'danger')}>Delete</button>
+        {(project.stage === 'complete' || project.archived_at) && <Button variant="secondary" size="sm" onClick={toggleArchive}>{project.archived_at ? 'Restore from archive' : 'Archive'}</Button>}
+        <Button variant="danger" size="sm" onClick={onDelete}>Delete</Button>
       </div>}
     </div>
     {hero}
     {tabs}
-    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: mono, fontSize: 12 }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
+    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: SANS, fontSize: FS.sm }}>{error} <Button variant="secondary" size="sm" onClick={ops.reload}>Try again</Button></div>}
     {loading && !error && <div aria-busy="true" aria-label="Loading the workspace" style={{ padding: 20 }}><SkeletonTiles count={4}/><div style={{ marginTop: 16 }}><SkeletonRows rows={4}/></div></div>}
     {!loading && !error && <>
       {section === 'overview' && <Overview ws={ws} wp={wp} cur={cur} t={t} ffc={ffc} invoiced={invoiced} onSection={onSection} />}
@@ -469,7 +470,7 @@ function DateCell({ label, value, editable, onSave, note, warn, T }) {
       ? <input type="date" value={v} aria-label={label} onChange={e => setV(e.target.value)}
           onBlur={async () => { const r = await onSave(v); if (r === false) setV(isoDate(value) || '') }} style={{ ...inputStyle(T), padding: '4px 6px', marginTop: 2 }} />
       : <div style={{ fontWeight: 600 }}>{value ? fmtDate(value) : '—'}</div>}
-    {note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
+    {note && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
   </div>
 }
 
@@ -498,11 +499,11 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 12 }}>
       <div style={{ minWidth: 0 }}>
         <div style={panel(T)}>
-          <div style={sectionHead(T)}><span>Refurb journey</span><button onClick={() => onSection('journey')} style={btn(T)}>Open journey</button></div>
+          <div style={sectionHead(T)}><span>Refurb journey</span><Button variant="secondary" size="sm" onClick={() => onSection('journey')}>Open journey</Button></div>
           {wp.hasJourney ? <>
             <JourneyStrip stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} />
             <div style={{ marginTop: 14 }}><Gantt stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} maxRows={6} /></div>
-          </> : <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No journey yet. <button onClick={() => onSection('journey')} style={{ ...btn(T), marginLeft: 6 }}>Start from a template</button></div>}
+          </> : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No journey yet. <Button variant="secondary" size="sm" onClick={() => onSection('journey')} style={{marginLeft: 6}}>Start from a template</Button></div>}
         </div>
         <TaskList ws={ws} stage={null} items={data.tasks.filter(x => x.kind !== 'checklist')} title="Tasks and milestones (all stages)" />
         <Updates ws={ws} stage={null} items={data.updates.slice(0, 8)} title="Latest updates" />
@@ -520,17 +521,17 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
         </div>
         <div style={panel(T)} id="refurb-attention">
           <div style={sectionHead(T)}><span>Needs attention</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{attention.length}</span></div>
-          {attention.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No overdue tasks, blocked or delayed stages.</div>}
+          {attention.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No overdue tasks, blocked or delayed stages.</div>}
           {attention.map(a => <button key={a.key} onClick={a.onClick || undefined} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderLeft: `3px solid ${a.color}`, padding: '6px 10px', marginBottom: 6, cursor: a.onClick ? 'pointer' : 'default', color: T.text }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{a.text}</div>
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{a.sub}</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{a.sub}</div>
           </button>)}
         </div>
         <ProjectDetails ws={ws} />
         <div style={panel(T)}>
-          <div style={sectionHead(T)}><span>Money at a glance</span><button onClick={() => onSection('costs')} style={btn(T)}>Costs</button></div>
+          <div style={sectionHead(T)}><span>Money at a glance</span><Button variant="secondary" size="sm" onClick={() => onSection('costs')}>Costs</Button></div>
           <MoneyRows rows={[['Agreed budget', t.agreed], ['Invoiced', invoiced], ['Paid', t.paid], ['Forecast final cost', ffc.value]]} T={T} />
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
         </div>
       </div>
     </div>
@@ -621,12 +622,12 @@ function CostsTab({ ws, t, ffc, invoiced, children }) {
       </div>
       <div>
         <div style={sectionHead(T)}><span>Forecast final cost</span>{ffc.overridden && <Pill color={T.amber} T={T}>Set by PM</Pill>}</div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
           Calculated as the larger of the revised approved budget ({fmt(t.agreed)}) and invoiced plus committed-not-yet-invoiced ({fmt(invoiced)} + {fmt(0)}): <b style={{ color: T.text }}>{fmt(ffc.calculated)}</b>. Committed orders come from procurement records once they exist. Pending variations never change it until approved.
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10 }}>
           <MoneyInput prefix="£" value={ov} onChange={v => setOv(v == null ? '' : v)} onBlur={() => saveOverride()} disabled={!canEdit} placeholder="Use calculated" style={inputStyle(T)} aria-label="Forecast override" />
-          {ffc.overridden && canEdit && <button onClick={() => { setOv(''); saveOverride('') }} style={btn(T)}>Clear</button>}
+          {ffc.overridden && canEdit && <Button variant="secondary" size="sm" onClick={() => { setOv(''); saveOverride('') }}>Clear</Button>}
         </div>
         {project.forecast_cost_reason && <div style={{ fontSize: 12, color: T.amber, marginTop: 6 }}>Reason: {project.forecast_cost_reason}</div>}
       </div>
@@ -649,9 +650,9 @@ function HistoryTab({ ws }) {
         {stagesWithHistory.map(id => <option key={id} value={id}>{stageName(id) || 'Removed stage'}</option>)}
       </select>
     </div>
-    {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
+    {rows.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
     {rows.map(e => <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0 }}>
-      {e.stage_id && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
+      {e.stage_id && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
       <HistoryRow e={e} T={T} />
     </div>)}
     <div style={{ marginTop: 10 }}><ProgressExplainer stages={data.stages} tasks={data.tasks} T={T} /></div>

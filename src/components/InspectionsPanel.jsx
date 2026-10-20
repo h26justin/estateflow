@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 // ── INSPECTIONS PANEL ────────────────────────────────────────────────
 // Embedded on a property's Compliance tab. Lists scheduled +
@@ -130,9 +131,9 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
           </span>
         </h3>
         {canEdit && !adding && (
-          <button onClick={startAdd} className="btn btn-ghost" style={{ fontSize: 11 }}>
+          <Button variant="secondary" size="sm" onClick={startAdd}>
             + Schedule inspection
-          </button>
+          </Button>
         )}
       </div>
 
@@ -186,7 +187,7 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Photo evidence ({form.photos?.length || 0})</span>
                   <button onClick={() => fileRef.current?.click()} disabled={uploadingPhoto}
-                    style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, cursor: 'pointer' }}>
+                    style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text, cursor: 'pointer' }}>
                     {uploadingPhoto ? 'Uploading…' : 'Add photo'}
                   </button>
                 </label>
@@ -206,10 +207,10 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-                <button onClick={cancel} className="btn btn-ghost" style={{ fontSize: 11 }}>Cancel</button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: 11 }}>
+                <Button variant="secondary" size="sm" onClick={cancel}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={save}>
                   {editingId ? 'Save changes' : 'Schedule'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -272,7 +273,7 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
             {item.photos?.length > 0 && ` · ${item.photos.length} photo${item.photos.length === 1 ? '' : 's'}`}
           </div>
           {item.notes && (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginTop: 6, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
               {item.notes}
             </div>
           )}
@@ -286,7 +287,7 @@ function InspectionRow({ item, T, canEdit, onEdit, onDelete }) {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => onEdit(item)} style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
+            <button onClick={() => onEdit(item)} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>Edit</button>
             <button onClick={() => onDelete(item)} aria-label="Delete item" style={{ fontFamily: MONO, fontSize: FS.xs, padding: '4px 8px', borderRadius: 4, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>×</button>
           </div>
         )}

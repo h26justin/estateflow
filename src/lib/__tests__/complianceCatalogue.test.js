@@ -10,6 +10,7 @@ import {
   epcBand,
   epcNeedsUpgrade,
   epcBelowLegalMinimum,
+  meesTargetLabel,
 } from '../complianceCatalogue'
 import {
   certTypeStatus,
@@ -252,5 +253,15 @@ describe('catalogue integrity', () => {
     expect(new Set(keys).size).toBe(keys.length)
     const aliases = COMPLIANCE_CATALOGUE.flatMap(r => r.aliases || [])
     for (const a of aliases) expect(CATALOGUE_BY_KEY[a]).toBeUndefined()
+  })
+})
+
+describe('meesTargetLabel — plain-English 2030 band-C deadline', () => {
+  it('reads "C needed by 2030" before the deadline (no day countdown)', () => {
+    expect(meesTargetLabel(new Date('2026-10-20T09:00:00'))).toBe('C needed by 2030')
+    expect(meesTargetLabel(new Date('2030-12-31T12:00:00'))).toBe('C needed by 2030')
+  })
+  it('says the band is short of C once the deadline has passed', () => {
+    expect(meesTargetLabel(new Date('2031-01-01T09:00:00'))).toBe('below band C')
   })
 })

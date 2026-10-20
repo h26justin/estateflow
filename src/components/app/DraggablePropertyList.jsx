@@ -3,10 +3,10 @@ import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
 import { buildingTailFromName, buildingKeyFromName, naturalCompare } from '../../lib/addressUtils'
 import { complianceStatusFor, complianceBadge } from '../../lib/complianceStatus'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
-import { plural } from '../../lib/format'
+import { plural, fmtYield, hasYield } from '../../lib/format'
 import { Badge, CompanyPill } from './Badges'
 
 // ─── DRAGGABLE PROPERTY LIST ─────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
   }
 
   if (items.length === 0) return (
-    <div style={{fontFamily:MONO,color:T.muted,fontSize:12,textAlign:'center',padding:40}}>No properties match this filter.</div>
+    <div style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,textAlign:'center',padding:40}}>No properties match this filter.</div>
   )
 
   const isCustomSort = sortBy === 'custom' || !sortBy
@@ -148,7 +148,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
           {showBuildingHeader&&(
             <div style={{display:'flex',alignItems:'center',gap:8,marginTop:showCompanyHeader?6:10,marginBottom:6,paddingLeft:8}}>
               <Icon name="building" size={14} color={T.muted}/>
-              <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
+              <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.text}}>{buildingTailFromName(p.name)}</span>
               <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(buildingSize,'unit')}</span>
             </div>
           )}
@@ -178,7 +178,7 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
                 <span style={{fontSize:15,fontWeight:700}}>{displayName}</span>
                 <CompanyPill company={p.company}/>
               </div>
-              <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
                 {p.prop_type} · {p.address}
                 {p.managed_by&&<span style={{marginLeft:8,color:T.faint,display:'inline-flex',alignItems:'center',gap:4,verticalAlign:'middle'}}><Icon name="building" size={11}/> {p.managed_by}</span>}
               </div>
@@ -202,14 +202,16 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
                     onClick={(e)=>{e.stopPropagation(); openDetail(p)}}
                     style={{display:'flex',alignItems:'center',gap:5,padding:'3px 9px',borderRadius:999,
                       background:cfg.bg,color:cfg.color,
-                      fontFamily:MONO,fontSize:FS.xs,fontWeight:700,whiteSpace:'nowrap'}}>
+                      fontFamily:SANS,fontSize:FS.sm,fontWeight:700,whiteSpace:'nowrap'}}>
                     <Icon name={cfg.iconName} size={12}/><span>{cfg.label}</span>
                   </div>
                 )
               })()}
               {p.arrears>0&&<div style={{display:'inline-flex',alignItems:'center',gap:4,fontFamily:MONO,fontSize:11,color:T.red,fontWeight:700}}><Icon name="alert-triangle" size={13}/> {fmt(p.arrears)}</div>}
               <div style={{textAlign:'right'}}>
-                <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}% yield</div>
+                {(()=>{ const gy = calcGrossYield(p, yieldBasis); return hasYield(gy)
+                  ? <div style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.goldText}}>{fmtYield(gy)} yield</div>
+                  : <div title="No yield — no rent or no cost/value recorded" style={{fontFamily:MONO,fontSize:14,fontWeight:700,color:T.muted}}>— <span style={{fontSize:FS.xs,fontWeight:400}}>yield</span></div> })()}
                 <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>{fmt(p.rent_pcm) + "/mo"}</div>
               </div>
               <Badge status={p.status}/>

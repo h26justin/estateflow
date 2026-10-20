@@ -4,59 +4,94 @@ import * as api from '../lib/api'
 import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 import { logError } from '../lib/logError'
 import { revokeAllApiTokens } from '../lib/api/apiAccess'
-import { MONO, SANS } from '../lib/styles'
+import { MONO, SANS, FS, STATUS } from '../lib/styles'
+import { useTheme, LIGHT, DARK } from '../lib/ThemeContext'
+import { normalizeHex, readableOr, textOn } from '../lib/contrast'
 import { Icon } from '../lib/icons'
 import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
 import FocusTrap from '../lib/FocusTrap'
 
 // OwnProperly redesign (design/redesign-2026) — split slate brand panel + paper
-// form. The auth page is intentionally theme-independent (always the light /
-// slate brand look) to match the mock and avoid dark-mode edge cases at the
-// front door. Labels use the AA-safe muted ink (#5C6670, 5.3:1 on paper) rather
-// than the mock's lighter #8A8E92 (2.97:1) — this page is in the HMRC AA audit.
-const SLATE   = '#14202A'   // brand panel
-const INK     = '#1C2830'   // primary text / primary button
-const PAPER   = '#F4F3EF'   // form-side background
-const WHITE   = '#FFFFFF'
-const BORDER  = '#D8D4CB'   // input hairline (warm)
-const MUTED   = '#5C6670'   // secondary text + labels (AA on paper & white)
-const GOLD    = '#B8902F'   // light accent
-const GOLD_D  = '#CBA64E'   // accent on the slate panel
-const GOLD_T  = '#7A5E1C'   // gold as text on paper/white (5.5:1, WCAG AA)
+// form. The form side follows the app theme: every colour below is a CSS
+// custom property from src/styles/app.css (switched by <html data-theme>,
+// which public/js/theme-init.js sets before first paint), so the front door
+// honours dark mode / prefers-color-scheme like the rest of the app. The slate
+// brand panel is dark in both themes. Labels use the AA-safe muted token
+// (#5C6670, 5.3:1 on paper) rather than the mock's lighter #8A8E92 (2.97:1) —
+// this page is in the HMRC AA audit — and nothing is set below FS.xs (11px).
+const SLATE   = '#14202A'   // brand panel (both themes) — the "P." tile slate
+const SLATE_2 = '#22323D'   // monogram tile on the slate panel
+const ON_SLATE       = LIGHT.bg     // paper on slate
+const ON_SLATE_MUTED = '#A9B4BC'    // 7.6:1 on slate
+const ON_SLATE_SOFT  = '#E7E4DC'
+const GOLD_D  = DARK.gold           // accent on the slate panel
 
 const CSS = `
+  .lp-scope,.lp-page{
+    --lp-input-border:#D8D4CB;             /* warmer than --border so fields read on paper */
+    --lp-btn-bg:var(--text);--lp-btn-fg:var(--surface);
+    --lp-ok-bg:${STATUS.light.ok.bg};--lp-ok:${STATUS.light.ok.text};
+    --lp-bad-bg:${STATUS.light.bad.bg};--lp-bad:${STATUS.light.bad.text};
+  }
+  :root[data-theme="dark"] .lp-scope,:root[data-theme="dark"] .lp-page{
+    --lp-input-border:#3A4652;
+    --lp-ok-bg:${STATUS.dark.ok.bg};--lp-ok:${STATUS.dark.ok.text};
+    --lp-bad-bg:${STATUS.dark.bad.bg};--lp-bad:${STATUS.dark.bad.text};
+  }
   .lp-scope *{box-sizing:border-box;}
-  .lp-input{font-family:${SANS};background:#fff;border:1.5px solid ${BORDER};color:${INK};border-radius:10px;padding:12px 14px;width:100%;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
-  .lp-input:focus{border-color:${INK};box-shadow:0 0 0 3px rgba(28,40,48,0.08);}
-  .lp-input::placeholder{color:#767B80;}
-  .lp-label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${MUTED};display:block;margin-bottom:8px;}
-  .lp-btn{font-family:${SANS};font-weight:700;background:${INK};color:white;border:none;border-radius:10px;padding:13px 20px;font-size:15px;width:100%;cursor:pointer;transition:background 0.18s,opacity 0.18s;}
-  .lp-btn:hover:not(:disabled){background:#0F1A22;}
+  .lp-input{font-family:var(--font-sans);background:var(--surface);border:1.5px solid var(--lp-input-border);color:var(--text);border-radius:10px;padding:12px 14px;width:100%;font-size:${FS.md - 1}px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+  .lp-input:focus{border-color:var(--text);box-shadow:0 0 0 3px var(--gold-border);}
+  .lp-input::placeholder{color:var(--faint);opacity:1;}
+  .lp-label{font-family:var(--font-mono);font-size:var(--fs-xs);font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px;}
+  .lp-btn{font-family:var(--font-sans);font-weight:700;background:var(--lp-btn-bg);color:var(--lp-btn-fg);border:none;border-radius:10px;padding:13px 20px;font-size:var(--fs-md);width:100%;cursor:pointer;transition:filter 0.18s,opacity 0.18s;}
+  .lp-btn:hover:not(:disabled){filter:brightness(0.88);}
   .lp-btn:disabled{opacity:0.55;cursor:not-allowed;}
-  .lp-link{font-family:${SANS};font-size:13px;background:none;border:none;color:${GOLD_T};cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:${GOLD_T}55;text-underline-offset:3px;}
+  .lp-link{font-family:var(--font-sans);font-size:var(--fs-base);background:none;border:none;color:var(--gold-text);cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-color:var(--gold-border);text-underline-offset:3px;}
   .lp-link:hover{text-decoration-color:currentColor;}
-  .lp-scope h1{text-wrap:balance;}
+  .lp-alert{font-family:var(--font-sans);font-size:var(--fs-base);border-radius:8px;padding:10px 14px;}
+  .lp-alert-bad{color:var(--lp-bad);background:var(--lp-bad-bg);border:1px solid color-mix(in srgb,var(--lp-bad) 25%,transparent);}
+  .lp-alert-ok{color:var(--lp-ok);background:var(--lp-ok-bg);border:1px solid color-mix(in srgb,var(--lp-ok) 25%,transparent);}
+  .lp-scope h1{text-wrap:balance;color:var(--text);}
   .lp-scope p{text-wrap:pretty;}
-  .lp-page{min-height:100vh;display:flex;font-family:${SANS};color:${INK};}
-  .lp-brandpanel{flex:1.1;background:${SLATE};color:${PAPER};padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
-  .lp-formside{flex:1;background:${PAPER};padding:48px 56px;display:flex;align-items:center;justify-content:center;min-width:0;}
+  .lp-page{min-height:100vh;display:flex;font-family:var(--font-sans);color:var(--text);}
+  .lp-brandpanel{flex:1.1;background:${SLATE};color:${ON_SLATE};padding:48px 56px;display:flex;flex-direction:column;justify-content:space-between;min-width:0;}
+  :root[data-theme="dark"] .lp-brandpanel{border-right:1px solid var(--border);}
+  .lp-formside{flex:1;background:var(--bg);padding:48px 56px;display:flex;align-items:center;justify-content:center;min-width:0;}
   @media(max-width:860px){.lp-brandpanel{display:none;}.lp-formside{padding:36px 22px;}}
   /* Sign-in modal. Desktop: a centred card. Under 769px: a full-screen sheet
      (fixed to the viewport, scrolls on its own) so the form never floats
      mid-screen with the keyboard pushing it about. */
-  .lp-modal{padding:28px;width:100%;max-width:440px;background:${PAPER};position:relative;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.35);max-height:calc(100vh - 32px);overflow-y:auto;}
-  .lp-modal-close{position:absolute;top:10px;right:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:${MUTED};font-size:18px;line-height:1;border-radius:8px;}
-  .lp-modal-close:focus-visible,.lp-link:focus-visible{outline:3px solid ${GOLD_T};outline-offset:2px;}
+  .lp-modal{padding:28px;width:100%;max-width:440px;background:var(--bg);color:var(--text);position:relative;border-radius:16px;border:1px solid var(--border);box-shadow:0 24px 60px rgba(0,0,0,0.35);max-height:calc(100vh - 32px);overflow-y:auto;}
+  .lp-modal-close{position:absolute;top:10px;right:10px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--muted);border-radius:8px;}
+  .lp-modal-close:focus-visible,.lp-link:focus-visible,.lp-btn:focus-visible,.lp-eye:focus-visible{outline:3px solid var(--gold-text);outline-offset:2px;}
+  .lp-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;width:34px;height:34px;border-radius:8px;align-items:center;justify-content:center;color:var(--muted);display:flex;}
+  .lp-card{background:var(--surface);border:1.5px solid var(--lp-input-border);border-radius:16px;padding:32px 28px;box-shadow:0 10px 30px rgba(28,40,48,0.10);}
+  :root[data-theme="dark"] .lp-card{box-shadow:0 10px 30px rgba(0,0,0,0.4);}
   @media(max-width:768px){
-    .lp-modal{position:fixed;inset:0;max-width:none;max-height:none;height:100%;border-radius:0;box-shadow:none;
+    .lp-modal{position:fixed;inset:0;max-width:none;max-height:none;height:100%;border-radius:0;box-shadow:none;border:none;
       padding:calc(64px + env(safe-area-inset-top)) 22px calc(32px + env(safe-area-inset-bottom));
       display:flex;justify-content:center;align-items:flex-start;overscroll-behavior:contain;}
     .lp-modal-close{top:calc(10px + env(safe-area-inset-top));right:10px;width:44px;height:44px;}
   }
 `
 
+// The OwnProperly wordmark, drawn in type so it follows the theme (the
+// /logo.svg file is ink-on-light only and vanished on the dark form side).
+function Wordmark({ size = 22 }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10 }} role="img" aria-label="OwnProperly">
+      <div aria-hidden="true" style={{ width:size + 12, height:size + 12, borderRadius:9, background:SLATE, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <span style={{ fontWeight:700, fontSize:size - 2, letterSpacing:'-0.04em', color:ON_SLATE }}>P<span style={{ color:GOLD_D }}>.</span></span>
+      </div>
+      <div aria-hidden="true" style={{ fontSize:size, letterSpacing:'-0.03em', color:'var(--text)' }}>
+        <span style={{ fontWeight:500 }}>Own</span><span style={{ fontWeight:700 }}>Properly</span><span style={{ color:'var(--gold)', fontWeight:700 }}>.</span>
+      </div>
+    </div>
+  )
+}
+
 // Decorative gold circle-check used in the brand panel feature list.
-function BrandPanel({ branding, brandAccent }) {
+function BrandPanel({ branding }) {
   const points = [
     'Track rent across every tenancy',
     'Never miss a compliance deadline',
@@ -65,14 +100,14 @@ function BrandPanel({ branding, brandAccent }) {
   return (
     <div className="lp-brandpanel">
       <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:38, height:38, borderRadius:10, background:'#22323D', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ fontWeight:700, fontSize:21, letterSpacing:'-0.04em', color:PAPER }}>P<span style={{ color:GOLD_D }}>.</span></span>
+        <div style={{ width:38, height:38, borderRadius:10, background:SLATE_2, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontWeight:700, fontSize:21, letterSpacing:'-0.04em', color:ON_SLATE }}>P<span style={{ color:GOLD_D }}>.</span></span>
         </div>
         <div style={{ fontSize:21, letterSpacing:'-0.02em' }}><span style={{ fontWeight:500 }}>Own</span><span style={{ fontWeight:700 }}>Properly</span></div>
       </div>
 
       <div style={{ maxWidth:440 }}>
-        <div style={{ fontFamily:MONO, fontSize:12, letterSpacing:'0.18em', textTransform:'uppercase', color:GOLD_D, marginBottom:22 }}>
+        <div style={{ fontFamily:MONO, fontSize:FS.sm, letterSpacing:'0.18em', textTransform:'uppercase', color:GOLD_D, marginBottom:22 }}>
           {branding ? 'Tenant portal' : 'Property portfolio software'}
         </div>
         {/* Decorative strapline — kept as a div (not <h1>) so the form's
@@ -80,7 +115,7 @@ function BrandPanel({ branding, brandAccent }) {
         <div style={{ fontSize:42, lineHeight:1.08, fontWeight:700, letterSpacing:'-0.03em', margin:'0 0 20px' }}>
           {branding ? <>Your home, <span style={{ color:GOLD_D }}>managed properly.</span></> : <>Own your rental portfolio <span style={{ color:GOLD_D }}>properly.</span></>}
         </div>
-        <p style={{ fontSize:16, lineHeight:1.6, color:'#A9B4BC', margin:'0 0 36px' }}>
+        <p style={{ fontSize:16, lineHeight:1.6, color:ON_SLATE_MUTED, margin:'0 0 36px' }}>
           {branding
             ? 'Pay rent, raise repairs and find your documents — all in one place.'
             : 'Rent, compliance, tax and tenants — every UK landlord obligation in one place. Built for MTD ITSA and Section 24.'}
@@ -90,14 +125,14 @@ function BrandPanel({ branding, brandAccent }) {
             {points.map(p => (
               <div key={p} style={{ display:'flex', alignItems:'center', gap:12 }}>
                 <Icon name="check-circle" size={22} color={GOLD_D} />
-                <span style={{ fontSize:15, color:'#E7E4DC' }}>{p}</span>
+                <span style={{ fontSize:FS.md, color:ON_SLATE_SOFT }}>{p}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div style={{ fontFamily:MONO, fontSize:11, color:'#A9B4BC' }}>
+      <div style={{ fontFamily:MONO, fontSize:FS.xs, color:ON_SLATE_MUTED }}>
         {branding ? `Powered by Properly` : 'From £2 per property a month · 14-day free trial'}
       </div>
     </div>
@@ -108,7 +143,12 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
   // Branded tenant login (served at <sub>.ownproperly.com). When present we
   // swap the OwnProperly logo + gold accent for the company's identity. Falls
   // back to the default gold when a company has no brand colour set.
-  const brandAccent = branding?.color || GOLD
+  const { T } = useTheme()
+  const brandAccent = normalizeHex(branding?.color) || T.gold
+  // A company colour used as text on the form side must still read (AA);
+  // labels on a brand-filled button take white or ink, whichever contrasts.
+  const brandText = readableOr(brandAccent, T.bg, T.text)
+  const brandOn = textOn(brandAccent)
   const [mode,     setMode]     = useState(initialMode)
   const [email,    setEmail]    = useState('')
   const [firstName, setFirstName] = useState('')
@@ -234,19 +274,19 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
           {branding
             ? (branding.logo_url
                 ? <img src={branding.logo_url} alt={branding.name || 'Company logo'} style={{ maxWidth:200, maxHeight:48, height:'auto', objectFit:'contain', display:'block' }}/>
-                : <div style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:brandAccent }}>{branding.name}</div>)
-            : <img src="/logo.svg" alt="Properly" style={{ height:44, width:'auto', display:'block' }}/>}
+                : <div style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:brandText }}>{branding.name}</div>)
+            : <Wordmark size={22}/>}
         </div>
       )}
 
       <div>
         {/* h1 — the page's single top-level heading (a11y: WCAG 2.4.1). */}
-        <h1 id="lp-title" style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.02em', color:INK, margin:'0 0 6px' }}>
+        <h1 id="lp-title" style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 6px' }}>
           {branding
             ? (mode==='login' ? 'Sign in to your portal' : 'Create your account')
             : (mode==='login' ? 'Welcome back' : 'Create your free account')}
         </h1>
-        <p style={{ fontSize:14, color:MUTED, margin:'0 0 28px' }}>
+        <p style={{ fontSize:FS.md - 1, color:'var(--muted)', margin:'0 0 28px' }}>
           {branding
             ? `${branding.name} tenant portal`
             : (mode==='login' ? 'Sign in to your portfolio.' : 'Start your 14-day free trial — no card needed.')}
@@ -270,7 +310,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
                 </div>
               </div>
               <div>
-                <label className="lp-label" htmlFor="lp-phone">Phone <span style={{textTransform:'none',letterSpacing:0,fontSize:10}}>(optional)</span></label>
+                <label className="lp-label" htmlFor="lp-phone">Phone <span style={{textTransform:'none',letterSpacing:0}}>(optional)</span></label>
                 <input id="lp-phone" className="lp-input" type="tel" value={phone}
                   autoComplete="tel" inputMode="tel"
                   onChange={e=>setPhone(e.target.value)} placeholder="+44 7700 900000"/>
@@ -297,38 +337,33 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
                 required minLength={8} aria-required="true"
                 autoComplete={mode==='login' ? 'current-password' : 'new-password'}
                 onChange={e=>setPassword(e.target.value)}
-                placeholder="••••••••" style={{ paddingRight:46 }}/>
+                placeholder={mode==='login' ? 'Your password' : 'At least 8 characters'} style={{ paddingRight:46 }}/>
               <button type="button" onClick={()=>setShowPw(s=>!s)}
                 aria-label={showPw ? 'Hide password' : 'Show password'}
                 aria-pressed={showPw}
-                style={{
-                  position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
-                  background:'none', border:'none', cursor:'pointer', padding:0,
-                  width:34, height:34, borderRadius:8, alignItems:'center', justifyContent:'center',
-                  color:MUTED, display:'flex'
-                }}><Icon name={showPw ? 'eye-off' : 'eye'} size={18} /></button>
+                className="lp-eye"><Icon name={showPw ? 'eye-off' : 'eye'} size={18} /></button>
             </div>
           </div>
 
           {/* aria-live so screen readers announce auth errors / success
               messages as they appear; without this they were silent. */}
-          {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B8392D', background:'#FAEAE8', border:'1px solid #B8392D33', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-          {success&&<div role="status" aria-live="polite" style={{ fontFamily:SANS, fontSize:13, color:'#167A4C', background:'#E8F4EC', border:'1px solid #167A4C33', borderRadius:8, padding:'10px 14px' }}>{success}</div>}
+          {error&&<div role="alert" aria-live="assertive" className="lp-alert lp-alert-bad">{error}</div>}
+          {success&&<div role="status" aria-live="polite" className="lp-alert lp-alert-ok">{success}</div>}
 
           <button type="submit" className="lp-btn" disabled={loading}
-            style={{ marginTop:6, ...(branding ? { background: brandAccent } : null) }}>
+            style={{ marginTop:6, ...(branding ? { background: brandAccent, color: brandOn } : null) }}>
             {loading ? 'Please wait…' : mode==='login' ? 'Sign in' : 'Create account'}
           </button>
         </form>
 
-        <div style={{ textAlign:'center', fontSize:14, color:MUTED, marginTop:28 }}>
+        <div style={{ textAlign:'center', fontSize:FS.md - 1, color:'var(--muted)', marginTop:28 }}>
           {mode==='login' ? <>New to Properly? </> : <>Already have an account? </>}
           <button type="button" className="lp-link" style={{ fontSize:14 }} onClick={()=>{setMode(m=>m==='login'?'signup':'login');setError('');setSuccess('')}}>
             {mode==='login' ? 'Start a 14-day free trial' : 'Sign in'}
           </button>
         </div>
 
-        <p style={{ fontFamily:SANS, fontSize:13, color:MUTED, textAlign:'center', marginTop:22 }}>
+        <p style={{ fontFamily:SANS, fontSize:FS.base, color:'var(--muted)', textAlign:'center', marginTop:22 }}>
           Your data is private and secure.
         </p>
       </div>
@@ -340,7 +375,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
     return (
       <div className="lp-page">
         <style>{CSS}</style>
-        <BrandPanel branding={branding} brandAccent={brandAccent} />
+        <BrandPanel branding={branding} />
         <div className="lp-formside">{inner}</div>
       </div>
     )
@@ -358,7 +393,7 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
         style={{ fontFamily:SANS }}>
         {inner}
         <button type="button" onClick={onClose} aria-label="Close sign in" className="lp-modal-close">
-          ✕
+          <Icon name="x" size={18} />
         </button>
       </div>
     </FocusTrap>
@@ -369,13 +404,13 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
 // challenge, set-new-password). Same visual language as the login page.
 function GateShell({ children }) {
   return (
-    <div className="lp-scope" style={{ minHeight:'100vh', background:PAPER, display:'flex', alignItems:'center', justifyContent:'center', padding:24, fontFamily:SANS, color:INK }}>
+    <div className="lp-scope" style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', padding:24, fontFamily:SANS, color:'var(--text)' }}>
       <div style={{ width:'100%', maxWidth: 400 }}>
         <style>{CSS}</style>
-        <div style={{ marginBottom:24, textAlign:'center' }}>
-          <img src="/logo.svg" alt="Properly" style={{ height:46, width:'auto', display:'inline-block' }}/>
+        <div style={{ marginBottom:24, display:'flex', justifyContent:'center' }}>
+          <Wordmark size={22}/>
         </div>
-        <div style={{ background:WHITE, border:`1.5px solid ${BORDER}`, borderRadius:16, padding:'32px 28px', boxShadow:'0 10px 30px rgba(28,40,48,0.10)' }}>
+        <div className="lp-card">
           {children}
         </div>
       </div>
@@ -437,10 +472,10 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
 
   return (
     <GateShell>
-      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
+      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:'var(--text)', margin:0, marginBottom:6 }}>
         Two-factor authentication
       </h1>
-      <p style={{ fontFamily:SANS, fontSize:14, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:SANS, fontSize:FS.md - 1, color:'var(--muted)', marginBottom:24 }}>
         Enter the 6-digit code from your authenticator app to finish signing in.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -452,18 +487,18 @@ export function MfaChallengeScreen({ onVerified, onSignOut }) {
             onChange={e=>setCode(e.target.value.replace(/\D/g, ''))}
             style={{ textAlign:'center', fontSize:18, letterSpacing:'0.2em', fontFamily:MONO }}/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B91C1C', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
-        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:SANS, fontSize:13, color:MUTED, marginTop:2 }}>
+        {error&&<div role="alert" aria-live="assertive" className="lp-alert lp-alert-bad">{error}</div>}
+        <label htmlFor="lp-mfa-remember" style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', fontFamily:SANS, fontSize:FS.base, color:'var(--muted)', marginTop:2 }}>
           <input id="lp-mfa-remember" type="checkbox" checked={remember}
             onChange={e=>setRemember(e.target.checked)}
-            style={{ width:16, height:16, marginTop:1, accentColor:SLATE, flexShrink:0 }}/>
+            style={{ width:16, height:16, marginTop:1, accentColor:'var(--text)', flexShrink:0 }}/>
           <span>Remember this device for 30 days — skip the code on this browser.</span>
         </label>
         <button type="submit" className="lp-btn" disabled={busy || code.length !== 6} style={{ marginTop:4 }}>
           {busy ? 'Verifying…' : 'Verify'}
         </button>
       </form>
-      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:`1px solid ${BORDER}` }}>
+      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
         <button className="lp-link" onClick={onSignOut}>Sign out and use a different account</button>
       </div>
     </GateShell>
@@ -500,10 +535,10 @@ export function SetNewPasswordScreen({ onDone }) {
 
   return (
     <GateShell>
-      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:SLATE, margin:0, marginBottom:6 }}>
+      <h1 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', color:'var(--text)', margin:0, marginBottom:6 }}>
         Set a new password
       </h1>
-      <p style={{ fontFamily:SANS, fontSize:14, color:MUTED, marginBottom:24 }}>
+      <p style={{ fontFamily:SANS, fontSize:FS.md - 1, color:'var(--muted)', marginBottom:24 }}>
         You followed a password-reset link. Choose a new password to finish.
       </p>
       <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -511,20 +546,20 @@ export function SetNewPasswordScreen({ onDone }) {
           <label className="lp-label" htmlFor="lp-new-password">New password (min. 8 characters)</label>
           <input id="lp-new-password" className="lp-input" type="password" value={password}
             required minLength={8} aria-required="true" autoComplete="new-password" autoFocus
-            onChange={e=>setPassword(e.target.value)} placeholder="••••••••"/>
+            onChange={e=>setPassword(e.target.value)} placeholder="At least 8 characters"/>
         </div>
         <div>
           <label className="lp-label" htmlFor="lp-confirm-password">Confirm new password</label>
           <input id="lp-confirm-password" className="lp-input" type="password" value={confirmPw}
             required minLength={8} aria-required="true" autoComplete="new-password"
-            onChange={e=>setConfirmPw(e.target.value)} placeholder="••••••••"/>
+            onChange={e=>setConfirmPw(e.target.value)} placeholder="Repeat it"/>
         </div>
-        {error&&<div role="alert" aria-live="assertive" style={{ fontFamily:SANS, fontSize:13, color:'#B91C1C', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px' }}>{error}</div>}
+        {error&&<div role="alert" aria-live="assertive" className="lp-alert lp-alert-bad">{error}</div>}
         <button type="submit" className="lp-btn" disabled={busy} style={{ marginTop:4 }}>
           {busy ? 'Saving…' : 'Save new password'}
         </button>
       </form>
-      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:`1px solid ${BORDER}` }}>
+      <div style={{ textAlign:'center', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border)' }}>
         <button className="lp-link" onClick={()=>onDone?.()}>Skip — keep my current password</button>
       </div>
     </GateShell>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 
 export function PortfolioModellerWidget({ properties = [] }) {
@@ -35,7 +35,7 @@ export function PortfolioModellerWidget({ properties = [] }) {
         ].map(s=>(
           <div key={s.label}>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-              <span style={{fontFamily:mono,fontSize:11,color:T.muted}}>{s.label}</span>
+              <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{s.label}</span>
               <span style={{fontFamily:mono,fontSize:12,fontWeight:700,color:T.goldText}}>
                 {s.prefix||''}{s.fmt?parseInt(s.val).toLocaleString('en-GB'):s.val}{s.suffix||''}
               </span>
@@ -54,7 +54,7 @@ export function PortfolioModellerWidget({ properties = [] }) {
           <div key={k.label} style={{background:T.bg,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${k.color}`}}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
             <div style={{fontSize:18,fontWeight:800,color:k.color}}>{k.value}</div>
-            <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>

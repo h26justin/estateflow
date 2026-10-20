@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
@@ -141,7 +141,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
           E-signature
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Send a document for signature</div>
-        <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, lineHeight: 1.65 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: theme.muted, lineHeight: 1.65 }}>
           Pick a document and a signer, then send it for e-signature. Signing is
           provider-agnostic and activates once an e-signing provider is configured.
         </div>
@@ -167,12 +167,12 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
           <input value={signerEmail} onChange={e => setSignerEmail(e.target.value)}
             placeholder="jane@example.com" type="email" style={fieldStyle} />
           {signerEmail && !emailValid && (
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>Enter a valid email</span>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, color: theme.red }}>Enter a valid email</span>
           )}
         </label>
         <button onClick={createAndSend} disabled={!canCreate}
           style={{
-            fontFamily: MONO, fontSize: 12, padding: '9px 14px',
+            fontFamily: SANS, fontSize: FS.sm, padding: '9px 14px',
             borderRadius: 6, border: `1px solid ${theme.gold}`,
             background: canCreate ? theme.gold + '22' : theme.surface,
             color: canCreate ? theme.goldText : theme.muted,
@@ -203,7 +203,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                 display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
               }}>
                 <span style={{
-                  fontFamily: MONO, fontSize: FS.xs, fontWeight: 700,
+                  fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                   padding: '2px 8px', borderRadius: 4,
                   background: meta.tone + '22', color: meta.tone,
                 }}>{meta.label}</span>
@@ -218,7 +218,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                   <>
                     <button onClick={() => resend(env.id)} disabled={busyId === env.id}
                       style={{
-                        fontFamily: MONO, fontSize: 11, padding: '6px 10px',
+                        fontFamily: SANS, fontSize: FS.sm, padding: '6px 10px',
                         borderRadius: 6, border: `1px solid ${theme.gold}`,
                         background: theme.gold + '22', color: theme.goldText,
                         cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
@@ -227,7 +227,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                     </button>
                     <button onClick={() => voidEnvelope(env.id)} disabled={busyId === env.id}
                       style={{
-                        fontFamily: MONO, fontSize: 11, padding: '6px 10px',
+                        fontFamily: SANS, fontSize: FS.sm, padding: '6px 10px',
                         borderRadius: 6, border: `1px solid ${theme.border}`,
                         background: 'transparent', color: theme.muted,
                         cursor: 'pointer', whiteSpace: 'nowrap',
@@ -237,7 +237,7 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
                   </>
                 )}
                 {env.error_message && (
-                  <div style={{ flex: '1 1 100%', fontFamily: MONO, fontSize: FS.xs, color: theme.red }}>
+                  <div style={{ flex: '1 1 100%', fontFamily: SANS, fontSize: FS.sm, color: theme.red }}>
                     {env.error_message}
                   </div>
                 )}

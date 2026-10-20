@@ -10,8 +10,8 @@ import {
   triageEnquiry,
 } from '../lib/api/lettingsAssistant'
 import { pressable } from '../lib/pressable'
-import { FS } from '../lib/styles'
-import { EmptyState } from './ui'
+import { FS, SANS } from '../lib/styles'
+import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = "'DM Mono', monospace"
@@ -155,7 +155,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
     )
   }
 
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, display: 'block' }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, marginBottom: 5, display: 'block' }
   const inp = { width: '100%', fontFamily: mono, fontSize: 12, padding: '8px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.surface, color: T.text, boxSizing: 'border-box' }
 
   return (
@@ -163,13 +163,13 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>AI Lettings Assistant</div>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3 }}>
             Capture enquiries, draft replies, pre-screen and score — all drafts, nothing auto-sent.
           </div>
         </div>
-        <button className="btn btn-gold" onClick={() => setShowNew(v => !v)}>
+        <Button variant="primary" onClick={() => setShowNew(v => !v)}>
           {showNew ? 'Cancel' : '+ New enquiry'}
-        </button>
+        </Button>
       </div>
 
       {/* Landlord criteria */}
@@ -236,8 +236,8 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
               onChange={e => setNewForm(f => ({ ...f, message: e.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-gold" disabled={saving} onClick={createNew}>{saving ? 'Saving…' : 'Add enquiry'}</button>
-            <button className="btn btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>
+            <Button variant="primary" disabled={saving} onClick={createNew}>{saving ? 'Saving…' : 'Add enquiry'}</Button>
+            <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -269,7 +269,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: statusColor(e.status, T) + '22', color: statusColor(e.status, T) }}>
+                      <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: statusColor(e.status, T) + '22', color: statusColor(e.status, T) }}>
                         {(STATUS_META[e.status] || { label: e.status }).label}
                       </span>
                       {e.ai_score != null && (
@@ -296,7 +296,7 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{selected.applicant_name || 'Unnamed applicant'}</div>
-                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{propName}</div>
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>{propName}</div>
                     </div>
                     <button onClick={() => setSelectedId(null)}
                       aria-label="Close" style={{ fontFamily: mono, fontSize: 18, background: 'none', border: 'none', color: T.muted, cursor: 'pointer', lineHeight: 1, padding: '6px 8px', margin: '-6px -8px' }}>×</button>
@@ -305,17 +305,15 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                   {selected.message && (
                     <div style={{ marginBottom: 14 }}>
                       <div style={lbl}>Their message</div>
-                      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.6, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: 10, whiteSpace: 'pre-wrap' }}>
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.6, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: 10, whiteSpace: 'pre-wrap' }}>
                         {selected.message}
                       </div>
                     </div>
                   )}
 
-                  <button className="btn btn-gold" style={{ width: '100%', marginBottom: 14 }}
-                    disabled={triaging === selected.id}
-                    onClick={() => runTriage(selected)}>
+                  <Button variant="primary" disabled={triaging === selected.id} onClick={() => runTriage(selected)} style={{width: '100%', marginBottom: 14}}>
                     {triaging === selected.id ? 'Thinking…' : selected.ai_reply_draft ? '↻ Re-run AI triage' : 'Draft reply + screen + score'}
-                  </button>
+                  </Button>
 
                   {selected.ai_score != null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -333,15 +331,15 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                         return (
                           <div key={key} style={{ padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{label}</span>
+                              <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>{label}</span>
                               <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: screenColor(row.status, T), textTransform: 'uppercase' }}>{row.status}</span>
                             </div>
-                            {row.note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>{row.note}</div>}
+                            {row.note && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3, lineHeight: 1.5 }}>{row.note}</div>}
                           </div>
                         )
                       })}
                       {screening.summary && (
-                        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10, lineHeight: 1.6, fontStyle: 'italic' }}>{screening.summary}</div>
+                        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10, lineHeight: 1.6, fontStyle: 'italic' }}>{screening.summary}</div>
                       )}
                     </div>
                   )}
@@ -353,19 +351,19 @@ export default function LettingsAssistantPanel({ properties = [], companies = []
                         value={draftValue}
                         onChange={ev => setDraftEdits(prev => ({ ...prev, [selected.id]: ev.target.value }))} />
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => copyDraft(selected.id)}>Copy reply</button>
-                        <button className="btn btn-ghost" onClick={() => setStatus(selected.id, 'replied')}>Mark replied</button>
+                        <Button variant="primary" onClick={() => copyDraft(selected.id)} style={{flex: 1}}>Copy reply</Button>
+                        <Button variant="secondary" onClick={() => setStatus(selected.id, 'replied')}>Mark replied</Button>
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>
                         AI-generated draft. Review and edit before sending. Screening is a triage aid, not a right-to-rent or affordability decision.
                       </div>
                     </div>
                   )}
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setStatus(selected.id, 'rejected')}>Reject</button>
-                    <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setStatus(selected.id, 'archived')}>Archive</button>
-                    <button className="btn btn-ghost" onClick={() => remove(selected.id)}>Delete</button>
+                    <Button variant="secondary" onClick={() => setStatus(selected.id, 'rejected')} style={{flex: 1}}>Reject</Button>
+                    <Button variant="secondary" onClick={() => setStatus(selected.id, 'archived')} style={{flex: 1}}>Archive</Button>
+                    <Button variant="secondary" onClick={() => remove(selected.id)}>Delete</Button>
                   </div>
                 </div>
               </div>

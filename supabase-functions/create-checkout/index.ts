@@ -24,6 +24,7 @@
 //      success page. Cleaner UX — user just lands where they were.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { billedQuantity, countBillableProperties, floorQuantity } from './billing.ts'
 
 const STRIPE_SECRET_KEY  = Deno.env.get('STRIPE_SECRET_KEY')!
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
@@ -116,9 +117,13 @@ Deno.serve(async (req) => {
       return ok({ url: portalRes.url })
     }
 
-    const propertyCount = await supabase
-      .from('properties').select('id', { count: 'exact' }).eq('company_id', company_id)
-      .then(r => r.count || 1)
+    // Real billable count (Trash excluded). Fail rather than bill on a guess.
+    const propertyCount = await countBillableProperties(supabase, company_id)
+    if (propertyCount === null) throw new Error('could not count properties')
+    // £10/month floor as a minimum quantity (5 Starter / 2 Investor). Stored
+    // on the subscription as min_quantity so sync-subscription-quantity keeps
+    // applying it as the portfolio changes.
+    const minQuantity = floorQuantity(tier)
 
     let customerId = sub?.stripe_customer_id
     if (!customerId) {
@@ -158,14 +163,14 @@ Deno.serve(async (req) => {
     const session = await stripe('POST', '/checkout/sessions', {
       customer: customerId,
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: Math.max(1, propertyCount) }],
+      line_items: [{ price: priceId, quantity: billedQuantity(propertyCount, minQuantity) }],
       // Metadata at THREE levels:
       //   - session.metadata        → read by checkout.session.completed
       //   - subscription_data       → propagates to subscription.created
       //   - customer.metadata       → set when we created the customer above
       // This way any one of the webhook events can identify the company.
       metadata: { company_id, owner_id: user.id, tier },
-      subscription_data: { metadata: { company_id, owner_id: user.id, tier } },
+      subscription_data: { metadata: { company_id, owner_id: user.id, tier, min_quantity: minQuantity } },
       success_url: `${baseUrl}?billing=success`,
       cancel_url: `${baseUrl}?billing=cancelled`,
       allow_promotion_codes: true,
