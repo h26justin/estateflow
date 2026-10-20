@@ -4,7 +4,7 @@ import RentIncomePanel from '../RentIncomePanel'
 import { SmartAlerts } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { aggregateDeals } from '../../lib/dealCashflow'
-import { propertyComplianceSummary } from '../../lib/complianceStatus'
+import useComplianceSummaries from '../../lib/useComplianceSummaries'
 import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import PropertySearchBar from '../PropertySearchBar'
@@ -32,6 +32,9 @@ export function DashboardView({
   dashboardDeals, insurancePolicies, widgetPrefs, WIDGET_DEFAULT_ORDER, WIDGET_DEFAULT_ENABLED,
   setCoFilter, setCustomizeDashTab, setShowCustomizeDash,
 }) {
+  // One compliance rollup per property, shared by the health ring and the
+  // Portfolio Compliance card (and only recomputed when its inputs change).
+  const complianceSummaries = useComplianceSummaries(dashProps, companySettings, insurancePolicies)
   return (
     <div className="fade">
       {/* First-run zero-state. Accounts with no properties land here —
@@ -101,15 +104,15 @@ export function DashboardView({
             </p>}
           </div>
           {/* Portfolio health ring — per-property health scores (same as
-              the per-card HealthBadge), capped by the legal compliance
-              rollup the Portfolio Compliance card uses and by arrears, so
+              the per-card HealthBadge), capped by the same compliance
+              rollup the Portfolio Compliance card uses (any expired item,
+              legal items missing) and by arrears, so
               the ring can't read "Good standing" beside a red compliance
               card. */}
           {dashProps.length > 0 && (() => {
             const h = portfolioHealthFor(dashProps, {
               baseScoreFor: p => api.calcPropertyHealthScore(p, p.compliance_items||[], tenanciesByProp[p.id]||p.tenancy||null, p.maintenance_jobs||[], p.rent_payments||[]).score||0,
-              settingsFor: p => companySettings[p.company_id] || {},
-              policies: insurancePolicies,
+              summaries: complianceSummaries,
             })
             return <HealthRing score={h.score} reasons={h.reasons}/>
           })()}
@@ -636,10 +639,10 @@ export function DashboardView({
               // Same rollup as the Compliance overview cards: every
               // tracked+applicable requirement per property, with
               // insurance status pulled from the policy register.
-              const tracked = dashProps.filter(p => p.status !== 'sold' && !p.archived_at)
+              // Tracked = not sold / archived: the summaries Map holds
+              // exactly those.
               let expired = 0, expiring = 0, missingReq = 0, fully = 0, scored = 0
-              tracked.forEach(p => {
-                const s = propertyComplianceSummary(p, companySettings[p.company_id] || {}, insurancePolicies)
+              complianceSummaries.forEach(s => {
                 if (s.total === 0) return
                 scored++
                 expired += s.expired

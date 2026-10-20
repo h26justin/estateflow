@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useId } from 'react'
+import { useState, useRef, useId } from 'react'
+import useSlashFocus from '../../lib/useSlashFocus'
 import { canDo } from '../../lib/permissions'
 import ActionMenu from '../ActionMenu'
 import { ContractorsPage } from '../DashboardComponents'
@@ -48,18 +49,7 @@ export function PropertiesView({
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   // "/" focuses the page search (the header search steps aside on this page).
-  useEffect(() => {
-    if (portfolioTab !== 'properties') return
-    function onKey(e) {
-      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
-      e.preventDefault()
-      searchRef.current?.focus()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [portfolioTab])
+  useSlashFocus(searchRef, portfolioTab === 'properties')
 
   const statusLabel = f => PROPERTY_STATUS_LABELS[f] || statusCfg(T)[f]?.label || f
   const activeCo = companies.find(c => c.id === coFilter)

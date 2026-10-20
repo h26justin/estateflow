@@ -27,7 +27,7 @@
 // pass labelledBy (id of your heading) or ariaLabel.
 //
 // Sizes: sm 420 · md 600 · lg 720 · xl 920.
-import { Children, useEffect, useId } from 'react'
+import { Children, useEffect, useId, useRef } from 'react'
 import FocusTrap from '../../lib/FocusTrap'
 import { safeOverlayClose } from '../../lib/modalUtils'
 import Button from './Button'
@@ -78,6 +78,7 @@ export default function Modal({
   children,
 }) {
   const autoId = useId()
+  const pressedOnScrim = useRef(false)
   const titleId = `${autoId}-title`
   const descId = `${autoId}-desc`
   const structured = title != null
@@ -97,11 +98,26 @@ export default function Modal({
   // pair for keyboard / button closes.
   const requestClose = () => guarded({ target: null, currentTarget: null })
 
+  // Backdrop close needs the press AND the click on this modal's own scrim:
+  // the .overlay node, or the transparent FocusTrap layout box that is its
+  // first child (it spans the overlay's width beside the dialog). Checking
+  // these exact nodes, not an attribute, means
+  //   - a drag that starts in a field and ends beside the dialog (selecting
+  //     text) doesn't close it: the press landed on the field;
+  //   - a nested inline modal's backdrop click, bubbling up through this
+  //     overlay, doesn't close this one: its target is the nested scrim;
+  //   - clicks inside the dialog or in a portal it opened are ignored.
+  const isOwnScrim = e => e.target === e.currentTarget || e.target === e.currentTarget.firstElementChild
+  function onBackdropMouseDown(e) {
+    pressedOnScrim.current = isOwnScrim(e)
+  }
   function onBackdropClick(e) {
-    if (!closeOnBackdrop) return
-    // Close only for clicks on the scrim itself (or the FocusTrap wrapper that
-    // spans it), never for clicks inside the dialog or in a portal it opened.
-    if (e.target !== e.currentTarget && !e.target?.hasAttribute?.('data-modal-backdrop')) return
+    const pressed = pressedOnScrim.current
+    pressedOnScrim.current = false
+    if (!isOwnScrim(e)) return
+    // Handled here: don't let it reach an outer modal's overlay.
+    e.stopPropagation()
+    if (!closeOnBackdrop || !pressed) return
     requestClose()
   }
 
@@ -110,8 +126,8 @@ export default function Modal({
   const maxWidth = typeof size === 'number' ? size : (MODAL_SIZES[size] || MODAL_SIZES.md)
 
   return (
-    <div className="overlay ui-modal-overlay" style={zIndex != null ? { zIndex } : undefined} onClick={onBackdropClick}>
-      <FocusTrap onEscape={closeOnEscape ? requestClose : undefined} initialFocusRef={initialFocusRef} data-modal-backdrop="">
+    <div className="overlay ui-modal-overlay" style={zIndex != null ? { zIndex } : undefined} onMouseDown={onBackdropMouseDown} onClick={onBackdropClick}>
+      <FocusTrap onEscape={closeOnEscape ? requestClose : undefined} initialFocusRef={initialFocusRef}>
         <div
           className={['modal', 'ui-modal', structured && 'ui-modal--structured', className].filter(Boolean).join(' ')}
           role="dialog"

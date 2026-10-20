@@ -5,6 +5,8 @@ import { Modal, Button } from '..'
 
 // FocusTrap moves focus on the next tick.
 const tick = () => act(() => new Promise(r => setTimeout(r, 0)))
+// A real click: press and release on the same node.
+const clickOn = el => { fireEvent.mouseDown(el); fireEvent.click(el) }
 
 afterEach(() => { cleanup(); document.body.style.overflow = '' })
 
@@ -77,7 +79,7 @@ describe('Modal', () => {
     await tick()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('dialog').closest('.overlay'))
+    clickOn(screen.getByRole('dialog').closest('.overlay'))
     expect(onClose).toHaveBeenCalledTimes(2)
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(3)
@@ -86,12 +88,53 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 
+  it('closes for a press + click beside the dialog (the layout box around it)', async () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose} title="t">x</Modal>)
+    await tick()
+    clickOn(screen.getByRole('dialog').parentElement)
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not close when a text-selection drag ends beside the dialog', async () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose} title="t"><input aria-label="Name" /></Modal>)
+    await tick()
+    const overlay = screen.getByRole('dialog').closest('.overlay')
+    // Press in the field, release beside the dialog: the browser fires the
+    // click on the common ancestor (the layout box or the overlay).
+    fireEvent.mouseDown(screen.getByLabelText('Name'))
+    fireEvent.click(screen.getByRole('dialog').parentElement)
+    fireEvent.mouseDown(screen.getByLabelText('Name'))
+    fireEvent.click(overlay)
+    expect(onClose).not.toHaveBeenCalled()
+    // A click with no press on the scrim (synthetic / keyboard) doesn't either
+    fireEvent.click(overlay)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it("a nested inline modal's backdrop click closes only the nested one", async () => {
+    const outer = vi.fn()
+    const inner = vi.fn()
+    render(
+      <Modal onClose={outer} title="Outer">
+        <Modal onClose={inner} title="Inner">i</Modal>
+      </Modal>
+    )
+    await tick()
+    const innerDialog = screen.getByRole('dialog', { name: 'Inner' })
+    clickOn(innerDialog.closest('.overlay'))
+    clickOn(innerDialog.parentElement)
+    expect(inner).toHaveBeenCalledTimes(2)
+    expect(outer).not.toHaveBeenCalled()
+  })
+
   it('can opt out of Escape and backdrop close', async () => {
     const onClose = vi.fn()
     render(<Modal onClose={onClose} title="t" closeOnEscape={false} closeOnBackdrop={false}>x</Modal>)
     await tick()
     fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.click(screen.getByRole('dialog').closest('.overlay'))
+    clickOn(screen.getByRole('dialog').closest('.overlay'))
     expect(onClose).not.toHaveBeenCalled()
   })
 

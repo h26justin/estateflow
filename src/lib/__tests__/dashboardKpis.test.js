@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   portfolioHealth, portfolioHealthFor, healthBand, legalComplianceGaps,
-  isInRefurb, refurbSummary, balancedColumns, CAP_EXPIRED_LEGAL,
+  isInRefurb, refurbSummary, balancedColumns, CAP_EXPIRED_LEGAL, CAP_EXPIRED,
+  complianceGaps, complianceSummariesFor,
 } from '../dashboardKpis'
 
 const row = (tier, state, key = 'x') => ({ req: { key, tier }, status: { state } })
@@ -70,6 +71,35 @@ describe('portfolioHealth', () => {
     expect(many.score).toBeLessThan(one.score)
   })
 
+  it('an expired item at any tier stops good standing, like the compliance card', () => {
+    // The Portfolio Compliance card goes red on s.expired (every tier); the
+    // ring used to count only tier 1-2, so it read "95 Good standing" beside it.
+    const props = Array.from({ length: 6 }, (_, i) => ({
+      property: {}, baseScore: 95,
+      compliance: summary(i === 0 ? [row(1, 'valid'), row(3, 'expired', 'insurance')] : [row(1, 'valid')]),
+    }))
+    const h = portfolioHealth(props)
+    expect(h.band).not.toBe('good')
+    expect(h.score).toBeLessThan(80)
+    expect(h.counts).toMatchObject({ expired: 1, expiredLegal: 0, expiredOther: 1 })
+    expect(h.reasons).toEqual(['1 other expired item'])
+  })
+
+  it('legal expiries still cost more than other expiries', () => {
+    const legal = portfolioHealth([{ property: {}, baseScore: 100, compliance: summary([row(1, 'expired')]) }])
+    const other = portfolioHealth([{ property: {}, baseScore: 100, compliance: summary([row(3, 'expired')]) }])
+    expect(other.score).toBeLessThanOrEqual(CAP_EXPIRED)
+    expect(other.band).toBe('attention')
+    expect(legal.score).toBeLessThan(other.score)
+    expect(legal.band).toBe('action')
+    // A majority of properties with non-legal expiries alone isn't "action"
+    const props = Array.from({ length: 4 }, (_, i) => ({
+      property: {}, baseScore: 100,
+      compliance: summary(i < 2 ? [row(3, 'expired')] : [row(1, 'valid')]),
+    }))
+    expect(portfolioHealth(props).band).toBe('attention')
+  })
+
   it('handles an empty portfolio', () => {
     expect(portfolioHealth([]).band).toBe('good')
   })
@@ -84,6 +114,38 @@ describe('portfolioHealthFor', () => {
     const h = portfolioHealthFor([p], { baseScoreFor: () => 95 })
     expect(h.counts.expiredLegal).toBeGreaterThanOrEqual(1)
     expect(h.band).not.toBe('good')
+  })
+
+  it('reuses precomputed summaries and agrees with the card rollup', () => {
+    const live = { id: 'p1', status: 'rented' }
+    const sold = { id: 'p2', status: 'sold' }
+    const summaries = new Map([[live, summary([row(3, 'expired')])]])
+    const h = portfolioHealthFor([live, sold], { baseScoreFor: () => 95, summaries })
+    expect(h.counts.expired).toBe(1)
+    expect(h.band).not.toBe('good')
+  })
+})
+
+describe('complianceSummariesFor', () => {
+  it('rolls up tracked properties only, keyed by the property row', () => {
+    const settings = { c1: {} }
+    const let1 = { id: 'p1', company_id: 'c1', status: 'rented', prop_type: 'Terraced house',
+      compliance_items: [{ cert_type: 'gas_safety', expiry_date: daysFromNow(-10) }] }
+    const sold = { id: 'p2', company_id: 'c1', status: 'sold' }
+    const archived = { id: 'p3', company_id: 'c1', status: 'rented', archived_at: '2026-01-01' }
+    const m = complianceSummariesFor([let1, sold, archived], settings, [])
+    expect([...m.keys()]).toEqual([let1])
+    expect(m.get(let1).expired).toBeGreaterThanOrEqual(1)
+    // Same result as computing inline
+    expect(portfolioHealthFor([let1], { summaries: m }).counts)
+      .toEqual(portfolioHealthFor([let1], { settingsFor: () => ({}), policies: [] }).counts)
+  })
+})
+
+describe('complianceGaps', () => {
+  it('counts expired rows at every tier, legal share separately', () => {
+    const s = summary([row(1, 'expired'), row(3, 'expired'), row(2, 'missing'), row(3, 'missing'), row(1, 'off')])
+    expect(complianceGaps(s)).toEqual({ expired: 2, expiredLegal: 1, expiredOther: 1, missingLegal: 1 })
   })
 })
 
