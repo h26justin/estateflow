@@ -24,7 +24,7 @@ import {
 } from '../lib/stlIncome'
 import { downloadCsv } from '../lib/csv'
 import { SkeletonRows } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 
 const fmtMoney = n => {
   const v = Number(n) || 0
@@ -1031,13 +1031,12 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
 
       {/* Add adjustment modal */}
       {adjForm && (
-        <div className="overlay" onClick={() => !saving && setAdjForm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : 20 }}>
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="stl-adj-title" onClick={e => e.stopPropagation()}
-            style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: isMobile ? '18px 18px 0 0' : 18, padding: isMobile ? '20px 18px 28px' : '24px 28px', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto' }}>
-            <h2 id="stl-adj-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, color: T.text }}>Add adjustment</h2>
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
-              Money out (a refund to a guest, a chargeback) is a negative amount. Money in (a cleaning fee, an extra payout) is positive. Gross never changes; Net does.
-            </div>
+        <Modal onClose={() => !saving && setAdjForm(null)} size="md" zIndex={1000} title="Add adjustment"
+          description="Money out (a refund to a guest, a chargeback) is a negative amount. Money in (a cleaning fee, an extra payout) is positive. Gross never changes; Net does."
+          footer={<>
+            <Button variant="secondary" onClick={() => setAdjForm(null)} disabled={saving}>Cancel</Button>
+            <Button onClick={saveAdjustment} disabled={saving}>{saving ? 'Saving…' : 'Save adjustment'}</Button>
+          </>}>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={fieldLabel(T)}>Property</label>
@@ -1090,12 +1089,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <textarea aria-label="Notes" value={adjForm.notes} onChange={e => setA('notes', e.target.value)} rows={2} style={{ ...inp(T), resize: 'vertical' }} />
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-              <button className="btn btn-ghost" onClick={() => setAdjForm(null)} disabled={saving} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '9px 18px', borderRadius: 10 }}>Cancel</button>
-              <button className="btn btn-gold" onClick={saveAdjustment} disabled={saving} style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '9px 18px', borderRadius: 10 }}>{saving ? 'Saving…' : 'Save adjustment'}</button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

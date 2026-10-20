@@ -131,7 +131,7 @@ export default function CommandPalette({ open, commands, onClose }) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 2000,
-        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        background: 'var(--scrim)', backdropFilter: 'blur(4px)',
         display: 'flex', justifyContent: 'center',
         paddingTop: '12vh', paddingLeft: 16, paddingRight: 16,
       }}>

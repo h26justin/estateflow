@@ -1275,8 +1275,9 @@ export default function App({ initialLoginMode = null } = {}) {
         />
       </Suspense>
       {showLoginModal && (
-        <div onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)}
-          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(4px)'}}>
+        // LoginPage renders its own dialog (role, focus trap, Escape, close);
+        // this is only the shared modal scrim (.overlay / --scrim).
+        <div className="overlay" onClick={e=>e.target===e.currentTarget&&setShowLoginModal(false)} style={{zIndex:1000}}>
           <LoginPage key={`login-${loginMode}`} initialMode={loginMode} onClose={()=>setShowLoginModal(false)}/>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO, FS, SANS } from '../lib/styles'
+import { MONO, FS, SANS, R } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -10,7 +10,7 @@ import { fmtTimeAgo, plural } from '../lib/format'
 import RolePermissionsModal from './RolePermissionsModal'
 import { ChromeLogo } from './Logo'
 import { pressable } from '../lib/pressable'
-import { Button, EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { Icon } from '../lib/icons'
 import { SkeletonRows, SkeletonTiles } from '../lib/Skeleton'
 import { ensureAal2, totpPrompt } from '../lib/mfaStepUp'
@@ -256,29 +256,22 @@ export default function AdminDashboard({ onClose, user }) {
 
       {/* ── DELETE MODAL ── */}
       {deleteTarget&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:600,padding:24}}>
-          <div style={{background:T.surface,border:`2px solid ${T.red}44`,borderRadius:18,width:'100%',maxWidth:440,padding:'32px 28px'}}>
-            <div style={{textAlign:'center',marginBottom:24}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:12,color:T.red}}><Icon name="alert-triangle" size={40}/></div>
-              <h2 style={{fontSize:18,fontWeight:700,color:T.red,marginBottom:8}}>Delete user account</h2>
-              <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.7}}>
-                Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.
-              </p>
-            </div>
-            <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:8}}>Enter your admin password</label>
-            <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
-              onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
-              onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
-              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',marginBottom:deleteError?8:16}}/>
-            {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginBottom:16}}>{deleteError}</div>}
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setDeleteTarget(null)} style={{flex:1}}>Cancel</Button>
-              <Button variant="danger" onClick={handleDeleteUser} disabled={deleting||!deletePassword} style={{flex:2}}>
-                {deleting?'Deleting…':'Delete permanently'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={()=>!deleting&&setDeleteTarget(null)} size="sm" zIndex={600}
+          title="Delete user account"
+          description={<>Permanently deletes <strong style={{color:T.text}}>{deleteTarget.email}</strong> and all their data. Cannot be undone.</>}
+          footer={<>
+            <Button variant="secondary" onClick={()=>setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="danger" onClick={handleDeleteUser} disabled={deleting||!deletePassword}>
+              {deleting?'Deleting…':'Delete permanently'}
+            </Button>
+          </>}>
+          <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:8}}>Enter your admin password</label>
+          <input aria-label="Enter your admin password" type="password" value={deletePassword} autoFocus
+            onChange={e=>{setDeletePassword(e.target.value);setDeleteError('')}}
+            onKeyDown={e=>e.key==='Enter'&&handleDeleteUser()}
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${deleteError?T.red:T.border}`,color:T.text,borderRadius:R.sm,padding:'10px 14px'}}/>
+          {deleteError&&<div style={{fontFamily:mono,fontSize:11,color:T.red,marginTop:8}}>{deleteError}</div>}
+        </Modal>
       )}
     </div>
   )
@@ -659,57 +652,54 @@ function AccountDetail({ co, user, T, fmt, onBack, onToggleFreeTier, onToggleFla
       </div>
 
       {showRename&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:'1px solid '+T.border}}>
-            <h3 style={{fontFamily:SANS,fontSize:FS.md,fontWeight:700,marginBottom:20,color:T.text}}>Rename company</h3>
-            <div style={{marginBottom:12}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
-              <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
-                style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-            </div>
-            <div style={{marginBottom:20}}>
-              <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
-              <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
-                style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setShowRename(false)} style={{flex:1}}>Cancel</Button>
-              <Button onClick={handleAdminRename} disabled={renameSaving} style={{flex:2}}>
-                {renameSaving?'Saving...':'Save'}
-              </Button>
-            </div>
+        <Modal onClose={()=>setShowRename(false)} size="sm" zIndex={700} title="Rename company"
+          footer={<>
+            <Button variant="secondary" onClick={()=>setShowRename(false)}>Cancel</Button>
+            <Button onClick={handleAdminRename} disabled={renameSaving}>
+              {renameSaving?'Saving...':'Save'}
+            </Button>
+          </>}>
+          <div style={{marginBottom:12}}>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
+            <input aria-label="Company name" value={renameName} onChange={e=>setRenameName(e.target.value)} autoFocus
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
           </div>
-        </div>
+          <div>
+            <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Abbreviation</label>
+            <input aria-label="Abbreviation" value={renameAbbr} onChange={e=>setRenameAbbr(e.target.value.toUpperCase().slice(0,5))}
+              style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:'1px solid '+T.border,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
+          </div>
+        </Modal>
       )}
 
       {adminAction&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
-              <h3 style={{fontFamily:SANS,fontSize:FS.md,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
-              <p style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:6,}}>Enter your admin password to confirm</label>
-              <input aria-label="Enter your admin password to confirm" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
-                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
-                autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-              {adminPwErr&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{adminPwErr}</div>}
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
-              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
-                {adminRunning?'Verifying...':'Confirm'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <AdminPasswordModal action={adminAction} label="Enter your admin password to confirm" pw={adminPw} err={adminPwErr} running={adminRunning}
+          onPwChange={v=>{setAdminPw(v);setAdminPwErr('')}} onConfirm={confirmAdminAction}
+          onCancel={()=>{setAdminAction(null);setAdminPw('')}} T={T}/>
       )}
     </div>
   )
 }
+// Admin password re-entry before a privileged action (impersonate, delete …).
+function AdminPasswordModal({ action, label, pw, err, running, onPwChange, onConfirm, onCancel, T }) {
+  return (
+    <Modal onClose={()=>!running&&onCancel()} size="sm" zIndex={800} title={action.label} description={action.desc}
+      footer={<>
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button variant={action.danger?'danger':'primary'} onClick={onConfirm} disabled={running||!pw}>
+          {running?'Verifying...':'Confirm'}
+        </Button>
+      </>}>
+      <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:6}}>{label}</label>
+      <input aria-label={label} type="password" value={pw} onChange={e=>onPwChange(e.target.value)}
+        onKeyDown={e=>e.key==='Enter'&&onConfirm()}
+        autoFocus placeholder="Your password"
+        style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:R.sm,padding:'10px 14px',boxSizing:'border-box'}}/>
+      {err&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
+    </Modal>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // USERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1160,49 +1150,21 @@ function UsersTab({ users, companies, currentUser, accessRows, setAccessRows, se
       )}
 
       {/* ── PASSWORD CONFIRMATION MODAL ── */}
-      {adminAction && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-          <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:440,padding:'28px',border:`2px solid ${adminAction.danger?T.red+'44':T.gold+'44'}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:adminAction.danger?T.red:T.goldText}}><Icon name={adminAction.danger?'alert-triangle':'lock'} size={36}/></div>
-              <h3 style={{fontFamily:SANS,fontSize:FS.md,fontWeight:700,color:adminAction.danger?T.red:T.text,marginBottom:8}}>{adminAction.label}</h3>
-              <p style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7}}>{adminAction.desc}</p>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:6,}}>Enter your admin password</label>
-              <input aria-label="Enter your admin password" type="password" value={adminPw} onChange={e=>{setAdminPw(e.target.value);setAdminPwErr('')}}
-                onKeyDown={e=>e.key==='Enter'&&confirmAdminAction()}
-                autoFocus placeholder="Your password"
-                style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${adminPwErr?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
-              {adminPwErr&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{adminPwErr}</div>}
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>{setAdminAction(null);setAdminPw('')}} style={{flex:1}}>Cancel</Button>
-              <Button variant={adminAction.danger?'danger':'primary'} onClick={confirmAdminAction} disabled={adminRunning||!adminPw} style={{flex:2}}>
-                {adminRunning?'Verifying...':'Confirm'}
-              </Button>
-            </div>
-          </div>
-        </div>
+      {adminAction&&(
+        <AdminPasswordModal action={adminAction} label="Enter your admin password" pw={adminPw} err={adminPwErr} running={adminRunning}
+          onPwChange={v=>{setAdminPw(v);setAdminPwErr('')}} onConfirm={confirmAdminAction}
+          onCancel={()=>{setAdminAction(null);setAdminPw('')}} T={T}/>
       )}
 
       {/* ── RESET PASSWORD MODAL ── */}
       {resetConfirm && (
-        <div onClick={()=>setResetConfirm(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:700,padding:24}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:400,padding:'28px',border:`1px solid ${T.border}`}}>
-            <div style={{textAlign:'center',marginBottom:20}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:10,color:T.goldText}}><Icon name="key" size={32}/></div>
-              <h3 style={{fontFamily:SANS,fontSize:FS.md,fontWeight:700,color:T.text,marginBottom:8}}>Send password reset?</h3>
-              <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.7}}>
-                {"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.
-              </p>
-            </div>
-            <div style={{display:'flex',gap:10}}>
-              <Button variant="secondary" onClick={()=>setResetConfirm(null)} style={{flex:1}}>Cancel</Button>
-              <Button onClick={()=>sendReset(resetConfirm.email)} style={{flex:2}}>Send reset email</Button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={()=>setResetConfirm(null)} size="sm" zIndex={700} title="Send password reset?"
+          description={<>{"Send a password reset email to "}<strong style={{color:T.goldText}}>{resetConfirm.email}</strong>.</>}
+          bodyStyle={{padding:0}}
+          footer={<>
+            <Button variant="secondary" onClick={()=>setResetConfirm(null)}>Cancel</Button>
+            <Button onClick={()=>sendReset(resetConfirm.email)}>Send reset email</Button>
+          </>}/>
       )}
 
       {/* ── MANAGE ACCESS MODAL ── */}
@@ -1318,10 +1280,12 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:460,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Create company for user</h3>
-        <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:20}}>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Create company for user"
+      description={<>Owner will be <strong style={{color:T.goldText}}>{target.email}</strong></>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!name.trim()||!pw}>{saving?'Creating...':'Create company'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.07em'}}>Company name</label>
@@ -1347,12 +1311,7 @@ function CreateCompanyForUserModal({ target, adminUser, onClose, onCreated, T })
             style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!name.trim()||!pw} style={{flex:2}}>{saving?'Creating...':'Create company'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1380,13 +1339,12 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:520,padding:'28px',border:`2px solid ${T.red}44`}}>
-        <div style={{textAlign:'center',marginBottom:16}}>
-          <div style={{display:'flex',justifyContent:'center',marginBottom:8,color:T.red}}><Icon name="zap" size={36}/></div>
-          <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:6}}>Merge companies</h3>
-          <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.6}}>All properties and shared access from source will move into target. The source company will be permanently deleted.</p>
-        </div>
+    <Modal onClose={()=>!saving&&onClose()} size="md" zIndex={800} title="Merge companies"
+      description="All properties and shared access from source will move into target. The source company will be permanently deleted."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="danger" onClick={submit} disabled={saving||!sourceId||!targetId||!pw}>{saving?'Merging...':'Merge and delete source'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Source company (will be deleted)</label>
@@ -1421,13 +1379,7 @@ function MergeCompaniesModal({ companies, adminUser, onClose, onMerged, T }) {
             style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button variant="danger" onClick={submit} disabled={saving||!sourceId||!targetId||!pw} style={{flex:2}}>{saving?'Merging...':'Merge and delete source'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1454,10 +1406,12 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Transfer ownership</h3>
-        <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:18}}>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Transfer ownership"
+      description={<>Transfer <strong style={{color:co.color||T.goldText}}>{co.name}</strong> from {co.owner_email || 'current owner'} to another user.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!selectedUser||!pw}>{saving?'Transferring...':'Transfer ownership'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Search new owner by email</label>
@@ -1493,13 +1447,7 @@ function TransferCompanyModal({ co, users, adminUser, onClose, onTransferred, T 
             style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Transferring...':'Transfer ownership'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1539,10 +1487,12 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
   }
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:800,padding:24}}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:480,padding:'28px',border:`1px solid ${T.border}`}}>
-        <h3 style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Add user access</h3>
-        <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:18}}>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</p>
+    <Modal onClose={()=>!saving&&onClose()} size="sm" zIndex={800} title="Add user access"
+      description={<>Grant a user access to <strong style={{color:co.color||T.goldText}}>{co.name}</strong>. They will be able to view and manage all properties in this company.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={submit} disabled={saving||!selectedUser||!pw}>{saving?'Adding...':'Grant access'}</Button>
+      </>}>
 
         <div style={{marginBottom:12}}>
           <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'block',marginBottom:5,}}>Search user by email</label>
@@ -1573,7 +1523,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
         {selectedUser && (
           <div style={{background:T.gold+'11',borderRadius:8,padding:'10px 14px',marginBottom:14,fontFamily:SANS,fontSize:FS.sm,color:T.text,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span>Grant access to: <strong style={{color:T.goldText}}>{selectedUser.email}</strong></span>
-            <button onClick={()=>{setSelectedUser(null);setSearch('')}} style={{background:'none',border:'none',color:T.muted,fontFamily:SANS,fontSize:FS.sm,cursor:'pointer'}}>change</button>
+            <Button variant="ghost" size="sm" onClick={()=>{setSelectedUser(null);setSearch('')}}>Change</Button>
           </div>
         )}
 
@@ -1584,13 +1534,7 @@ function AddUserAccessModal({ co, users, accessRows, adminUser, onClose, onAdded
             style={{width:'100%',fontFamily:SANS,fontSize:FS.base,background:T.bg,border:`1.5px solid ${err?T.red:T.border}`,color:T.text,borderRadius:8,padding:'10px 14px',boxSizing:'border-box'}}/>
           {err && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginTop:6}}>{err}</div>}
         </div>
-
-        <div style={{display:'flex',gap:10}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={submit} disabled={saving||!selectedUser||!pw} style={{flex:2}}>{saving?'Adding...':'Grant access'}</Button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -1644,15 +1588,14 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
   })
 
   return (
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'flex-start',justifyContent:'center',zIndex:700,padding:'40px 16px',overflowY:'auto'}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:18,width:'100%',maxWidth:600,padding:'28px 32px'}}>
-        <div style={{marginBottom:20}}>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Manage company access</h2>
-          <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.6}}>
-            Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>.
-            Owned companies cannot be removed here.
-          </p>
-        </div>
+    <Modal onClose={onClose} size="md" zIndex={700} title="Manage company access"
+      description={<>Grant or revoke access for <span style={{color:T.goldText,fontWeight:700}}>{targetUser.email}</span>. Owned companies cannot be removed here.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save access'}
+        </Button>
+      </>}>
 
         <div style={{maxHeight:420,overflowY:'auto',border:`1px solid ${T.border}`,borderRadius:10,marginBottom:16}}>
           {sorted.map(co => {
@@ -1674,16 +1617,8 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
           )}
         </div>
 
-        {error && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,marginBottom:12}}>{error}</div>}
-
-        <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Save access'}
-          </Button>
-        </div>
-      </div>
-    </div>
+        {error && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red}}>{error}</div>}
+    </Modal>
   )
 }
 

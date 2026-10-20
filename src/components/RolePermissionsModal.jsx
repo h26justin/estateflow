@@ -3,8 +3,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
-import { Button } from './ui'
+import { Button, Modal } from './ui'
 import { Icon } from '../lib/icons'
 
 const mono = MONO
@@ -78,18 +77,14 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
   const hasOverrides = Object.keys(overrides).length > 0
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:900,padding:24}}>
-      <FocusTrap onEscape={onClose}>
-      <div style={{background:T.surface,borderRadius:18,width:'100%',maxWidth:620,maxHeight:'92vh',overflowY:'auto',padding:'28px',border:`1px solid ${T.border}`}}
-        role="dialog" aria-modal="true" aria-labelledby="role-permissions-title">
-
-        {/* Header */}
-        <div style={{marginBottom:18}}>
-          <h3 id="role-permissions-title" style={{fontSize:18,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Manage role & permissions</h3>
-          <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>
-            <strong>{name}</strong> on <strong style={{color:company?.color||T.goldText}}>{company?.name}</strong>
-          </div>
-        </div>
+    <Modal onClose={()=>!saving&&onClose()} size="md" zIndex={900} title="Manage role & permissions"
+      description={<><strong>{name}</strong> on <strong style={{color:company?.color||T.goldText}}>{company?.name}</strong></>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={save} disabled={saving}>
+          {saving?'Saving...':'Save changes'}
+        </Button>
+      </>}>
 
         {/* Role selector */}
         <div style={{marginBottom:20}}>
@@ -176,16 +171,6 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
             ))}
           </div>
         )}
-
-        {/* Actions */}
-        <div style={{display:'flex',gap:10,paddingTop:14,borderTop:`1px solid ${T.border}`}}>
-          <Button variant="secondary" onClick={onClose} style={{flex:1}}>Cancel</Button>
-          <Button onClick={save} disabled={saving} style={{flex:2}}>
-            {saving?'Saving...':'Save changes'}
-          </Button>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
+    </Modal>
   )
 }

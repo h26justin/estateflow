@@ -14,7 +14,7 @@ export function MobileDrawer({
   return (
     <div style={{position:'fixed',inset:0,zIndex:300,display:'flex'}}>
       {/* Backdrop */}
-      <div style={{flex:1,background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowDrawer(false)}/>
+      <div style={{flex:1,background:'var(--scrim)'}} onClick={()=>setShowDrawer(false)}/>
       {/* Drawer panel */}
       <div role="dialog" aria-modal="true" aria-label="Navigation menu" style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
         {/* Drawer header */}

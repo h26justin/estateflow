@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO, FS, SANS } from '../lib/styles'
+import { useState, useEffect, useCallback } from 'react'
+import { MONO, FS, SANS, R } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
 import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
 import { SkeletonRows } from '../lib/Skeleton'
 
@@ -387,7 +386,6 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 function DraftModal({ action, onClose }) {
   const { T } = useTheme()
   const [copied, setCopied] = useState(false)
-  const initialRef = useRef(null)
 
   async function copy() {
     try {
@@ -401,32 +399,16 @@ function DraftModal({ action, onClose }) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Drafted action"
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) safeOverlayClose(false, onClose) }}
-    >
-      <FocusTrap onEscape={onClose} initialFocusRef={initialRef}>
-        <div className="card" style={{ maxWidth: 540, width: '100%', padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{action.title}</h3>
-            <button ref={initialRef} aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 10px', margin: '-6px -10px' }}>×</button>
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
-            {action.draft_body}
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
-            AI-generated draft. Review and edit before sending — Properly does not send this for you.
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
-          </div>
-        </div>
-      </FocusTrap>
-    </div>
+    <Modal onClose={onClose} size="md" zIndex={1000} title={action.title}
+      description="AI-generated draft. Review and edit before sending — Properly does not send this for you."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button onClick={copy}>{copied ? 'Copied' : 'Copy draft'}</Button>
+      </>}>
+      <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: R.sm, padding: 16, color: T.text }}>
+        {action.draft_body}
+      </div>
+    </Modal>
   )
 }
 

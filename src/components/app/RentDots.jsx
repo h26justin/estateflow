@@ -6,7 +6,7 @@ import { activePlan } from '../../lib/paymentPlans'
 import * as api from '../../lib/api'
 import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { STL_PAIR, STL_PENDING_PAIR, rentStatusPair, enginePair } from '../../lib/rentColors'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 import { fmtDate } from '../../lib/format'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -78,14 +78,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
   const missedDays = statuses.filter(s=>s==='overdue'||s==='missed').length
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}
-      onClick={onClose}>
-      <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:20,width:300,boxShadow:'0 8px 32px rgba(0,0,0,0.2)'}}
-        onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-          <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{monthName}</div>
-          <button onClick={onClose} aria-label="Close day view" style={{background:'none',border:'none',fontSize:18,color:T.muted,cursor:'pointer',lineHeight:1,padding:'6px 8px',margin:'-6px -8px'}}>×</button>
-        </div>
+    <Modal onClose={onClose} size={360} zIndex={2000} title={monthName}>
         {monthEval && (() => {
           const m = monthEval
           const pair = enginePair(m, darkMode)
@@ -143,12 +136,12 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
                     </select>
                     <textarea value={ovReason} onChange={e=>setOvReason(e.target.value)} rows={2} placeholder="Reason (required, recorded with your name and the time)" style={{fontFamily:SANS,fontSize:FS.sm,resize:'vertical'}}/>
                     <div style={{display:'flex',gap:6}}>
-                      <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</button>
-                      <button className="btn" style={{fontSize:FS.sm}} onClick={()=>setOvOpen(false)}>Cancel</button>
+                      <Button variant="secondary" size="sm" onClick={()=>setOvOpen(false)}>Cancel</Button>
+                      <Button size="sm" onClick={saveOverride} disabled={ovSaving}>{ovSaving?'Saving…':'Save override'}</Button>
                     </div>
                   </div>
                 ) : (
-                  <button className="btn" style={{fontSize:FS.xs,marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</button>
+                  <Button variant="secondary" size="sm" style={{marginTop:8}} onClick={()=>setOvOpen(true)}>Override status…</Button>
                 )
               )}
             </div>
@@ -191,8 +184,7 @@ function DayPopover({ payment, allPayments, stlIds, onClose, onDayTracker, month
               View full day tracker →
             </Button>
           : <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,textAlign:'center',padding:'6px 0'}}>Read-only: you cannot edit rent for this company</div>}
-      </div>
-    </div>
+    </Modal>
   )
 }
 
