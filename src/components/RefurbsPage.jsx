@@ -459,7 +459,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
           {canEdit && quick.kind === 'extra' ? (
             <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} onCancel={() => setQuick(q => ({ ...q, kind: 'payment' }))} T={T} isMobile={isMobile} />
           ) : canEdit && (
-            <Button variant="secondary" size="sm" onClick={() => setQuick(q => ({ ...q, kind: 'extra', description: '' }))} style={{marginTop: 10}}>+ Extra (builder added cost)</Button>
+            <Button variant="secondary" size="sm" onClick={() => setQuick(q => ({ ...q, kind: 'extra', description: '' }))} style={{marginTop: 10}} icon="plus">Extra (builder added cost)</Button>
           )}
         </div>
 
@@ -586,7 +586,7 @@ function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile
       <Progress pct={t.pct} tone={tone} T={T} />
     </div>
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-      {canEdit && project.stage !== 'complete' && <Button variant="primary" size="sm" onClick={onQuickPay}>+ Payment</Button>}
+      {canEdit && project.stage !== 'complete' && <Button variant="primary" size="sm" onClick={onQuickPay} icon="plus">Payment</Button>}
       <Button variant="secondary" size="sm" onClick={onOpen}>Open →</Button>
     </div>
   </div>
@@ -913,7 +913,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
         ))}
       </div>
       <Button variant="secondary" size="sm" onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }}>Import refurb invoice</Button>
-      <Button variant="primary" size="sm" onClick={() => { setCreating(true); setSelectedId(null) }}>+ New refurb</Button>
+      <Button variant="primary" size="sm" icon="plus" onClick={() => { setCreating(true); setSelectedId(null) }}>New refurb</Button>
     </div>
   </div>
 
@@ -1028,7 +1028,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     {(sub === 'cards' || sub === 'list') && listed.length === 0 && !creating && <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 28, textAlign: 'center' }}>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{filters.archived ? 'Nothing archived' : activeFilters ? 'No refurbs match these filters' : `No ${filters.type} refurbs on the go`}</div>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14 }}>{activeFilters ? 'Clear the filters to see everything.' : 'Start one with the property and, if you have it, the price agreed with the builder.'}</div>
-      {!filters.archived && <Button variant="primary" size="sm" onClick={() => setCreating(true)}>+ New refurb</Button>}
+      {!filters.archived && <Button variant="primary" size="sm" onClick={() => setCreating(true)} icon="plus">New refurb</Button>}
     </div>}
 
     {sub === 'cards' && listed.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
@@ -1133,7 +1133,7 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
       <div style={{ display: 'flex', gap: 8 }}>
         {openRefurbs && selected && <Button variant="primary" size="sm" onClick={() => { window.location.hash = `#/refurbs/project/${selected.id}/overview`; openRefurbs() }}>Open workspace →</Button>}
         {openRefurbs && <Button variant="secondary" size="sm" onClick={openRefurbs}>All refurbs →</Button>}
-        {canEdit && <Button variant="primary" size="sm" onClick={() => setCreating(v => !v)}>+ New refurb</Button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={() => setCreating(v => !v)} icon="plus">New refurb</Button>}
       </div>
     </div>
     {creating && <NewRefurbForm properties={[property]} companies={companies} fixedPropertyId={property.id} onCreate={handleCreate} onCancel={() => setCreating(false)} T={T} />}

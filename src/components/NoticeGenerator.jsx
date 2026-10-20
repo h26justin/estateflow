@@ -178,7 +178,6 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     }
   }
 
-  const btnPrimary = (enabled) => ({ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '10px 18px', borderRadius: 8, border: 'none', background: enabled ? T.gold : T.border, color: enabled ? '#1A2530' : T.muted, cursor: enabled ? 'pointer' : 'not-allowed' })
 
   // ─── DISCLAIMER STEP ─────────────────────────────────────────────────
   if (step === 'disclaimer') {
@@ -220,9 +219,9 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <button type="button" onClick={() => setStep('checklist')} style={{ ...btnPrimary(true), background: T.amber }}>
+              <Button onClick={() => setStep('checklist')}>
                 I understand, continue
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

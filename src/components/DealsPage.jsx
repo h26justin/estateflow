@@ -2012,7 +2012,7 @@ function ContactsTab({ dealId, userId, showToast }) {
         </div>
         <div style={{display:'flex',gap:8}}>
           {abView==='deal' && <Button variant="secondary" size="sm" onClick={()=>{setAbView('book')}}>Pick from address book</Button>}
-          <Button variant="primary" size="sm" onClick={startNew}>+ New contact</Button>
+          <Button variant="primary" size="sm" onClick={startNew} icon="plus">New contact</Button>
         </div>
       </div>
 

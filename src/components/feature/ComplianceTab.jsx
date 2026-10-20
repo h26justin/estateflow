@@ -227,7 +227,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
       <input ref={fileRef} type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={handleAttachFile}/>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
-        {canEdit && <Button variant="primary" size="sm" onClick={()=>{ (showForm && formAnchor==='top') ? closeForm() : openForm({}) }}>+ Add certificate</Button>}
+        {canEdit && <Button variant="primary" size="sm" icon="plus" onClick={()=>{ (showForm && formAnchor==='top') ? closeForm() : openForm({}) }}>Add certificate</Button>}
       </div>
 
       {formAnchor==='top' && formCard}

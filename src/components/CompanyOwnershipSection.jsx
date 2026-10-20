@@ -25,6 +25,7 @@ import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
 import { TAX_BAND_LABELS } from '../lib/companyPnl'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const inputStyle = (T) => ({
   fontFamily: MONO, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`,
@@ -160,7 +161,6 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
   if (loading) return <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8, padding: '14px 4px' }}><Skeleton h={14}/><Skeleton h={14} w="80%"/><Skeleton h={14} w="60%"/></div>
 
   const inp = inputStyle(T)
-  const smallBtn = { fontFamily: MONO, fontSize: 11, padding: '6px 12px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }
   // Companies a corporate shareholder can link to — everything but this one.
   const linkableCompanies = companies.filter(c => c.id !== company.id)
   const isCorp = s => (s.shareholder_type || 'individual') === 'company'
@@ -257,8 +257,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                 ) : <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.goldText }}>{Number(s.percentage).toFixed(2)}</span>}
                 <span style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>%</span>
                 {canEdit && (
-                  <button onClick={() => removeShareholder(s.id)} aria-label={`Remove ${s.name}`}
-                    style={{ ...smallBtn, color: T.red, borderColor: T.red + '33', padding: '4px 9px' }}>✕</button>
+                  <Button variant="ghost" size="sm" icon="x" destructive onClick={() => removeShareholder(s.id)} aria-label={`Remove ${s.name}`} />
                 )}
               </div>
             ))}
@@ -356,8 +355,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                         <option value="ex_vat">+ VAT (20%)</option>
                         <option value="inc_vat">inc. VAT</option>
                       </select>
-                      <button onClick={() => removeAgent(a)} aria-label={`Remove ${a.name}`}
-                        style={{ ...smallBtn, color: T.red, borderColor: T.red + '33', padding: '4px 9px' }}>✕</button>
+                      <Button variant="ghost" size="sm" icon="x" destructive onClick={() => removeAgent(a)} aria-label={`Remove ${a.name}`} />
                     </>
                   ) : (
                     <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.goldText }}>

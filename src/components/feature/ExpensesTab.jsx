@@ -93,7 +93,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
-        {canEdit && <Button variant="primary" size="sm" onClick={()=>setShowForm(v=>!v)}>+ Add expense</Button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={()=>setShowForm(v=>!v)} icon="plus">Add expense</Button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
