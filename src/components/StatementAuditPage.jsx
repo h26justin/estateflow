@@ -11,7 +11,7 @@ import {
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
 import { pressable } from '../lib/pressable'
-import { EmptyState, Button } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
@@ -476,14 +476,14 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   </td>
                   {editable && (
                     <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap' }}>
-                      <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => startEditLine(l.statement_id, l)}>Edit</button>
+                      <Button variant="secondary" size="sm" onClick={() => startEditLine(l.statement_id, l)}>Edit</Button>
                       {l.review_status === 'possible_duplicate' && <>
-                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Keep &amp; count</button>
-                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'excluded')}>Exclude</button>
+                        <Button variant="secondary" size="sm" onClick={() => setLineReview(l, 'imported')} style={{marginLeft: 4}}>Keep &amp; count</Button>
+                        <Button variant="secondary" size="sm" onClick={() => setLineReview(l, 'excluded')} style={{marginLeft: 4}}>Exclude</Button>
                       </>}
-                      {l.review_status === 'correction_required' && <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Mark correct</button>}
-                      {l.review_status === 'excluded' && <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4 }} onClick={() => setLineReview(l, 'imported')}>Count again</button>}
-                      <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px', marginLeft: 4, color: T.red }} onClick={() => removeLine(l)}>Delete</button>
+                      {l.review_status === 'correction_required' && <Button variant="secondary" size="sm" onClick={() => setLineReview(l, 'imported')} style={{marginLeft: 4}}>Mark correct</Button>}
+                      {l.review_status === 'excluded' && <Button variant="secondary" size="sm" onClick={() => setLineReview(l, 'imported')} style={{marginLeft: 4}}>Count again</Button>}
+                      <Button variant="secondary" size="sm" onClick={() => removeLine(l)} style={{marginLeft: 4}} destructive>Delete</Button>
                     </td>
                   )}
                 </tr>
@@ -517,8 +517,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
 
   // ── Screens ──────────────────────────────────────────────────────────────
   const uploadOverlay = upload && (
-    <div className="overlay" style={{ alignItems: 'flex-start', paddingTop: 30 }} onClick={e => { if (e.target === e.currentTarget && ['done', 'failed'].includes(upload.step)) setUpload(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 1180, width: '96%', maxHeight: '92vh', overflow: 'auto', padding: 20 }}>
+    <Modal onClose={() => { if (['done', 'failed'].includes(upload.step)) setUpload(null) }} size={1180} ariaLabel="Upload statement" style={{ width: '96%', maxHeight: '92vh', padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: T.text }}>
@@ -608,11 +607,11 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-                <button className="btn btn-ghost" onClick={() => setShowRaw(v => !v)}>{showRaw ? 'Hide' : 'Show'} extracted text</button>
-                <button className="btn btn-ghost" onClick={() => setUpload(null)}>Cancel</button>
-                <button className="btn btn-gold" onClick={confirmImport} disabled={parsed.statementNumber == null}>
+                <Button variant="secondary" onClick={() => setShowRaw(v => !v)}>{showRaw ? 'Hide' : 'Show'} extracted text</Button>
+                <Button variant="secondary" onClick={() => setUpload(null)}>Cancel</Button>
+                <Button variant="primary" onClick={confirmImport} disabled={parsed.statementNumber == null}>
                   {existing && existing.status !== 'not_uploaded' ? 'Confirm - update register' : 'Confirm import'}
-                </button>
+                </Button>
               </div>
               {showRaw && <pre style={{ marginTop: 10, maxHeight: 260, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{upload.rawText}</pre>}
             </div>
@@ -640,41 +639,36 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </div>
               {upload.results?.failed?.length > 0 && <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>{upload.results.failed.length} row{upload.results.failed.length === 1 ? '' : 's'} were refused by the database and added to the Import Errors list.</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-                <button className="btn btn-gold" onClick={() => setUpload(null)}>Open the statement</button>
+                <Button variant="primary" onClick={() => setUpload(null)}>Open the statement</Button>
               </div>
             </div>
           )
         })()}
-      </div>
-    </div>
+      </Modal>
   )
 
   const editOverlay = editLine && (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setEditLine(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
+    <Modal onClose={() => setEditLine(null)} size={820} ariaLabel={editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'} style={{ width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 10 }}>{editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'}</h3>
         {editLine.draft.original_values && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
         {lineForm(editLine.draft, d => setEditLine({ ...editLine, draft: d }))}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button className="btn btn-ghost" onClick={() => setEditLine(null)}>Cancel</button>
-          <button className="btn btn-gold" onClick={saveEditLine} disabled={busy}>{editLine.id ? 'Review & save' : 'Add line'}</button>
+          <Button variant="secondary" onClick={() => setEditLine(null)}>Cancel</Button>
+          <Button variant="primary" onClick={saveEditLine} disabled={busy}>{editLine.id ? 'Review & save' : 'Add line'}</Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 
   const fixOverlay = fixError && (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setFixError(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
+    <Modal onClose={() => setFixError(null)} size={820} ariaLabel="Correct and re-process this entry" style={{ width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Correct and re-process this entry</h3>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 10, whiteSpace: 'pre-wrap' }}>Reason: {fixError.reason}{fixError.raw ? `\nText on statement: ${fixError.raw}` : ''}</div>
         {lineForm(fixError.draft, d => setFixError({ ...fixError, draft: d }))}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-          <button className="btn btn-ghost" onClick={() => setFixError(null)}>Cancel</button>
-          <button className="btn btn-gold" onClick={saveErrorFix} disabled={busy}>Add to register &amp; clear error</button>
+          <Button variant="secondary" onClick={() => setFixError(null)}>Cancel</Button>
+          <Button variant="primary" onClick={saveErrorFix} disabled={busy}>Add to register &amp; clear error</Button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 
   return (
@@ -708,10 +702,10 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </div>
             )}
             <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; handleFile(f) }} />
-            <button className="btn btn-gold" onClick={() => fileRef.current?.click()} disabled={!!upload && !['done', 'failed'].includes(upload.step)}>
+            <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={!!upload && !['done', 'failed'].includes(upload.step)}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon name="upload" size={14} /> Upload statement PDF</span>
-            </button>
-            {onClose && <button className="btn btn-ghost" onClick={onClose}>Close</button>}
+            </Button>
+            {onClose && <Button variant="secondary" onClick={onClose}>Close</Button>}
           </div>
         </div>
       </div>
@@ -735,7 +729,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </div>
               {missing.length > 0 ? (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                  {missing.map(n => <button key={n} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '4px 10px', color: T.red, borderColor: T.red + '77' }} onClick={() => { const s = statements.find(x => x.statement_number === n); if (s) setSelectedId(s.id) }}>Statement {n}</button>)}
+                  {missing.map(n => <Button variant="secondary" size="sm" key={n} onClick={() => { const s = statements.find(x => x.statement_number === n); if (s) setSelectedId(s.id) }} style={{borderColor: T.red + '77'}} destructive>Statement {n}</Button>)}
                 </div>
               ) : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8 }}>Every number from {startNumber} to {Math.max(startNumber, ...statements.map(s => s.statement_number))} is on the register. A missing number is never assumed to have had no activity.</div>}
             </div>
@@ -748,7 +742,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                         <span style={{ color: T.red, fontWeight: 700 }}>Stmt {r.s.statement_number}</span>
                         <span style={{ flex: 1 }}>{e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · <span style={{ color: T.muted }}>{e.reason}</span></span>
-                        <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => setFixError({ statementId: r.s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
+                        <Button variant="secondary" size="sm" onClick={() => setFixError({ statementId: r.s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</Button>
                       </div>
                     ))}
                   </div>
@@ -820,9 +814,9 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => reprocessStored(s)}>Re-process from stored text</button>}
-                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => startEditLine(s.id, null)}>Add a line</button>}
-                    {s.status === 'not_uploaded' && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => fileRef.current?.click()}>Upload this statement</button>}
+                    {s.status !== 'not_uploaded' && <Button variant="secondary" size="sm" onClick={() => reprocessStored(s)}>Re-process from stored text</Button>}
+                    {s.status !== 'not_uploaded' && <Button variant="secondary" size="sm" onClick={() => startEditLine(s.id, null)}>Add a line</Button>}
+                    {s.status === 'not_uploaded' && <Button variant="primary" size="sm" onClick={() => fileRef.current?.click()}>Upload this statement</Button>}
                   </div>
                 </div>
 
@@ -867,7 +861,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                         {errors.map((e, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                             <span style={{ flex: 1 }}>{e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · <span style={{ color: T.muted }}>{e.reason}</span>{e.description ? <span style={{ color: T.faint }}> · "{e.description}"</span> : ''}</span>
-                            <button className="btn btn-ghost" style={{ fontSize: FS.xs, padding: '3px 8px' }} onClick={() => setFixError({ statementId: s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</button>
+                            <Button variant="secondary" size="sm" onClick={() => setFixError({ statementId: s.id, index: i, reason: e.reason, raw: e.raw_text, draft: { line_type: e.section === 'expenditure' ? 'other_deduction' : 'rent', property_address: e.property_address || '', tenant_name: e.tenant_name || '', description: e.description || '', period_start: '', period_end: '', vat_amount: 0, _amount: e.amount ?? 0, fee_pct: '', fee_basis: '', line_no: e.line_no } })}>Fix &amp; re-process</Button>
                           </div>
                         ))}
                       </div>
@@ -914,7 +908,7 @@ function FailedUploadForm({ onSave, busy, T }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
       <div style={{ width: 160 }}><label>Statement number</label><input aria-label="Statement number" type="number" value={n} onChange={e => setN(e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
-      <button className="btn btn-gold" disabled={busy || !n} onClick={() => onSave(n)}>Record as Import Error</button>
+      <Button variant="primary" disabled={busy || !n} onClick={() => onSave(n)}>Record as Import Error</Button>
       <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>or close and try another PDF</span>
     </div>
   )

@@ -6,6 +6,7 @@ import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 // ── REFERENCING PANEL (Feature 7 scaffold) ───────────────────────────
 // Order a tenant reference or Right-to-Rent check from the lettings /
@@ -104,9 +105,9 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
           </span>
         </h3>
         {canEdit && !adding && (
-          <button onClick={startAdd} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+          <Button variant="secondary" size="sm" onClick={startAdd}>
             + New check
-          </button>
+          </Button>
         )}
       </div>
 
@@ -147,10 +148,10 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-                <button onClick={cancel} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={saving}>Cancel</button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving}>
+                <Button variant="secondary" size="sm" onClick={cancel} disabled={saving}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={save} disabled={saving}>
                   {saving ? 'Saving…' : 'Order check'}
-                </button>
+                </Button>
               </div>
             </div>
           )}

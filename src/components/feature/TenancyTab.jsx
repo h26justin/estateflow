@@ -7,6 +7,7 @@ import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
 import { formatDate, daysUntil } from './helpers'
 import { SkeletonRows } from '../../lib/Skeleton'
+import { Button } from '../ui'
 
 // ── TENANCY TAB ───────────────────────────────────────────────────────────────
 export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true, canViewPersonal = true}) {
@@ -51,7 +52,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Tenancy details</div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</Button>}
       </div>
 
       {renewalDays!==null && renewalDays<=60 && (
@@ -83,7 +84,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
           </div>
           <div style={{marginBottom:12}}><label>Break clause</label><input value={form.break_clause||''} onChange={e=>s('break_clause',e.target.value)} placeholder="e.g. Break at 12 months with 2 months notice"/></div>
           <div style={{marginBottom:14}}><label>Notes</label><textarea value={form.notes||''} onChange={e=>s('notes',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>Save tenancy details</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>Save tenancy details</Button>
         </div>
        ) : details ? (
         <div style={{display:'grid',gap:10}}>

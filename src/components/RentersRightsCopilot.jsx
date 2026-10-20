@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
 import { SkeletonList } from '../lib/Skeleton'
-import { SANS, FS } from '../lib/styles'
+import { SANS, FS, R } from '../lib/styles'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -37,22 +36,18 @@ function Banner({ T }) {
 
 function Toggle({ T, on, onClick, disabled }) {
   return (
-    <button
-      type="button"
-      className="btn-ghost"
+    <Button
+      variant="secondary"
+      size="sm"
       onClick={onClick}
       disabled={disabled}
       aria-pressed={on}
-      style={{
-        minWidth: 110,
+      style={{minWidth: 110,
         borderColor: on ? T.green : T.border,
-        color: on ? T.green : T.muted,
-        fontFamily: SANS,
-        fontSize: FS.sm,
-      }}
+        color: on ? T.green : T.muted}}
     >
       {on ? 'Done' : 'Mark done'}
-    </button>
+    </Button>
   )
 }
 
@@ -92,41 +87,36 @@ function NoticeModal({ T, property, tenantName, onClose }) {
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(false, onClose)}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <FocusTrap onEscape={onClose}>
-        <div role="dialog" aria-modal="true" aria-label="Draft a notice" className="card"
-          style={{ width: 'min(640px, 100%)', maxHeight: '90vh', overflow: 'auto', padding: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontFamily: SANS }}>Draft a notice / letter</h3>
-            <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close">✕</button>
-          </div>
-
+    <Modal onClose={onClose} size="md" zIndex={1000} title="Draft a notice / letter"
+      footer={result ? <>
+        <Button variant="secondary" onClick={() => setResult(null)}>Start over</Button>
+        <Button onClick={copy}>Copy draft</Button>
+      </> : (
+        <Button onClick={run} disabled={drafting}>
+          {drafting ? 'Drafting…' : 'Generate draft'}
+        </Button>
+      )}>
           {!result && (
             <>
               <label style={{ fontSize: 12, color: T.muted }}>Type</label>
-              <select className="card" value={noticeType} onChange={(e) => setNoticeType(e.target.value)}
-                style={{ width: '100%', padding: 8, marginBottom: 10, fontFamily: SANS }}>
+              <select value={noticeType} onChange={(e) => setNoticeType(e.target.value)}
+                style={{ width: '100%', marginBottom: 10 }}>
                 {NOTICE_TYPES.map((n) => <option key={n.v} value={n.v}>{n.l}</option>)}
               </select>
 
               {noticeType === 'possession_ground_8' && (
                 <>
                   <label style={{ fontSize: 12, color: T.muted }}>Ground / reference (optional)</label>
-                  <input className="card" value={ground} onChange={(e) => setGround(e.target.value)}
+                  <input value={ground} onChange={(e) => setGround(e.target.value)}
                     placeholder="e.g. rent arrears ground"
-                    style={{ width: '100%', padding: 8, marginBottom: 10, fontFamily: "'DM Mono', monospace" }} />
+                    style={{ width: '100%', marginBottom: 10 }} />
                 </>
               )}
 
               <label style={{ fontSize: 12, color: T.muted }}>Facts / context (optional)</label>
-              <textarea className="card" value={facts} onChange={(e) => setFacts(e.target.value)} rows={4}
+              <textarea value={facts} onChange={(e) => setFacts(e.target.value)} rows={4}
                 placeholder="Relevant facts — arrears amount, dates, repair details. Leave blank for placeholders."
-                style={{ width: '100%', padding: 8, marginBottom: 14, fontFamily: SANS }} />
-
-              <button type="button" className="btn-gold" onClick={run} disabled={drafting} style={{ width: '100%' }}>
-                {drafting ? 'Drafting…' : 'Generate draft'}
-              </button>
+                style={{ width: '100%' }} />
             </>
           )}
 
@@ -135,19 +125,13 @@ function NoticeModal({ T, property, tenantName, onClose }) {
               <div style={{ fontSize: 11, color: T.goldText, marginBottom: 6 }}>
                 {result.confidence}
               </div>
-              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: "'DM Mono', monospace", fontSize: 12, background: T.surface, padding: 12, borderRadius: 6, maxHeight: '46vh', overflow: 'auto' }}>
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: "'DM Mono', monospace", fontSize: 12, background: T.bg, padding: 12, borderRadius: R.sm, maxHeight: '46vh', overflow: 'auto' }}>
                 {result.draft}
               </pre>
-              <div style={{ fontSize: 11, color: T.muted, margin: '8px 0' }}>{result.disclaimer}</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn-gold" onClick={copy}>Copy draft</button>
-                <button type="button" className="btn-ghost" onClick={() => setResult(null)}>Start over</button>
-              </div>
+              <div style={{ fontSize: 11, color: T.muted, marginTop: 8 }}>{result.disclaimer}</div>
             </>
           )}
-        </div>
-      </FocusTrap>
-    </div>
+    </Modal>
   )
 }
 
@@ -293,9 +277,9 @@ export function RentersRightsCopilot({ companyId, property }) {
             <RepairTimers T={T} propertyId={propertyId} />
           </div>
 
-          <button type="button" className="btn-gold" onClick={() => setNoticeOpen(true)}>
+          <Button onClick={() => setNoticeOpen(true)}>
             Draft a notice / letter
-          </button>
+          </Button>
         </>
       )}
 

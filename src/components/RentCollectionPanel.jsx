@@ -10,6 +10,7 @@ import {
   fetchTenantMandate,
 } from '../lib/api/rentCollection'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const COMING_SOON =
   'Coming soon — pending provider setup. Rent collection is inert: no payments are taken until FCA authorisation and a TrueLayer VRP agreement are in place.'
@@ -130,9 +131,9 @@ export function RentCollectionPanel({ property, companyId, tenantUserId }) {
             <strong>Collection day:</strong>{' '}
             {mandate.day_of_month != null ? `${mandate.day_of_month} of each month` : '—'}
           </div>
-          <button className="btn btn-ghost" disabled={saving} onClick={handleCancel}>
+          <Button variant="secondary" disabled={saving} onClick={handleCancel}>
             Cancel mandate
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="card" style={{ padding: 14 }}>
@@ -166,9 +167,9 @@ export function RentCollectionPanel({ property, companyId, tenantUserId }) {
               />
             </label>
           </div>
-          <button className="btn btn-gold" disabled={saving} onClick={handleCreate}>
+          <Button variant="primary" disabled={saving} onClick={handleCreate}>
             {saving ? 'Saving…' : 'Record draft mandate'}
-          </button>
+          </Button>
           <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8 }}>
             Recording a draft does not authorise any payment. The tenant must consent and the
             provider must be live before any collection could ever run.
@@ -208,9 +209,9 @@ export function TenantRentCollectionConsent({ propertyId }) {
         {mandate.day_of_month ?? '—'} each month via open banking.
       </div>
       <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 12 }}>{COMING_SOON}</div>
-      <button className="btn btn-gold" disabled title="Not yet available">
+      <Button variant="primary" disabled title="Not yet available">
         Consent (coming soon)
-      </button>
+      </Button>
     </div>
   )
 }

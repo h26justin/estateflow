@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
-import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
+import { isFormDirty } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
 import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/complianceCatalogue'
 import { showAppToast } from '../../lib/toast'
 import { fetchEstateAgents } from '../../lib/api/ownership'
-import FocusTrap from '../../lib/FocusTrap'
 import { MONO, FS, SANS } from '../../lib/styles'
+import { Button, Modal } from '../ui'
 
 // Light section header used to break the long form into scannable groups.
 // Just a divider + an uppercase mono caption — no card, so it stays cheap
@@ -194,15 +194,15 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       ...cashOverride,
     })
   }
-  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="property-modal-title">
-      <div style={{padding:'24px 28px 0'}}>
-        <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
-        <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
-      </div>
-      <form onSubmit={e=>{e.preventDefault(); handleSave()}}>
-      <div style={{padding:'0 28px 20px',display:'flex',flexDirection:'column',gap:14}}>
+  return <Modal onClose={onClose} size="md" isDirty={isDirty} confirmFn={confirmDiscard}
+      title={prop?.id ? 'Edit property' : (prop?.purchase_price ? 'Convert deal to property' : 'Add new property')}
+      description={prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="property-modal-form">{prop?.id?'Save changes':'Add property'}</Button>
+      </>}>
+      <form id="property-modal-form" onSubmit={e=>{e.preventDefault(); handleSave()}}>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
         <Section title="Property" T={T} first />
         <div className="g2">
@@ -394,15 +394,6 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
 
         <div><label htmlFor="pm-notes">Notes</label><textarea id="pm-notes" value={form.notes} onChange={e=>s('notes',e.target.value)} rows={3} style={{resize:'vertical'}}/></div>
       </div>
-      {/* Sticky footer — keeps the primary action reachable without scrolling
-          to the bottom of a long form. Sits inside the scrolling .modal so
-          position:sticky pins it to the modal's bottom edge. */}
-      <div style={{position:'sticky',bottom:0,background:T.surface,borderTop:`1px solid ${T.border}`,padding:'14px 28px',display:'flex',gap:10,justifyContent:'flex-end',borderBottomLeftRadius:18,borderBottomRightRadius:18}}>
-        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-gold">{prop?.id?'Save changes':'Add property'}</button>
-      </div>
       </form>
-    </div>
-    </FocusTrap>
-  </div>
+    </Modal>
 }

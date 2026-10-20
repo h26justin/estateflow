@@ -8,9 +8,9 @@ import {
   statusOptions, statusValue, parseStatusValue, stageCompletion, stageDelay, flatStages,
   wouldCreateCycle, isTaskOverdue, TASK_PRIORITIES, isoDate,
 } from '../../lib/refurbWorkspace'
-import { mono, btn, inputStyle, panel, sectionHead, Field, StatusChip, Pill, fmtDate, fmtWhen, todayISO } from './ui'
+import { mono, inputStyle, panel, sectionHead, Field, StatusChip, Pill, fmtDate, fmtWhen, todayISO } from './ui'
 import { FS, SANS } from '../../lib/styles'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 
 const TEXT_FIELDS = ['name', 'scope', 'next_action', 'blockers', 'decisions', 'notes', 'responsible_name']
 const DATE_FIELDS = ['planned_start', 'planned_end', 'forecast_start', 'forecast_end', 'actual_start', 'actual_end']
@@ -104,7 +104,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
             {stage.signed_off_at && <Pill color={T.green} T={T}>Signed off by {stage.signed_off_by} · {fmtWhen(stage.signed_off_at)}</Pill>}
           </div>
         </div>
-        <button onClick={onClose} style={btn(T)} aria-label="Close">Close</button>
+        <Button variant="secondary" size="sm" onClick={onClose} aria-label="Close">Close</Button>
       </div>
 
       {/* Status + progress */}
@@ -124,8 +124,8 @@ export default function StageDrawer({ ws, stageId, onClose }) {
           </Field>
           <Field label="Sign-off" T={T}>
             {stage.signed_off_at
-              ? <button onClick={undoSignOff} disabled={dis} style={{ ...btn(T), width: '100%' }}>Withdraw sign-off</button>
-              : <button onClick={signOff} disabled={dis} style={{ ...btn(T, 'gold'), width: '100%' }}>Sign off stage</button>}
+              ? <Button variant="secondary" size="sm" onClick={undoSignOff} disabled={dis} style={{width: '100%'}}>Withdraw sign-off</Button>
+              : <Button variant="primary" size="sm" onClick={signOff} disabled={dis} style={{width: '100%'}}>Sign off stage</Button>}
           </Field>
         </div>
       </div>
@@ -190,7 +190,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
               <span style={{ fontSize: 13 }}>{nameOf(d.depends_on_id)}</span>
               <input type="number" defaultValue={d.lag_days} disabled={dis} title="Days to wait after it finishes" aria-label="Lag days"
                 onBlur={e => { const v = Math.round(Number(e.target.value) || 0); if (v !== d.lag_days) ops.updateDependency(d, v) }} style={{ ...inputStyle(T), padding: '4px 6px' }} />
-              {canEdit ? <button onClick={() => ops.removeDependency(d)} style={btn(T)} aria-label="Remove dependency">✕</button> : <span />}
+              {canEdit ? <Button variant="ghost" size="sm" onClick={() => ops.removeDependency(d)} aria-label="Remove dependency" icon="x" /> : <span />}
             </div>)}
             {preds.length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
             {canEdit && <AddDependency stage={stage} others={others} deps={data.deps} onAdd={ops.addDependency} T={T} />}
@@ -262,10 +262,10 @@ function AddDependency({ stage, others, deps, onAdd, T }) {
         <option value="">Choose a stage it waits for</option>
         {options.map(s => <option key={s.id} value={s.id}>{s.parent_id ? '  ↳ ' : ''}{s.name}</option>)}
       </select>
-      <button disabled={!pick} style={{ ...btn(T, 'gold'), opacity: pick ? 1 : 0.5 }} onClick={async () => {
+      <Button variant="primary" size="sm" disabled={!pick} onClick={async () => {
         if (wouldCreateCycle(deps, stage.id, pick)) { setErr('That would make a loop: the other stage already waits for this one.'); return }
         await onAdd(stage, pick); setPick('')
-      }}>Add</button>
+      }} style={{opacity: pick ? 1 : 0.5}}>Add</Button>
     </div>
     {err && <div role="alert" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginTop: 4 }}>{err}</div>}
   </div>
@@ -276,7 +276,7 @@ export function QuickText({ placeholder, button, onAdd, T }) {
   const go = async () => { const t = v.trim(); if (!t) return; await onAdd(t); setV('') }
   return <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
     <input value={v} onChange={e => setV(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go() }} placeholder={placeholder} style={inputStyle(T)} />
-    <button onClick={go} disabled={!v.trim()} style={{ ...btn(T, 'gold'), opacity: v.trim() ? 1 : 0.5 }}>{button}</button>
+    <Button variant="primary" size="sm" onClick={go} disabled={!v.trim()} style={{opacity: v.trim() ? 1 : 0.5}}>{button}</Button>
   </div>
 }
 
@@ -290,7 +290,7 @@ function Checklist({ ws, stage, items }) {
       <input type="checkbox" checked={t.status === 'done'} disabled={!canEdit} onChange={() => ops.toggleTask(t)} style={{ width: 18, height: 18, margin: 0 }} aria-label={t.title} />
       <span style={{ flex: 1, fontSize: 13, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? T.muted : T.text }}>{t.title}</span>
       {t.status === 'done' && t.completed_by && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{t.completed_by}</span>}
-      {canEdit && <button onClick={() => ops.removeTask(t)} style={{ ...btn(T), padding: '2px 7px', minHeight: 0 }} aria-label={`Remove ${t.title}`}>✕</button>}
+      {canEdit && <Button variant="ghost" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`} icon="x" />}
     </div>)}
     {canEdit && <QuickText placeholder="Add a checklist item" button="Add" T={T} onAdd={title => ops.addTask({ stage_id: stage.id, kind: 'checklist', title })} />}
   </div>
@@ -323,14 +323,14 @@ export function TaskList({ ws, stage, items, title = 'Tasks and milestones' }) {
           {[t.owner_name, t.contractor_name, t.due_date ? `due ${fmtDate(t.due_date)}` : null, ws.stageName && t.stage_id && !stage ? ws.stageName(t.stage_id) : null].filter(Boolean).join(' · ') || 'No owner or due date'}
         </div>
       </div>
-      {canEdit ? <button onClick={() => ops.removeTask(t)} style={{ ...btn(T), padding: '2px 7px', minHeight: 0 }} aria-label={`Remove ${t.title}`}>✕</button> : <span />}
+      {canEdit ? <Button variant="ghost" size="sm" onClick={() => ops.removeTask(t)} aria-label={`Remove ${t.title}`} icon="x" /> : <span />}
     </div>
   }
   return <div style={panel(T)}>
     <div style={sectionHead(T)}><span>{title}</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{open.length} open</span></div>
     {open.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing open.</div>}
     {open.sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999'))).map(row)}
-    {done.length > 0 && <button onClick={() => setShowDone(v => !v)} style={{ ...btn(T), marginTop: 8 }}>{showDone ? 'Hide' : 'Show'} done ({done.length})</button>}
+    {done.length > 0 && <Button variant="secondary" size="sm" onClick={() => setShowDone(v => !v)} style={{marginTop: 8}}>{showDone ? 'Hide' : 'Show'} done ({done.length})</Button>}
     {showDone && done.map(row)}
     {canEdit && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '2fr 1fr 1fr 1fr 1fr auto', gap: 6, marginTop: 10, alignItems: 'end' }}>
       <input value={draft.title} onChange={e => setDraft(d => ({ ...d, title: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') add() }} placeholder="New task or milestone" style={{ ...inputStyle(T), gridColumn: isMobile ? '1 / -1' : undefined }} aria-label="Task title" />
@@ -338,7 +338,7 @@ export function TaskList({ ws, stage, items, title = 'Tasks and milestones' }) {
       <input list="refurb-people" value={draft.owner_name} onChange={e => setDraft(d => ({ ...d, owner_name: e.target.value }))} placeholder="Owner" style={inputStyle(T)} aria-label="Owner" />
       <input type="date" value={draft.due_date} onChange={e => setDraft(d => ({ ...d, due_date: e.target.value }))} style={inputStyle(T)} aria-label="Due date" />
       <select value={draft.priority} onChange={e => setDraft(d => ({ ...d, priority: e.target.value }))} style={inputStyle(T)} aria-label="Priority">{TASK_PRIORITIES.map(p => <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>)}</select>
-      <button onClick={add} disabled={!draft.title.trim()} style={{ ...btn(T, 'gold'), opacity: draft.title.trim() ? 1 : 0.5 }}>Add</button>
+      <Button variant="primary" size="sm" onClick={add} disabled={!draft.title.trim()} style={{opacity: draft.title.trim() ? 1 : 0.5}}>Add</Button>
     </div>}
     <datalist id="refurb-people">{people.map(p => <option key={p} value={p} />)}</datalist>
   </div>
@@ -362,14 +362,14 @@ export function Updates({ ws, stage, items, title = 'Notes and updates' }) {
         <select value={draft.kind} onChange={e => setDraft(d => ({ ...d, kind: e.target.value }))} style={inputStyle(T)} aria-label="Update type">{Object.entries(UPDATE_KINDS).filter(([k]) => k !== 'sign_off').map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         <input type="date" value={draft.update_date} onChange={e => setDraft(d => ({ ...d, update_date: e.target.value }))} style={inputStyle(T)} aria-label="Date" />
         <input value={draft.next_action} onChange={e => setDraft(d => ({ ...d, next_action: e.target.value }))} placeholder="Next action (optional)" style={inputStyle(T)} aria-label="Next action" />
-        <button onClick={add} disabled={!draft.body.trim()} style={{ ...btn(T, 'gold'), opacity: draft.body.trim() ? 1 : 0.5 }}>Post</button>
+        <Button variant="primary" size="sm" onClick={add} disabled={!draft.body.trim()} style={{opacity: draft.body.trim() ? 1 : 0.5}}>Post</Button>
       </div>
     </div>}
     {items.length === 0 && <EmptyState compact icon="message" title="No updates yet"/>}
     {items.map(u => <div key={u.id} style={{ padding: '8px 0', borderBottom: `1px solid ${T.border}` }}>
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 6 }}>
         <span>{fmtDate(u.update_date)} · {UPDATE_KINDS[u.kind] || 'Note'}{u.author_name ? ` · ${u.author_name}` : ''}{!stage && u.stage_id && ws.stageName ? ` · ${ws.stageName(u.stage_id)}` : ''}</span>
-        {canEdit && <button onClick={() => ops.removeUpdate(u)} style={{ background: 'none', border: 'none', color: T.faint, cursor: 'pointer', fontSize: 11 }} aria-label="Delete update">✕</button>}
+        {canEdit && <Button variant="ghost" size="sm" icon="x" onClick={() => ops.removeUpdate(u)} aria-label="Delete update" />}
       </div>
       <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginTop: 3 }}>{u.body}</div>
       {u.next_action && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 3 }}>Next: {u.next_action}</div>}

@@ -36,6 +36,7 @@ import { CoverImage } from './refurbs/CoverPhoto'
 import { pressable } from '../lib/pressable'
 import { Icon } from '../lib/icons'
 import { Skeleton } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const mono = MONO
 const fmt = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -144,11 +145,6 @@ function toneFor(project, t, today) {
 }
 
 const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', outline: 'none', width: '100%' })
-const btn = (T, kind = 'ghost') => ({
-  fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? CV.onGold : kind === 'danger' ? T.red : T.muted,
-  border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
-})
 
 // ── New refurb form ────────────────────────────────────────────────────────
 function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = 'residential', templates = [], people = [], onCreate, onCancel, T }) {
@@ -248,8 +244,8 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
       </div>
     </div>
     <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-      <button onClick={submit} disabled={!propertyId || saving} style={{ ...btn(T, 'gold'), opacity: !propertyId || saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Create refurb'}</button>
-      <button onClick={onCancel} style={btn(T)}>Cancel</button>
+      <Button variant="primary" size="sm" onClick={submit} disabled={!propertyId || saving} style={{opacity: !propertyId || saving ? 0.6 : 1}}>{saving ? 'Saving…' : 'Create refurb'}</Button>
+      <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
     </div>
     <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10 }}>Only the property is required. The cover photo, stages, dates and payments are added in the workspace.</div>
   </div>
@@ -357,7 +353,6 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const ph = { fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
   const lineRow = { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${T.border}`, fontSize: 13 }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
-  const iconBtn = { fontFamily: mono, fontSize: 11, padding: '3px 7px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, cursor: 'pointer', color: T.muted }
 
   const renderLine = (l, showKind) => editingLine === l.id ? (
     <div key={l.id} style={{ ...lineRow, gridTemplateColumns: '1fr', border: `1px solid ${T.gold}44`, borderRadius: 8, padding: 10, marginBottom: 6 }}>
@@ -369,8 +364,8 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         {showKind && <select value={lineEdit.kind} onChange={e => setLineEdit(x => ({ ...x, kind: e.target.value }))} style={{ ...inputStyle(T), width: 'auto' }}><option value="payment">Payment</option><option value="credit">Credit / refund</option></select>}
-        <button onClick={saveEdit} style={btn(T, 'gold')}>Save</button>
-        <button onClick={() => setEditingLine(null)} style={btn(T)}>Cancel</button>
+        <Button variant="primary" size="sm" onClick={saveEdit}>Save</Button>
+        <Button variant="secondary" size="sm" onClick={() => setEditingLine(null)}>Cancel</Button>
       </div>
     </div>
   ) : (
@@ -383,8 +378,8 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         {l.kind === 'extra' ? '+ ' : l.kind === 'credit' ? '− ' : ''}{fmtLine(l.amount)}
       </div>
       {canEdit ? <div style={{ display: 'flex', gap: 4 }}>
-        <button onClick={() => startEdit(l)} style={iconBtn} title="Edit" aria-label="Edit">✎</button>
-        <button onClick={() => removeLine(l)} style={{ ...iconBtn, display: 'inline-flex', alignItems: 'center' }} title="Delete" aria-label="Delete"><Icon name="trash" size={12}/></button>
+        <Button variant="ghost" size="sm" iconOnly onClick={() => startEdit(l)} title="Edit" aria-label="Edit">✎</Button>
+        <Button variant="ghost" size="sm" icon="trash" onClick={() => removeLine(l)} title="Delete" aria-label="Delete" />
       </div> : <span />}
     </div>
   )
@@ -395,7 +390,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
     {/* Header (the workspace has its own when costsOnly) */}
     {!costsOnly && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
       <div style={{ minWidth: 0 }}>
-        {!embedded && <button onClick={onBack} style={{ ...btn(T), marginBottom: 8 }}>← All refurbs</button>}
+        {!embedded && <Button variant="secondary" size="sm" onClick={onBack} style={{marginBottom: 8}}>← All refurbs</Button>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {!embedded && <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: '-0.01em' }}>{property.name || property.address}</h2>}
           {embedded && <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{project.title || 'Refurbishment'}</h3>}
@@ -414,7 +409,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         <select value={project.stage} disabled={!canEdit} onChange={e => changeStage(e.target.value)} style={{ ...inputStyle(T), width: 'auto', fontWeight: 700 }}>
           {STAGES.map(s => <option key={s} value={s}>{STAGE_CFG[s].label}</option>)}
         </select>
-        {canEdit && <button onClick={onDelete} style={btn(T, 'danger')}>Delete</button>}
+        {canEdit && <Button variant="danger" size="sm" onClick={onDelete}>Delete</Button>}
       </div>
     </div>}
 
@@ -422,8 +417,8 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
       <div style={{ background: T.green + '15', border: `1px solid ${T.green}55`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: SANS, fontSize: FS.base, color: T.text }}>Paid in full. Mark this refurb as complete?</span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => changeStage('complete')} style={btn(T, 'gold')}>Mark complete</button>
-          <button onClick={() => setSuggest(null)} style={btn(T)}>Not yet</button>
+          <Button variant="primary" size="sm" onClick={() => changeStage('complete')}>Mark complete</Button>
+          <Button variant="secondary" size="sm" onClick={() => setSuggest(null)}>Not yet</Button>
         </div>
       </div>
     )}
@@ -464,7 +459,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
           {canEdit && quick.kind === 'extra' ? (
             <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} onCancel={() => setQuick(q => ({ ...q, kind: 'payment' }))} T={T} isMobile={isMobile} />
           ) : canEdit && (
-            <button onClick={() => setQuick(q => ({ ...q, kind: 'extra', description: '' }))} style={{ ...btn(T), marginTop: 10 }}>+ Extra (builder added cost)</button>
+            <Button variant="secondary" size="sm" onClick={() => setQuick(q => ({ ...q, kind: 'extra', description: '' }))} style={{marginTop: 10}} icon="plus">Extra (builder added cost)</Button>
           )}
         </div>
 
@@ -540,8 +535,8 @@ function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit =
       <div><label style={lbl}>{isExtra ? 'Agreed with' : 'Paid to'}</label><input list="refurb-payees" value={quick.payee} onChange={e => setQuick(q => ({ ...q, payee: e.target.value }))} placeholder="Contractor" style={inputStyle(T)} /></div>
       <div><label style={lbl}>{isExtra ? 'What was added' : 'Note'}</label><input value={quick.description} onChange={e => setQuick(q => ({ ...q, description: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') onAdd() }} placeholder={isExtra ? 'e.g. Rewire to current regs' : 'e.g. Second stage payment'} style={inputStyle(T)} /></div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button onClick={onAdd} disabled={!Number(quick.amount)} style={{ ...btn(T, 'gold'), opacity: Number(quick.amount) ? 1 : 0.5 }}>Add</button>
-        {onCancel && <button onClick={onCancel} style={btn(T)}>Cancel</button>}
+        <Button variant="primary" size="sm" onClick={onAdd} disabled={!Number(quick.amount)} style={{opacity: Number(quick.amount) ? 1 : 0.5}}>Add</Button>
+        {onCancel && <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>}
       </div>
     </div>
     {allowCredit && !isExtra && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, cursor: 'pointer' }}>
@@ -591,8 +586,8 @@ function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile
       <Progress pct={t.pct} tone={tone} T={T} />
     </div>
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-      {canEdit && project.stage !== 'complete' && <button onClick={onQuickPay} style={btn(T, 'gold')}>+ Payment</button>}
-      <button onClick={onOpen} style={btn(T)}>Open →</button>
+      {canEdit && project.stage !== 'complete' && <Button variant="primary" size="sm" onClick={onQuickPay} icon="plus">Payment</Button>}
+      <Button variant="secondary" size="sm" onClick={onOpen}>Open →</Button>
     </div>
   </div>
 }
@@ -668,7 +663,7 @@ function Ledger({ projects, onOpen, T }) {
         <option value="all">All payees</option>{payees.map(p => <option key={p} value={p}>{p}</option>)}
       </select>
       <span style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginLeft: 'auto' }}>{rows.length} {rows.length === 1 ? 'line' : 'lines'}{kind !== 'extra' ? ` · ${fmt(total)}` : ''}</span>
-      <button onClick={exportCsv} disabled={rows.length === 0} style={btn(T)}>Export CSV</button>
+      <Button variant="secondary" size="sm" onClick={exportCsv} disabled={rows.length === 0}>Export CSV</Button>
     </div>
     <div style={{ overflowX: 'auto', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12 }}>
       <table className="table-stack" style={{ borderCollapse: 'collapse', width: '100%' }}>
@@ -917,8 +912,8 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
             style={{ fontFamily: SANS, fontSize: FS.sm, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? CV.onGold : T.muted }}>{l}</button>
         ))}
       </div>
-      <button onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }} style={{ ...btn(T), padding: '8px 14px', fontSize: 12 }}>Import refurb invoice</button>
-      <button onClick={() => { setCreating(true); setSelectedId(null) }} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ New refurb</button>
+      <Button variant="secondary" size="sm" onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }}>Import refurb invoice</Button>
+      <Button variant="primary" size="sm" icon="plus" onClick={() => { setCreating(true); setSelectedId(null) }}>New refurb</Button>
     </div>
   </div>
 
@@ -951,7 +946,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{properties.length ? 'This refurb is not available' : 'Loading…'}</div>
       {properties.length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12 }}>It may have been deleted, or it belongs to a company you no longer have access to.</div>}
-      <button onClick={() => setSelectedId(null)} style={btn(T)}>← All refurbs</button>
+      <Button variant="secondary" size="sm" onClick={() => setSelectedId(null)}>← All refurbs</Button>
     </div>
   </div>
 
@@ -1023,7 +1018,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
         <input type="checkbox" checked={filters.archived} onChange={e => setFilter('archived', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Archived only
       </label>
-      {activeFilters && <button onClick={() => setFilters(f => ({ ...f, q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '' }))} style={btn(T)}>Clear filters</button>}
+      {activeFilters && <Button variant="secondary" size="sm" onClick={() => setFilters(f => ({ ...f, q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '' }))}>Clear filters</Button>}
     </div>
 
     {creating && <NewRefurbForm properties={properties.filter(p => canEditFor(p.company_id))} companies={companies} defaultType={filters.type} templates={templates} people={people}
@@ -1033,7 +1028,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     {(sub === 'cards' || sub === 'list') && listed.length === 0 && !creating && <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 28, textAlign: 'center' }}>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{filters.archived ? 'Nothing archived' : activeFilters ? 'No refurbs match these filters' : `No ${filters.type} refurbs on the go`}</div>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14 }}>{activeFilters ? 'Clear the filters to see everything.' : 'Start one with the property and, if you have it, the price agreed with the builder.'}</div>
-      {!filters.archived && <button onClick={() => setCreating(true)} style={btn(T, 'gold')}>+ New refurb</button>}
+      {!filters.archived && <Button variant="primary" size="sm" onClick={() => setCreating(true)} icon="plus">New refurb</Button>}
     </div>}
 
     {sub === 'cards' && listed.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
@@ -1136,9 +1131,9 @@ export function RefurbPropertyTab({ property, companies = [], properties = [], p
         })}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        {openRefurbs && selected && <button onClick={() => { window.location.hash = `#/refurbs/project/${selected.id}/overview`; openRefurbs() }} style={btn(T, 'gold')}>Open workspace →</button>}
-        {openRefurbs && <button onClick={openRefurbs} style={btn(T)}>All refurbs →</button>}
-        {canEdit && <button onClick={() => setCreating(v => !v)} style={btn(T, 'gold')}>+ New refurb</button>}
+        {openRefurbs && selected && <Button variant="primary" size="sm" onClick={() => { window.location.hash = `#/refurbs/project/${selected.id}/overview`; openRefurbs() }}>Open workspace →</Button>}
+        {openRefurbs && <Button variant="secondary" size="sm" onClick={openRefurbs}>All refurbs →</Button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={() => setCreating(v => !v)} icon="plus">New refurb</Button>}
       </div>
     </div>
     {creating && <NewRefurbForm properties={[property]} companies={companies} fixedPropertyId={property.id} onCreate={handleCreate} onCancel={() => setCreating(false)} T={T} />}

@@ -6,11 +6,10 @@ import { Icon } from '../lib/icons'
 import { parseStatement } from '../lib/statementParser'
 import { parseForImport, fromLegacyParse } from '../lib/statementImport'
 import { extractPdfTextFromFile } from '../lib/pdfExtract'
-import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
-import FocusTrap from '../lib/FocusTrap'
 import StatementImportReview from './StatementImportReview'
 import { pressable } from '../lib/pressable'
+import { Button, Modal } from './ui'
 
 // ── MANAGING-AGENT STATEMENT IMPORT ─────────────────────────────────────────
 // Upload a PNE / RMS statement (or open one received by email), Properly
@@ -167,7 +166,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                           {co && <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
                           {done
                             ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
-                            : <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</button>}
+                            : <Button variant="primary" size="sm" onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</Button>}
                         </div>
                       )
                     })}
@@ -260,7 +259,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                 </div>
               )}
               <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
-              <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={onClose}>Close &amp; refresh</button>
+              <Button variant="primary" size="sm" onClick={onClose}>Close &amp; refresh</Button>
             </div>
           )}
         </div>
@@ -277,12 +276,8 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(step !== 'upload' && step !== 'done', onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth: step === 'preview' ? 1300 : 720, width: step === 'preview' ? '96vw' : undefined, maxHeight:'92vh',overflow:'hidden',display:'flex',flexDirection:'column'}} role="dialog" aria-modal="true" aria-labelledby="statement-importer-title">
+    <Modal onClose={onClose} labelledBy="statement-importer-title" isDirty={step !== 'upload' && step !== 'done'} confirmFn={confirmDiscard} style={{maxWidth: step === 'preview' ? 1300 : 720, width: step === 'preview' ? '96vw' : undefined, maxHeight:'92vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
         {inner}
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

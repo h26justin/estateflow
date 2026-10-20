@@ -15,14 +15,13 @@ import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { safeOverlayClose } from '../lib/modalUtils'
-import FocusTrap from '../lib/FocusTrap'
 import { naturalCompare } from '../lib/addressUtils'
 import {
   parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn, summarise,
 } from '../lib/csvImport'
 import { pressable } from '../lib/pressable'
 import { Icon } from '../lib/icons'
+import { Button, Modal } from './ui'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(n || 0)
 
@@ -260,10 +259,9 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   // beside the summary too. Defined once so the label and the disabled rule can
   // never drift between the two copies.
   const commitButton = () => (
-    <button className="btn btn-gold" onClick={handleCommit} disabled={!canCommit || busy}
-      style={{ fontSize: 11, whiteSpace: 'nowrap', ...((!canCommit || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
+    <Button variant="primary" size="sm" onClick={handleCommit} disabled={!canCommit || busy} style={{...((!canCommit || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null)}}>
       {busy ? 'Importing…' : `Import ${s ? s.create + s.update : 0} row(s)`}
-    </button>
+    </Button>
   )
 
   const label = { fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '.06em' }
@@ -354,8 +352,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                         <td style={{ ...cell, textAlign: 'right' }}>
                           {b.reverted_at
                             ? chip('muted', 'reverted')
-                            : <button className="btn btn-ghost" style={{ fontSize: FS.xs }} disabled={busy}
-                                onClick={() => handleRevert(b)}>Revert</button>}
+                            : <Button variant="secondary" size="sm" disabled={busy} onClick={() => handleRevert(b)}>Revert</Button>}
                         </td>
                       </tr>
                     ))}
@@ -438,30 +435,29 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                   {s.error} row{s.error === 1 ? '' : 's'} cannot be imported. Nothing will be written while any row is
                   blocked. Assign a property where one is missing, or leave the row out and import the rest.
                 </div>
-                <button className="btn btn-ghost" style={{ fontSize: FS.xs }}
-                  onClick={() => setExcluded(prev => {
+                <Button variant="secondary" size="sm" onClick={() => setExcluded(prev => {
                     const next = new Set(prev)
                     blockedNotExcluded.forEach(l => next.add(l))
                     return next
                   })}>
                   Leave out {blockedNotExcluded.length} blocked row{blockedNotExcluded.length === 1 ? '' : 's'} and import the rest
-                </button>
+                </Button>
               </div>
             )}
             {excluded.size > 0 && (
               <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
                 {excluded.size} row{excluded.size === 1 ? '' : 's'} left out by hand and will not be imported.{' '}
-                <button className="btn btn-ghost" style={{ fontSize: FS.xs }} onClick={() => setExcluded(new Set())}>
+                <Button variant="secondary" size="sm" onClick={() => setExcluded(new Set())}>
                   Put them all back
-                </button>
+                </Button>
               </div>
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ ...label }}>Rows</div>
-              <button className="btn btn-ghost" style={{ fontSize: FS.xs }} onClick={() => setShowAll(v => !v)}>
+              <Button variant="secondary" size="sm" onClick={() => setShowAll(v => !v)}>
                 {showAll ? 'Show problems only' : `Show all ${planned.plan.length}`}
-              </button>
+              </Button>
             </div>
 
             <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
@@ -559,7 +555,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
             <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
               This import can be reverted in one action from the first screen.
             </div>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={onClose}>Close &amp; refresh</button>
+            <Button variant="primary" size="sm" onClick={onClose}>Close &amp; refresh</Button>
           </div>
         )}
       </div>
@@ -568,11 +564,10 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
       {step === 'map' && (
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setStep('upload')}>← Back</button>
-          <button className="btn btn-gold" onClick={goToPreview} disabled={missing.length > 0 || busy}
-            style={{ fontSize: 11, ...((missing.length > 0 || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
+          <Button variant="secondary" size="sm" onClick={() => setStep('upload')}>← Back</Button>
+          <Button variant="primary" size="sm" onClick={goToPreview} disabled={missing.length > 0 || busy} style={{...((missing.length > 0 || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null)}}>
             {busy ? 'Loading…' : 'Review the plan →'}
-          </button>
+          </Button>
         </div>
       )}
       {step === 'preview' && s && (
@@ -588,7 +583,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                   </span>
                 : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
           </div>
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setStep('map')}>← Back</button>
+          <Button variant="secondary" size="sm" onClick={() => setStep('map')}>← Back</Button>
           {commitButton()}
         </div>
       )}
@@ -606,13 +601,8 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(dirty, onClose, confirm)}>
-      <FocusTrap onEscape={() => safeOverlayClose(dirty, onClose, confirm)({ target: null, currentTarget: null })}>
-        <div className="modal" style={{ maxWidth: 960, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-          role="dialog" aria-modal="true" aria-labelledby="data-importer-title">
+    <Modal onClose={onClose} size="xl" labelledBy="data-importer-title" isDirty={dirty} confirmFn={confirm} style={{maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
           {inner}
-        </div>
-      </FocusTrap>
-    </div>
+        </Modal>
   )
 }

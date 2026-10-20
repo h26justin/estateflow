@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO, FS, SANS } from '../../lib/styles'
+import { MONO, FS, SANS, R } from '../../lib/styles'
+import { Button, Modal } from '../ui'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -275,52 +276,33 @@ export function AdminSettingsPanel({ user, T, showToast }) {
 
       {/* ── DELETE USER MODAL ── */}
       {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 600, padding: 24 }}>
-          <div style={{ background: T.surface, border: `2px solid ${T.red}44`, borderRadius: 18, width: '100%', maxWidth: 440, padding: '32px 28px' }}>
-            {/* Warning header */}
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="alert-triangle" size={36} color={T.red}/></div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>Delete user account</h2>
-              <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, lineHeight: 1.7 }}>
-                This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data including companies, properties, deals and documents.
-              </p>
-              <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.red, marginTop: 8, fontWeight: 700 }}>This cannot be undone.</p>
-            </div>
-
-            {/* Password confirmation */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 8 }}>
-                Enter your admin password to confirm
-              </label>
-              <input aria-label="Enter your admin password to confirm"
-                type="password"
-                value={deletePassword}
-                onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
-                onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
-                placeholder="Your password"
-                autoFocus
-                style={{ width: '100%', fontFamily: SANS, fontSize: FS.base, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px' }}
-              />
-              {deleteError && (
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') }}
-                style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '11px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteUser}
-                disabled={deleting || !deletePassword}
-                style={{ flex: 2, fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
-                {deleting ? 'Verifying & deleting…' : 'Permanently delete user'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal onClose={() => { if (!deleting) { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') } }} size="sm" zIndex={600}
+          title="Delete user account"
+          description={<>This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data including companies, properties, deals and documents. <strong style={{ color: T.red }}>This cannot be undone.</strong></>}
+          footer={<>
+            <Button variant="secondary" onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') }}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDeleteUser} disabled={deleting || !deletePassword}>
+              {deleting ? 'Verifying & deleting…' : 'Permanently delete user'}
+            </Button>
+          </>}>
+          <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 8 }}>
+            Enter your admin password to confirm
+          </label>
+          <input aria-label="Enter your admin password to confirm"
+            type="password"
+            value={deletePassword}
+            onChange={e => { setDeletePassword(e.target.value); setDeleteError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
+            placeholder="Your password"
+            autoFocus
+            style={{ width: '100%', fontFamily: SANS, fontSize: FS.base, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: R.sm, padding: '10px 14px' }}
+          />
+          {deleteError && (
+            <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>
+          )}
+        </Modal>
       )}
     </div>
   )

@@ -26,6 +26,7 @@ import { ReferralPanel } from './ReferralPanel'
 import { AccountTypePanel } from './AccountTypePanel'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { canWriteCompany } from '../../lib/permissions'
+import { Button } from '../ui'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('../HelpCenter'))
@@ -398,9 +399,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                 <input id="settings-email" value={user?.email||''} disabled style={{opacity:0.5,cursor:'not-allowed'}}/>
                 <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:5}}>To change your email or password, see Security &amp; Data below.</div>
               </div>
-              <button className="btn btn-gold" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
+              <Button variant="primary" onClick={saveProfile} disabled={profileSaving} style={{marginTop:8}}>
                 {profileSaving ? 'Saving…' : 'Save profile'}
-              </button>
+              </Button>
             </div>
 
             <AccountTypePanel T={T} mono={mono} user={user} accountType={accountType} setAccountType={setAccountType}/>
@@ -408,7 +409,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
             <div style={sectionStyle}>
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>App tour</div>
               <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,marginBottom:12}}>Replay the getting started tour at any time.</div>
-              <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>Replay tour</button>
+              <Button variant="secondary" size="sm" onClick={()=>window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>Replay tour</Button>
             </div>
           </>
       )}
@@ -424,9 +425,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <input aria-label="New Email Address" value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder={user?.email} type="email"/>
             </div>
             <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:12,lineHeight:1.6}}>A confirmation link will be sent to both addresses. The change takes effect once confirmed.</div>
-            <button className="btn btn-gold" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
+            <Button variant="primary" onClick={updateEmail} disabled={emailSaving||!newEmail.trim()}>
               {emailSaving ? 'Sending…' : 'Update email'}
-            </button>
+            </Button>
           </div>
           <div style={sectionStyle}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Change password</div>
@@ -447,10 +448,10 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <label htmlFor="showpwS" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,cursor:'pointer',margin:0}}>Show passwords</label>
             </div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-              <button className="btn btn-gold" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
+              <Button variant="primary" onClick={updatePassword} disabled={pwSaving||!currentPassword||!newPassword||!confirmPassword}>
                 {pwSaving ? 'Updating…' : 'Update password'}
-              </button>
-              <button className="btn btn-ghost" onClick={sendResetEmail} style={{fontSize:11}}>Send reset email instead</button>
+              </Button>
+              <Button variant="secondary" size="sm" onClick={sendResetEmail}>Send reset email instead</Button>
             </div>
           </div>
           <TwoFactorPanel T={T}/>
@@ -548,9 +549,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               </button>
             </div>
           ))}
-          <button className="btn btn-gold" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
+          <Button variant="primary" onClick={saveNotifications} disabled={notifSaving} style={{marginTop:20}}>
             {notifSaving ? 'Saving…' : 'Save preferences'}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -902,7 +903,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
               <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>User Access</div>
               <div style={{fontFamily:SANS,fontSize:FS.base,color:T.text,marginBottom:4}}>Manage who can access each company in your portfolio, and what each member may do there (Viewer, Rent Tracker Editor, Editor or Admin).</div>
               <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:16}}>Signed in as <span style={{color:T.goldText}}>{user?.email}</span></div>
-              <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowAccessModal(true)}>Manage user access</button>
+              <Button variant="primary" size="sm" onClick={()=>setShowAccessModal(true)}>Manage user access</Button>
             </div>
           )}
           <div style={sectionStyle}>

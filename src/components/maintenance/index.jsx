@@ -96,7 +96,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Maintenance & Repairs</div>
           <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2}}>{openJobs.length} open · Total cost {fmt(totalCost)}</div>
         </div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log job</button>}
+        {canEdit && <Button variant="primary" size="sm" onClick={()=>{setEditJob(null);setForm(blank);setShowForm(v=>!v)}}>+ Log job</Button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -120,8 +120,8 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div><label>Date resolved</label><input aria-label="Date Resolved" type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>{editJob?'Update Job':'Add Job'}</button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>{editJob?'Update Job':'Add Job'}</Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
 

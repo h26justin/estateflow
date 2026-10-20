@@ -15,10 +15,9 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
-import { safeOverlayClose } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import MoneyInput from '../lib/MoneyInput'
-import FocusTrap from '../lib/FocusTrap'
+import { Button, Modal } from './ui'
 
 const mono = MONO
 
@@ -307,19 +306,19 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           {/* Action buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, gap: 10 }}>
             <div>
-              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <Button variant="secondary" onClick={onClose}>Cancel</Button>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              {step > 1 && <button className="btn btn-ghost" onClick={() => setStep(step - 1)} disabled={saving}>← Back</button>}
+              {step > 1 && <Button variant="secondary" onClick={() => setStep(step - 1)} disabled={saving}>← Back</Button>}
               {step < 3 && (
-                <button className="btn btn-gold" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
+                <Button variant="primary" onClick={() => setStep(step + 1)} disabled={!canProceed()}>
                   Next →
-                </button>
+                </Button>
               )}
               {step === 3 && (
-                <button className="btn btn-gold" onClick={handleSave} disabled={!canProceed() || saving}>
+                <Button variant="primary" onClick={handleSave} disabled={!canProceed() || saving}>
                   {saving ? 'Saving…' : `✓ Create ${units.length} ${units.length === 1 ? 'property' : 'properties'}`}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -338,13 +337,9 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: step === 3 ? 920 : 640 }} role="dialog" aria-modal="true" aria-labelledby="bulk-add-property-modal-title">
+    <Modal onClose={onClose} labelledBy="bulk-add-property-modal-title" isDirty={isDirty} confirmFn={confirmDiscard} style={{maxWidth: step === 3 ? 920 : 640}}>
         {inner}
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

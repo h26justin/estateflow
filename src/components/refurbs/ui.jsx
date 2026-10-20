@@ -14,11 +14,6 @@ export const todayISO = () => {
 }
 
 export const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '7px 9px', outline: 'none', width: '100%', minHeight: 34, boxSizing: 'border-box' })
-export const btn = (T, kind = 'ghost') => ({
-  fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '7px 12px', borderRadius: 6, cursor: 'pointer', minHeight: 32,
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
-  border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`, whiteSpace: 'nowrap',
-})
 export const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 12, minWidth: 0 })
 export const label = T => ({ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 })
 export const sectionHead = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 })

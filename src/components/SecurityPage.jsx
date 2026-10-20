@@ -29,7 +29,7 @@ export default function SecurityPage({ onBack }) {
     <div style={{ minHeight: '100vh', background: T.bg, padding: '40px 24px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
         {onBack && (
-          <Button variant="secondary" size="sm" icon="chevron-left" onClick={onBack} style={{ marginBottom: 32 }}>
+          <Button variant="secondary" size="sm" icon="chevron-left" onClick={onBack} style={{marginBottom: 32}}>
             Back
           </Button>
         )}

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { ChromeLogo } from '../Logo'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
+import { Button } from '../ui'
 
 // Mobile navigation drawer (opened from the bottom nav's More button).
 // Moved verbatim from App.jsx; every value it reads is passed in explicitly.
@@ -14,7 +15,7 @@ export function MobileDrawer({
   return (
     <div style={{position:'fixed',inset:0,zIndex:300,display:'flex'}}>
       {/* Backdrop */}
-      <div style={{flex:1,background:'rgba(0,0,0,0.6)'}} onClick={()=>setShowDrawer(false)}/>
+      <div style={{flex:1,background:'var(--scrim)'}} onClick={()=>setShowDrawer(false)}/>
       {/* Drawer panel */}
       <div role="dialog" aria-modal="true" aria-label="Navigation menu" style={{width:260,background:T.surface,height:'100%',display:'flex',flexDirection:'column',borderLeft:`1px solid ${T.border}`}}>
         {/* Drawer header */}
@@ -82,18 +83,15 @@ export function MobileDrawer({
               <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,fontWeight:500}}>{item.label}</span>
             </button>
           ))}
-          <button className="btn btn-ghost" style={{width:'100%',fontSize:FS.sm,padding:'10px',marginTop:4}}
-            onClick={()=>{openSettingsTab('help');setShowDrawer(false)}}>
+          <Button variant="secondary" size="sm" onClick={()=>{openSettingsTab('help');setShowDrawer(false)}} style={{width:'100%', marginTop:4}}>
             Help & guides
-          </button>
-          <button className="btn btn-ghost" style={{width:'100%',fontSize:FS.sm,padding:'10px'}}
-            onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setView('feedback');setSelectedId(null);setShowDrawer(false)}} style={{width:'100%'}}>
             Send feedback
-          </button>
-          <button className="btn btn-ghost" style={{width:'100%',fontSize:FS.sm,padding:'10px'}}
-            onClick={()=>supabase.auth.signOut()}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={()=>supabase.auth.signOut()} style={{width:'100%'}}>
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { showAppToast } from '../lib/toast'
 import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
 import { Skeleton } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -251,14 +251,14 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
               </a>
             )}
             {canWrite && (
-              <button className="btn" disabled={syncing || syncingAll} onClick={() => runSync(false)}>
+              <Button variant="secondary" disabled={syncing || syncingAll} onClick={() => runSync(false)}>
                 {syncing ? 'Checking…' : (cert ? 'Re-check register' : 'Check register')}
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button className="btn btn-ghost" disabled={syncing || syncingAll} onClick={runSyncAll}>
+              <Button variant="secondary" disabled={syncing || syncingAll} onClick={runSyncAll}>
                 {syncingAll ? 'Syncing portfolio…' : 'Sync all properties'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -288,14 +288,14 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn btn-gold" disabled={generating} onClick={() => runGenerate(false)}>
+            <Button variant="primary" disabled={generating} onClick={() => runGenerate(false)}>
               {generating ? 'Generating…' : (plan ? 'Regenerate plan' : 'Generate plan')}
-            </button>
+            </Button>
             {measures.length > 0 && (
-              <button className="btn" disabled={generating} onClick={() => runGenerate(true)}>Save plan</button>
+              <Button variant="secondary" disabled={generating} onClick={() => runGenerate(true)}>Save plan</Button>
             )}
             {plan?.id && (
-              <button className="btn btn-ghost" disabled={generating} onClick={handleDelete}>Delete</button>
+              <Button variant="secondary" disabled={generating} onClick={handleDelete}>Delete</Button>
             )}
           </div>
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>

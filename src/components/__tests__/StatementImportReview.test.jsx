@@ -37,8 +37,8 @@ describe('Import review', () => {
     expect(screen.getByText('Rook Matthews Sayer')).toBeTruthy()
     expect(screen.getByText('BYHS-RMS-P600298')).toBeTruthy()
     expect(screen.getAllByText('Ready to import').length).toBe(2)
-    const approve = await screen.findByText('Approve import (2 lines)')
-    await waitFor(() => expect(approve.disabled).toBe(false))
+    const approve = await screen.findByRole('button', { name: 'Approve import (2 lines)' })
+    await waitFor(() => expect(approve).toBeEnabled())
     fireEvent.click(approve)
     await waitFor(() => expect(commitStatementImport).toHaveBeenCalled())
     const arg = commitStatementImport.mock.calls[0][0]
@@ -61,8 +61,8 @@ describe('Import review', () => {
     renderReview()
     const boxes = screen.getAllByRole('checkbox')
     fireEvent.click(boxes[1])   // the fee line
-    const approve = await screen.findByText('Approve import (1 line)')
-    await waitFor(() => expect(approve.disabled).toBe(false))
+    const approve = await screen.findByRole('button', { name: 'Approve import (1 line)' })
+    await waitFor(() => expect(approve).toBeEnabled())
     fireEvent.click(approve)
     await waitFor(() => expect(commitStatementImport).toHaveBeenCalled())
     expect(commitStatementImport.mock.calls[0][0].plan.expenses).toHaveLength(0)

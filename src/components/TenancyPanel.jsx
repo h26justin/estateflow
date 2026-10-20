@@ -17,6 +17,7 @@ import {
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
 } from '../lib/tenancyUtils'
 import { SkeletonRows } from '../lib/Skeleton'
+import { Button } from './ui'
 
 const label = (list, v) => list.find(x => x.v === v)?.l || v || '—'
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -148,10 +149,10 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
           {isCurrent && pill('Current', T.gold)}
           {t.needs_confirmation && pill('Needs confirmation', T.amber)}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            {canEdit && t.needs_confirmation && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => confirmDraft(t)}>Confirm</button>}
-            {canEdit && <button className="btn" style={{ fontSize: FS.sm }} onClick={() => startEdit(t)}>Edit</button>}
-            {canEdit && t.status !== 'ended' && <button className="btn" style={{ fontSize: FS.sm }} onClick={() => endNow(t)}>End tenancy</button>}
-            {canEdit && <button className="btn" style={{ fontSize: FS.sm, color: T.red }} onClick={() => remove(t)} aria-label="Delete tenancy">✕</button>}
+            {canEdit && t.needs_confirmation && <Button variant="primary" size="sm" onClick={() => confirmDraft(t)}>Confirm</Button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={() => startEdit(t)}>Edit</Button>}
+            {canEdit && t.status !== 'ended' && <Button variant="secondary" size="sm" onClick={() => endNow(t)}>End tenancy</Button>}
+            {canEdit && <Button variant="ghost" size="sm" onClick={() => remove(t)} aria-label="Delete tenancy" destructive icon="x" />}
           </div>
         </div>
         <div style={{ display: 'grid', gap: 6 }}>
@@ -182,8 +183,8 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
     <div style={{ marginBottom: 18 }}>
       {sectionHead('Tenancies', canEdit && editing === null && (
         <>
-          {(tenancies?.length === 0) && <button className="btn" style={{ fontSize: FS.sm }} onClick={prefillFromProperty}>Prefill from property</button>}
-          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => startNew()}>+ New tenancy</button>
+          {(tenancies?.length === 0) && <Button variant="secondary" size="sm" onClick={prefillFromProperty}>Prefill from property</Button>}
+          <Button variant="primary" size="sm" onClick={() => startNew()}>+ New tenancy</Button>
         </>
       ))}
 
@@ -241,8 +242,8 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
           )}
           <div style={{ marginBottom: 14 }}><label>Notes</label><textarea aria-label="Notes" value={form.notes} onChange={e => s('notes', e.target.value)} rows={2} style={{ resize: 'vertical' }} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save tenancy'}</button>
-            <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setEditing(null)}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save tenancy'}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -250,7 +251,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       {cur && <TenancyCard t={cur} isCurrent />}
       {history.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setShowHistory(v => !v)}>{showHistory ? 'Hide' : 'Show'} {history.length} previous {history.length === 1 ? 'tenancy' : 'tenancies'}</button>
+          <Button variant="secondary" size="sm" onClick={() => setShowHistory(v => !v)}>{showHistory ? 'Hide' : 'Show'} {history.length} previous {history.length === 1 ? 'tenancy' : 'tenancies'}</Button>
           {showHistory && <div style={{ marginTop: 10 }}>{history.map(t => <TenancyCard key={t.id} t={t} isCurrent={false} />)}</div>}
         </div>
       )}
@@ -258,7 +259,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
       {/* Non-chargeable periods */}
       <div style={{ marginTop: 18 }}>
         {sectionHead('Non-chargeable periods', canEdit && !periodForm && (
-          <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setPeriodForm({ start_date: '', end_date: '', reason: 'vacant', notes: '' })}>+ Add period</button>
+          <Button variant="secondary" size="sm" onClick={() => setPeriodForm({ start_date: '', end_date: '', reason: 'vacant', notes: '' })}>+ Add period</Button>
         ))}
         <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Vacant, refurbishment or agreed rent-free periods. These months are excluded from the collection rate.</div>
         {periodForm && (
@@ -272,8 +273,8 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
             </div>
             <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={periodForm.notes || ''} onChange={e => setPeriodForm(f => ({ ...f, notes: e.target.value }))} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={savePeriod}>Save period</button>
-              <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setPeriodForm(null)}>Cancel</button>
+              <Button variant="primary" size="sm" onClick={savePeriod}>Save period</Button>
+              <Button variant="secondary" size="sm" onClick={() => setPeriodForm(null)}>Cancel</Button>
             </div>
           </div>
         )}
@@ -285,8 +286,8 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
               {fmtDate(p.start_date)} → {p.end_date ? fmtDate(p.end_date) : 'ongoing'}
               <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginLeft: 8 }}>{NON_CHARGEABLE_REASON_LABEL[p.reason] || p.reason}{p.notes ? ` · ${p.notes}` : ''}</span>
             </div>
-            {canEdit && <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</button>}
-            {canEdit && <button className="btn" style={{ fontSize: FS.sm, color: T.red }} onClick={() => removePeriod(p)} aria-label="Remove period">✕</button>}
+            {canEdit && <Button variant="secondary" size="sm" onClick={() => setPeriodForm({ id: p.id, start_date: p.start_date, end_date: p.end_date || '', reason: p.reason, notes: p.notes || '' })}>Edit</Button>}
+            {canEdit && <Button variant="ghost" size="sm" onClick={() => removePeriod(p)} aria-label="Remove period" destructive icon="x" />}
           </div>
         ))}
       </div>

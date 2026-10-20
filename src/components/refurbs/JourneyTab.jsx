@@ -13,8 +13,9 @@ import {
 } from '../../lib/refurbWorkspace'
 import Gantt from './Gantt'
 import { QuickText } from './StageDrawer'
-import { mono, btn, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate } from './ui'
+import { mono, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate } from './ui'
 import { FS, SANS } from '../../lib/styles'
+import { Button } from '../ui'
 
 export function JourneyStrip({ stages, onOpen, T }) {
   const tree = stageTree(stages).filter(s => s.status !== 'skipped')
@@ -105,12 +106,12 @@ export default function JourneyTab({ ws }) {
       {!isMobile && <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{Math.round(comp.value * 100)}%</span>}
       <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end' }}>
         {canEdit && !isMobile && <>
-          <button onClick={() => move(s, -1)} style={iconBtn(T)} aria-label={`Move ${s.name} up`} title="Move up">↑</button>
-          <button onClick={() => move(s, 1)} style={iconBtn(T)} aria-label={`Move ${s.name} down`} title="Move down">↓</button>
-          <button onClick={() => ops.updateStage(s, skipped ? { status: 'not_started', status_label: null } : { status: 'skipped', status_label: null })} style={iconBtn(T)} title={skipped ? 'Un-skip' : 'Skip this stage'}>{skipped ? 'Unskip' : 'Skip'}</button>
-          <button onClick={() => archive(s)} style={iconBtn(T)} title="Archive">Archive</button>
+          <Button variant="secondary" size="sm" iconOnly onClick={() => move(s, -1)} aria-label={`Move ${s.name} up`} title="Move up">↑</Button>
+          <Button variant="secondary" size="sm" iconOnly onClick={() => move(s, 1)} aria-label={`Move ${s.name} down`} title="Move down">↓</Button>
+          <Button variant="secondary" size="sm" onClick={() => ops.updateStage(s, skipped ? { status: 'not_started', status_label: null } : { status: 'skipped', status_label: null })} title={skipped ? 'Un-skip' : 'Skip this stage'}>{skipped ? 'Unskip' : 'Skip'}</Button>
+          <Button variant="secondary" size="sm" onClick={() => archive(s)} title="Archive">Archive</Button>
         </>}
-        <button onClick={() => ws.openStage(s.id)} style={iconBtn(T)} aria-label={`Open ${s.name}`}>Open</button>
+        <Button variant="secondary" size="sm" onClick={() => ws.openStage(s.id)} aria-label={`Open ${s.name}`}>Open</Button>
       </div>
     </div>
   }
@@ -120,8 +121,8 @@ export default function JourneyTab({ ws }) {
       <div style={sectionHead(T)}>
         <span>Refurb journey{project.template_name ? ` · from ${project.template_name}` : ''}</span>
         {canEdit && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', textTransform: 'none', letterSpacing: 0 }}>
-          <button onClick={() => setEditingStatuses(true)} style={btn(T)}>Custom statuses</button>
-          <button onClick={saveTemplate} style={btn(T)}>Save as template</button>
+          <Button variant="secondary" size="sm" onClick={() => setEditingStatuses(true)}>Custom statuses</Button>
+          <Button variant="secondary" size="sm" onClick={saveTemplate}>Save as template</Button>
         </div>}
       </div>
       <JourneyStrip stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} />
@@ -132,12 +133,12 @@ export default function JourneyTab({ ws }) {
       {tree.map((s, i) => [renderRow(s, i, 0), ...(s.children || []).map(c => renderRow(c, 0, 1))])}
       {canEdit && <QuickText placeholder="New stage name, e.g. Roof repairs" button="Add stage" T={T} onAdd={name => ops.addStage({ name })} />}
       {archived.length > 0 && <div style={{ marginTop: 12 }}>
-        <button onClick={() => setShowArchived(v => !v)} style={btn(T)}>{showArchived ? 'Hide' : 'Show'} archived stages ({archived.length})</button>
+        <Button variant="secondary" size="sm" onClick={() => setShowArchived(v => !v)}>{showArchived ? 'Hide' : 'Show'} archived stages ({archived.length})</Button>
         {showArchived && archived.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${T.border}`, gap: 8 }}>
           <span style={{ fontSize: 13, color: T.muted }}>{s.parent_id ? '↳ ' : ''}{s.name} <span style={{ fontFamily: mono, fontSize: FS.xs }}>· archived {fmtShort(s.archived_at)}</span></span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => ws.openStage(s.id)} style={btn(T)}>View</button>
-            {canEdit && <button onClick={() => ops.restoreStage(s)} style={btn(T)}>Restore</button>}
+            <Button variant="secondary" size="sm" onClick={() => ws.openStage(s.id)}>View</Button>
+            {canEdit && <Button variant="secondary" size="sm" onClick={() => ops.restoreStage(s)}>Restore</Button>}
           </div>
         </div>)}
       </div>}
@@ -184,7 +185,6 @@ function LegacyChecklist({ ws }) {
   </div>
 }
 
-const iconBtn = T => ({ fontFamily: mono, fontSize: FS.xs, padding: '3px 7px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, cursor: 'pointer', color: T.muted, minHeight: 26 })
 
 function TemplatePicker({ ws }) {
   const { ops, project, canEdit, templates, T } = ws
@@ -227,13 +227,13 @@ function StatusEditor({ ws, onClose }) {
         <select value={r.category} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={inputStyle(T)} aria-label="Behaves like">
           {STAGE_STATUSES.map(s => <option key={s} value={s}>Like {STAGE_STATUS_CFG[s].label}</option>)}
         </select>
-        <button onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} style={btn(T)} aria-label="Remove status">✕</button>
+        <Button variant="ghost" size="sm" onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} aria-label="Remove status" icon="x" />
       </div>)}
-      <button onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])} style={btn(T)}>+ Add status</button>
+      <Button variant="secondary" size="sm" icon="plus" onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])}>Add status</Button>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-        <button onClick={onClose} style={btn(T)}>Cancel</button>
-        <button disabled={saving} onClick={async () => { setSaving(true); const ok = await ops.updateProject({ custom_statuses: clean }); setSaving(false); if (ok) onClose() }} style={btn(T, 'gold')}>{saving ? 'Saving…' : 'Save statuses'}</button>
+        <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" size="sm" disabled={saving} onClick={async () => { setSaving(true); const ok = await ops.updateProject({ custom_statuses: clean }); setSaving(false); if (ok) onClose() }}>{saving ? 'Saving…' : 'Save statuses'}</Button>
       </div>
     </div>
   </Modal>
@@ -258,9 +258,8 @@ export function CascadeModal({ moves, projectEnd, newEnd, onApply, onSkip, T }) 
         <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason, e.g. Asbestos found in strip out" style={{ ...inputStyle(T), marginTop: 8 }} aria-label="Reason for the new completion date" />
       </div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16, flexWrap: 'wrap' }}>
-        <button onClick={onSkip} style={btn(T)}>Leave later stages as they are</button>
-        <button disabled={busy || (moved && !reason.trim())} onClick={async () => { setBusy(true); await onApply(reason.trim() || null); setBusy(false) }}
-          style={{ ...btn(T, 'gold'), opacity: busy || (moved && !reason.trim()) ? 0.6 : 1 }}>{busy ? 'Saving…' : 'Apply revised dates'}</button>
+        <Button variant="secondary" size="sm" onClick={onSkip}>Leave later stages as they are</Button>
+        <Button variant="primary" size="sm" disabled={busy || (moved && !reason.trim())} onClick={async () => { setBusy(true); await onApply(reason.trim() || null); setBusy(false) }} style={{opacity: busy || (moved && !reason.trim()) ? 0.6 : 1}}>{busy ? 'Saving…' : 'Apply revised dates'}</Button>
       </div>
     </div>
   </Modal>

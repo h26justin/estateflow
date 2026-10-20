@@ -10,7 +10,7 @@ import * as api from '../../lib/api'
 import { formatDate, daysUntil, ExpiryBadge } from './helpers'
 import { NotesTimeline } from './NotesTimeline'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 
 // ── COMPLIANCE TAB ────────────────────────────────────────────────────────────
 // Per-property home of the requirement checklist: every certificate /
@@ -188,7 +188,6 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
     reminder_days: row.item.reminder_days ?? 30,
     notes: row.item.notes || '',
   })
-  const smallBtnStyle = { fontFamily:MONO, fontSize:FS.xs, padding:'4px 10px', borderRadius:6, cursor:'pointer', background:'transparent', border:`1px solid ${T.border}`, color:T.muted, whiteSpace:'nowrap' }
 
   // One shared form card, rendered wherever formAnchor points — under the
   // header for the top-level "+ Add certificate" button, or inline beneath
@@ -214,10 +213,10 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>{editingId ? 'Update' : 'Save'}</button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={closeForm}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>{editingId ? 'Update' : 'Save'}</Button>
+          <Button variant="secondary" size="sm" onClick={closeForm}>Cancel</Button>
           {editingId && canEdit && (
-            <button onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto',fontFamily:SANS,fontSize:FS.sm,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'5px 12px',cursor:'pointer'}}>Remove</button>
+            <Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto'}}>Remove</Button>
           )}
         </div>
       </div>
@@ -228,7 +227,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
       <input ref={fileRef} type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={handleAttachFile}/>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Compliance & Certificates</div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>{ (showForm && formAnchor==='top') ? closeForm() : openForm({}) }}>+ Add certificate</button>}
+        {canEdit && <Button variant="primary" size="sm" icon="plus" onClick={()=>{ (showForm && formAnchor==='top') ? closeForm() : openForm({}) }}>Add certificate</Button>}
       </div>
 
       {formAnchor==='top' && formCard}
@@ -271,23 +270,19 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                   </div>
                   {statusFor(row)}
                   {canEdit && !off && item?.document_id && (
-                    <button style={smallBtnStyle} title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</button>
+                    <Button variant="secondary" size="sm" title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</Button>
                   )}
                   {canEdit && !off && item && !item.document_id && (
-                    <button style={smallBtnStyle} disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, req.key)}>{attaching && attachTarget?.itemId===item.id ? '…' : 'Attach'}</button>
+                    <Button variant="secondary" size="sm" disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, req.key)}>{attaching && attachTarget?.itemId===item.id ? '…' : 'Attach'}</Button>
                   )}
                   {canEdit && !off && item && ['expired','expiring'].includes(status.state) && (
-                    <button style={{...smallBtnStyle,color:T.amber,borderColor:T.amber+'66'}} title="Record the renewal as a new certificate (keeps this one as history)"
-                      onClick={()=>openForm(renewPrefill(row), null, req.key)}>Renew</button>
+                    <Button variant="secondary" size="sm" title="Record the renewal as a new certificate (keeps this one as history)" onClick={()=>openForm(renewPrefill(row), null, req.key)}>Renew</Button>
                   )}
                   {canEdit && !off && (item
-                    ? <button style={smallBtnStyle} onClick={()=>{ (showForm && formAnchor===req.key && editingId===item.id) ? closeForm() : openForm(editPrefill(row), item.id, req.key) }}
-                        onMouseEnter={e=>{e.currentTarget.style.color=T.gold;e.currentTarget.style.borderColor=T.gold+'66'}}
-                        onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>Edit</button>
-                    : <button style={{...smallBtnStyle,color:T.goldText,borderColor:T.gold+'66'}} onClick={()=>{ (showForm && formAnchor===req.key && !editingId) ? closeForm() : openForm({cert_type:req.key,cert_name:req.label}, null, req.key) }}>+ Add</button>)}
+                    ? <Button variant="secondary" size="sm" onClick={()=>{ (showForm && formAnchor===req.key && editingId===item.id) ? closeForm() : openForm(editPrefill(row), item.id, req.key) }}>Edit</Button>
+                    : <Button variant="secondary" size="sm" onClick={()=>{ (showForm && formAnchor===req.key && !editingId) ? closeForm() : openForm({cert_type:req.key,cert_name:req.label}, null, req.key) }} icon="plus">Add</Button>)}
                   {canEdit && property && canOptOut(req) && (
-                    <button style={smallBtnStyle} title={off ? 'Track this requirement again' : "Don't track this on this property — shows dimmed on the overview"}
-                      onClick={()=>toggleOptout(req.key, !off)}>{off ? 'Turn on' : 'Turn off'}</button>
+                    <Button variant="secondary" size="sm" title={off ? 'Track this requirement again' : "Don't track this on this property — shows dimmed on the overview"} onClick={()=>toggleOptout(req.key, !off)}>{off ? 'Turn on' : 'Turn off'}</Button>
                   )}
                 </div>
                 {formAnchor===req.key && formCard}
@@ -316,10 +311,10 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
                       {item.notes&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:2}}>{item.notes}</div>}
                     </div>
                     <ExpiryBadge dateStr={item.expiry_date}/>
-                    {canEdit && item.document_id && <button style={smallBtnStyle} title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</button>}
-                    {canEdit && !item.document_id && <button style={smallBtnStyle} disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, null)}>Attach</button>}
-                    {canEdit && <button style={smallBtnStyle} onClick={()=>{ (showForm && formAnchor===`other:${item.id}`) ? closeForm() : openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id, `other:${item.id}`) }}>Edit</button>}
-                    {canEdit && <button onClick={()=>handleDelete(item.id)} style={{fontFamily:SANS,fontSize:FS.sm,background:'transparent',color:T.red,border:`1px solid ${T.red}55`,borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>Remove</button>}
+                    {canEdit && item.document_id && <Button variant="secondary" size="sm" title="View the attached certificate file" onClick={()=>viewDocument(item.document_id)}>View</Button>}
+                    {canEdit && !item.document_id && <Button variant="secondary" size="sm" disabled={attaching} title="Attach the certificate file (PDF or photo)" onClick={()=>startAttach(item, null)}>Attach</Button>}
+                    {canEdit && <Button variant="secondary" size="sm" onClick={()=>{ (showForm && formAnchor===`other:${item.id}`) ? closeForm() : openForm({cert_type:canonicalCertType(item.cert_type),cert_name:item.cert_name||'',issue_date:item.issue_date||'',expiry_date:item.expiry_date||'',reminder_days:item.reminder_days??30,notes:item.notes||''}, item.id, `other:${item.id}`) }}>Edit</Button>}
+                    {canEdit && <Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(item.id)}>Remove</Button>}
                   </div>
                   {formAnchor===`other:${item.id}` && formCard}
                   </Fragment>

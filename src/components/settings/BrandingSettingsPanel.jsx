@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
 import { readableOr, normalizeHex } from '../../lib/contrast'
 
@@ -136,9 +136,9 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
                     <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
                   </label>
                   {logoPreview && (
-                    <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
+                    <Button variant="secondary" size="sm" onClick={removeLogo} destructive>
                       Remove
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -268,9 +268,9 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                         onChange={e => handleLogoUpload(co.id, e.target.files?.[0])}/>
                     </label>
                     {cs.logo_url && (
-                      <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'44' }} onClick={() => removeLogo(co.id)}>
+                      <Button variant="secondary" size="sm" onClick={() => removeLogo(co.id)} destructive>
                         Remove
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>

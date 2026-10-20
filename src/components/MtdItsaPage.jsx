@@ -7,11 +7,11 @@ import { fmt, fmtMoney2dp, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
-import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
   buildQuarterlySummary, quarterStatusLabel,
 } from '../lib/mtdItsa'
+import { Button, Modal } from './ui'
 
 // ── MTD ITSA PAGE ──────────────────────────────────────────────────
 // HMRC Making Tax Digital for Income Tax Self Assessment.
@@ -205,9 +205,9 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 10, lineHeight: 1.5 }}>
             Add your National Insurance Number and HMRC property business ID to enable quarterly filing.
           </div>
-          <button onClick={() => setShowSettings(true)} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+          <Button variant="primary" size="sm" onClick={() => setShowSettings(true)}>
             Configure HMRC settings
-          </button>
+          </Button>
         </div>
       )}
 
@@ -236,9 +236,9 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
             </button>
           ))}
         </div>
-        <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+        <Button variant="secondary" size="sm" onClick={() => setShowSettings(s => !s)}>
           Settings
-        </button>
+        </Button>
       </div>
 
       {/* Settings panel */}
@@ -317,22 +317,16 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {!isLocked && (
-                <button onClick={() => previewQ(q)} className="btn btn-ghost" style={{ fontSize: FS.sm }}
-                  disabled={!!busy}>
+                <Button variant="secondary" size="sm" onClick={() => previewQ(q)} disabled={!!busy}>
                   {busy === `preview-${q.quarter}` ? 'Calculating…' : (cached ? 'Refresh preview' : 'Build draft')}
-                </button>
+                </Button>
               )}
               {cached && !isLocked && (
-                <button
-                  onClick={() => submitToHmrc(sub)}
-                  className="btn btn-gold"
-                  style={{ fontSize: 11, opacity: issues.length > 0 ? 0.4 : 1, cursor: issues.length > 0 ? 'not-allowed' : 'pointer' }}
-                  disabled={!!busy || !sub?.id || issues.length > 0}
-                  title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')}>
+                <Button variant="primary" size="sm" onClick={() => submitToHmrc(sub)} disabled={!!busy || !sub?.id || issues.length > 0} title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')} style={{opacity: issues.length > 0 ? 0.4 : 1}}>
                   {busy === `submit-${q.quarter}`
                     ? 'Submitting…'
                     : (settings?.sandbox_mode || !liveAvailable ? 'Rehearse (practice mode)' : 'Submit to HMRC')}
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -419,9 +413,9 @@ function SettingsPanel({ T, settings, liveAvailable, onSaved }) {
         </div>
       </div>
       <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving}>
+        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save settings'}
-        </button>
+        </Button>
       </div>
 
       {/* ── HMRC OAuth connection ── */}
@@ -520,9 +514,9 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5, marginBottom: 12 }}>
             We can now file quarterly submissions on your behalf. Tokens refresh automatically before they expire.
           </div>
-          <button onClick={disconnect} disabled={busy} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
+          <Button variant="secondary" size="sm" onClick={disconnect} disabled={busy}>
             {busy ? 'Working…' : 'Disconnect'}
-          </button>
+          </Button>
         </>
       ) : (
         <>
@@ -536,9 +530,9 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
               ? 'Your HMRC session has expired (PSD2 / consent lifetime). Reconnect to keep filing.'
               : 'Connect your gov.uk account so we can file MTD ITSA submissions on your behalf. We use HMRC\'s OAuth — your gov.uk credentials never touch our servers.'}
           </div>
-          <button onClick={connect} disabled={busy} className="btn btn-gold" style={{ fontSize: FS.sm }}>
+          <Button variant="primary" size="sm" onClick={connect} disabled={busy}>
             {busy ? 'Redirecting…' : (expired ? 'Reconnect HMRC' : 'Connect HMRC')}
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -550,9 +544,7 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 function PreviewModal({ T, q, data, busy, onSave, onClose }) {
   const { summary, payments, expenses } = data
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="mtd-preview-title">
+    <Modal onClose={onClose} size="md" labelledBy="mtd-preview-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="mtd-preview-title" style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             Quarter {q.quarter} preview
@@ -591,15 +583,13 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-            <button onClick={onSave} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
+            <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={onSave} disabled={!!busy}>
               {busy === `save-${q.quarter}` ? 'Saving…' : 'Save draft'}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

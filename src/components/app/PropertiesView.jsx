@@ -12,6 +12,7 @@ import { fmt } from '../../lib/appFmt'
 import { statusCfg } from './Badges'
 import { PropertyGrid } from './PropertyGrid'
 import { DraggablePropertyList } from './DraggablePropertyList'
+import { Button } from '../ui'
 
 const SORT_OPTIONS = [
   {v:'company-name', l:'Company'},
@@ -72,7 +73,6 @@ export function PropertiesView({
 
   const chip = {fontFamily:MONO,fontSize:11,padding:'5px 12px',minHeight:30,borderRadius:20,cursor:'pointer',transition:'all 0.18s',whiteSpace:'nowrap'}
   const groupLbl = {fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',minWidth:isMobile?'100%':72}
-  const toolBtn = {display:'inline-flex',alignItems:'center',gap:6,minHeight:34,padding:'6px 12px',borderRadius:8,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted,fontFamily:MONO,fontSize:11,whiteSpace:'nowrap'}
 
   return (
     <div className="fade">
@@ -83,7 +83,7 @@ export function PropertiesView({
         </div>
         {portfolioTab==='properties'&&(
           <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-            <button className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add property</button>
+            <Button variant="primary" size="sm" onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add property</Button>
             {/* Less-used bulk actions sit behind ⋯ */}
             <ActionMenu buttonLabel="More portfolio actions" items={[
               { label: 'Add a block of flats', icon: 'building', disabled: !canEdit, onSelect: () => openWorkflow('bulk-add') },
@@ -134,13 +134,13 @@ export function PropertiesView({
           {searchQ&&<button type="button" onClick={()=>{setSearchQ('');searchRef.current?.focus()}} aria-label="Clear search" title="Clear search"
             style={{position:'absolute',right:6,background:'transparent',border:'none',cursor:'pointer',color:T.muted,fontSize:16,lineHeight:1,padding:'4px 6px'}}>×</button>}
         </div>
-        <button type="button" onClick={()=>setFiltersOpen(o=>!o)} aria-expanded={filtersOpen} aria-controls={filtersId}
+        <Button variant="secondary" size="sm" onClick={()=>setFiltersOpen(o=>!o)} aria-expanded={filtersOpen} aria-controls={filtersId}
           aria-label={activeCount ? `Filters, ${activeCount} active` : 'Filters'}
-          style={{...toolBtn,borderColor:activeCount?T.gold:T.border,color:activeCount?T.goldText:T.muted}}>
+          style={activeCount ? {borderColor:T.gold,color:T.goldText} : undefined}>
           <Icon name="list" size={14}/>Filters
           {activeCount>0&&<span aria-hidden="true" style={{minWidth:18,height:18,padding:'0 5px',borderRadius:9,background:T.gold,color:CV.onGold,fontSize:FS.xs,fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>{activeCount}</span>}
           <Icon name={filtersOpen?'chevron-down':'chevron-right'} size={12}/>
-        </button>
+        </Button>
         <label style={{display:'inline-flex',alignItems:'center',gap:6,flex:isMobile?'1 1 0':'0 0 auto',minWidth:0,fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
           {!isMobile&&'Sort'}
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort properties by"
@@ -149,8 +149,7 @@ export function PropertiesView({
           </select>
         </label>
         {sortBy==='custom'&&(
-          <button type="button" onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)" aria-label="Reset custom order"
-            style={{...toolBtn,borderStyle:'dashed'}}>↺{!isMobile&&' Reset order'}</button>
+          <Button variant="ghost" size="sm" onClick={resetCustomOrder} title="Reset to the default order (company → building → unit)" aria-label="Reset custom order">↺{!isMobile&&' Reset order'}</Button>
         )}
         {/* List / Grid layout toggle (grid is the redesign card view) */}
         <div role="group" aria-label="Layout" style={{display:'flex',gap:2,background:T.card,border:`1px solid ${T.border}`,borderRadius:9,padding:2,marginLeft:isMobile?0:'auto'}}>

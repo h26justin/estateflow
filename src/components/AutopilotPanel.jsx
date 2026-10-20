@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO, FS, SANS } from '../lib/styles'
+import { useState, useEffect, useCallback } from 'react'
+import { MONO, FS, SANS, R } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
 import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
 import { SkeletonRows } from '../lib/Skeleton'
 
@@ -85,7 +84,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
             </span>
           )}
         </h2>
-        <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onOpenFull}>Review all →</button>
+        <Button variant="secondary" size="sm" onClick={onOpenFull}>Review all →</Button>
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
@@ -240,11 +239,11 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {filtered.length > 1 && (
             <>
-              <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
-              <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</Button>
+              <Button variant="secondary" size="sm" disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')} destructive>Dismiss all {filtered.length} shown</Button>
             </>
           )}
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={load}>↻ Refresh</button>
+          <Button variant="secondary" size="sm" onClick={load}>↻ Refresh</Button>
         </div>
       </div>
       <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 24 }}>
@@ -336,36 +335,20 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           </div>
                         )}
                         <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-gold"
-                            style={{ fontSize: 12 }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleAct(a)}
-                          >
+                          <Button variant="primary" size="sm" disabled={busyId === a.id} onClick={() => handleAct(a)}>
                             Mark actioned
-                          </button>
+                          </Button>
                           {a.draft_body && (
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 12 }}
-                              disabled={busyId === a.id}
-                              onClick={() => setViewing(a)}
-                            >
+                            <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => setViewing(a)}>
                               Copy draft
-                            </button>
+                            </Button>
                           )}
-                          <button
-                            className="btn btn-ghost"
-                            style={{ fontSize: 12, color: T.muted }}
-                            disabled={busyId === a.id}
-                            onClick={() => handleDismiss(a)}
-                          >
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleDismiss(a)}>
                             Dismiss
-                          </button>
-                          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === a.id}
-                            onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
+                          </Button>
+                          <Button variant="secondary" size="sm" disabled={busyId === a.id} onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
                             Snooze 30d
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -387,7 +370,6 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
 function DraftModal({ action, onClose }) {
   const { T } = useTheme()
   const [copied, setCopied] = useState(false)
-  const initialRef = useRef(null)
 
   async function copy() {
     try {
@@ -401,32 +383,16 @@ function DraftModal({ action, onClose }) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Drafted action"
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) safeOverlayClose(false, onClose) }}
-    >
-      <FocusTrap onEscape={onClose} initialFocusRef={initialRef}>
-        <div className="card" style={{ maxWidth: 540, width: '100%', padding: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{action.title}</h3>
-            <button ref={initialRef} aria-label="Close" onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 10px', margin: '-6px -10px' }}>×</button>
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
-            {action.draft_body}
-          </div>
-          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
-            AI-generated draft. Review and edit before sending — Properly does not send this for you.
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 13 }}>Close</button>
-            <button className="btn btn-gold" onClick={copy} style={{ fontSize: 13 }}>{copied ? 'Copied' : 'Copy draft'}</button>
-          </div>
-        </div>
-      </FocusTrap>
-    </div>
+    <Modal onClose={onClose} size="md" zIndex={1000} title={action.title}
+      description="AI-generated draft. Review and edit before sending — Properly does not send this for you."
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button onClick={copy}>{copied ? 'Copied' : 'Copy draft'}</Button>
+      </>}>
+      <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: R.sm, padding: 16, color: T.text }}>
+        {action.draft_body}
+      </div>
+    </Modal>
   )
 }
 

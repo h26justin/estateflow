@@ -24,7 +24,7 @@ import {
 } from '../lib/stlIncome'
 import { downloadCsv } from '../lib/csv'
 import { SkeletonRows } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 
 const fmtMoney = n => {
   const v = Number(n) || 0
@@ -429,19 +429,18 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
         </div>
         {stlProps.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={exportBookingsCsv} disabled={bookings === null || revenueRows.length + nonRevenueRows.length === 0} className="btn btn-ghost" title="Download the bookings in this period as CSV"
-              style={{ fontFamily: SANS, fontSize: FS.sm, padding: '8px 14px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Button variant="secondary" size="sm" onClick={exportBookingsCsv} disabled={bookings === null || revenueRows.length + nonRevenueRows.length === 0} title="Download the bookings in this period as CSV">
               <Icon name="download" size={13} /> Export CSV
-            </button>
+            </Button>
             {canAdd && (
-              <button onClick={() => openAdjForm()} className="btn btn-ghost" style={{ fontFamily: SANS, fontSize: FS.sm, padding: '8px 14px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Button variant="secondary" size="sm" onClick={() => openAdjForm()}>
                 <Icon name="plus" size={13} /> Add adjustment
-              </button>
+              </Button>
             )}
             {canAdd && managers.length > 0 && (
-              <button onClick={scrollToPayRun} className="btn btn-gold" style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '8px 16px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Button variant="primary" size="sm" onClick={scrollToPayRun}>
                 <Icon name="wallet" size={13} /> Manager pay run
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -586,7 +585,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div style={{ ...card(T), overflowX: 'auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Month by month · {yearShown}</div>
-                    <button className="btn" style={{ fontSize: FS.xs }} onClick={exportMonthsCsv}>Export CSV</button>
+                    <Button variant="secondary" size="sm" onClick={exportMonthsCsv}>Export CSV</Button>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr>
@@ -640,7 +639,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                   <div style={{ ...monoLabel(T), marginBottom: 0 }}>By room · {periodLabel}</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>click a heading to sort</span>
-                    <button className="btn" style={{ fontSize: FS.xs }} onClick={exportRoomsCsv} disabled={rooms.length === 0}>Export CSV</button>
+                    <Button variant="secondary" size="sm" onClick={exportRoomsCsv} disabled={rooms.length === 0}>Export CSV</Button>
                   </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -781,7 +780,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div style={card(T)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Property managers</div>
-                    {canAdd && !mgrForm && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setMgrForm({ company_id: editableProps.length ? editableProps[0].company_id : (stlCompanies[0]?.id || ''), name: '', percentage: '', basis: 'net_after_platform_fees', payout_frequency: 'fortnightly', notes: '' })}>+ Add manager</button>}
+                    {canAdd && !mgrForm && <Button variant="primary" size="sm" onClick={() => setMgrForm({ company_id: editableProps.length ? editableProps[0].company_id : (stlCompanies[0]?.id || ''), name: '', percentage: '', basis: 'net_after_platform_fees', payout_frequency: 'fortnightly', notes: '' })}>+ Add manager</Button>}
                   </div>
                   <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>A named manager takes a percentage of each assigned unit's income, by default after platform fees and adjustments.</div>
                   {mgrForm && (
@@ -802,8 +801,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         </select></div>
                       <div style={{ gridColumn: '1 / -1' }}><label style={fieldLabel(T)}>Notes</label><input aria-label="Notes" value={mgrForm.notes || ''} onChange={e => setM('notes', e.target.value)} placeholder="What the fee covers, e.g. management and cleaning" style={inp(T)} /></div>
                       <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                        <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setMgrForm(null)} disabled={mgrSaving}>Cancel</button>
-                        <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={saveManager} disabled={mgrSaving}>{mgrSaving ? 'Saving…' : 'Save manager'}</button>
+                        <Button variant="secondary" size="sm" onClick={() => setMgrForm(null)} disabled={mgrSaving}>Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={saveManager} disabled={mgrSaving}>{mgrSaving ? 'Saving…' : 'Save manager'}</Button>
                       </div>
                     </div>
                   )}
@@ -814,8 +813,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{m.name} <span style={{ fontFamily: MONO, fontSize: 11, color: STL_COLOR }}>{m.percentage}%</span></div>
                         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>{m.basis === 'gross' ? 'of gross' : 'of income after platform fees'} · {m.payout_frequency === 'fortnightly' ? 'every two weeks' : m.payout_frequency}{stlCompanies.length > 1 && coById[m.company_id] ? ` · ${coById[m.company_id].abbr || coById[m.company_id].name}` : ''} · {stlProps.filter(p => p.stl_manager_id === m.id).length} unit(s){m.notes ? ` · ${m.notes}` : ''}</div>
                       </div>
-                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => setMgrForm({ ...m })}>Edit</button>}
-                      {canEditCompany(m.company_id) && <button className="btn" style={{ fontSize: FS.xs, color: T.red }} onClick={() => removeManager(m)} aria-label="Remove manager">✕</button>}
+                      {canEditCompany(m.company_id) && <Button variant="secondary" size="sm" onClick={() => setMgrForm({ ...m })}>Edit</Button>}
+                      {canEditCompany(m.company_id) && <Button variant="ghost" size="sm" onClick={() => removeManager(m)} aria-label="Remove manager" destructive icon="x" />}
                     </div>
                   ))}
                   {managers.length > 0 && (
@@ -839,7 +838,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div ref={payoutRef} style={{ ...card(T), overflowX: 'auto', scrollMarginTop: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Manager payout · {periodLabel}</div>
-                    {payouts.length > 0 && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</button>}
+                    {payouts.length > 0 && <Button variant="secondary" size="sm" onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</Button>}
                   </div>
                   <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>Bookings counted by check-in date in the period. Use "This fortnight" or "Last fortnight" above for a two-weekly payout run.</div>
                   {payouts.length === 0 ? (
@@ -889,9 +888,9 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                           ? <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 400, color: T.amber, whiteSpace: 'normal', marginTop: 6 }}>Corrections exceed this period's fee; nothing to pay. The balance carries until a period can absorb it.</div>
                                           : (
                                             <div style={{ marginTop: 6 }}>
-                                              <button className="btn btn-gold" style={{ fontSize: FS.xs, padding: '4px 10px' }} onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
+                                              <Button variant="primary" size="sm" onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
                                                 {markingPaid === r.manager.id ? 'Saving…' : 'Mark as paid'}
-                                              </button>
+                                              </Button>
                                             </div>
                                           )
                                       )}
@@ -949,7 +948,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                 <span style={{ color: T.muted, whiteSpace: 'nowrap', minWidth: 140 }}>{fmtDateShort(l.period_from)} – {fmtDateShort(l.period_to)}</span>
                                 <span style={{ color: T.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.manager_name} <span style={{ color: T.faint }}>· {Number(l.percentage)}% of {fmtMoney(l.base_amount)} · paid {fmtDateShort(l.paid_on)}{carried.length ? ` · ${carried.length} correction${carried.length === 1 ? '' : 's'} carried` : ''}{stlCompanies.length > 1 && coById[l.company_id] ? ` · ${coById[l.company_id].abbr || coById[l.company_id].name}` : ''}</span></span>
                                 <span style={{ color: T.goldText, fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtMoney(l.amount)}</span>
-                                <button className="btn" style={{ fontSize: FS.xs, padding: '2px 8px' }} onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</button>
+                                <Button variant="secondary" size="sm" onClick={() => setOpenPayout(open ? null : l.id)} aria-expanded={open}>{open ? 'Hide' : 'Details'}</Button>
                                 {canEditCompany(l.company_id) && <button onClick={() => removePaid(l)} aria-label="Remove payout record" title="Remove payout record (unlocks the period)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.faint, display: 'inline-flex', padding: 0 }}><Icon name="trash" size={13} /></button>}
                               </div>
                               {open && (
@@ -1031,13 +1030,12 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
 
       {/* Add adjustment modal */}
       {adjForm && (
-        <div className="overlay" onClick={() => !saving && setAdjForm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : 20 }}>
-          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="stl-adj-title" onClick={e => e.stopPropagation()}
-            style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: isMobile ? '18px 18px 0 0' : 18, padding: isMobile ? '20px 18px 28px' : '24px 28px', width: '100%', maxWidth: 520, maxHeight: '92vh', overflowY: 'auto' }}>
-            <h2 id="stl-adj-title" style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, color: T.text }}>Add adjustment</h2>
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
-              Money out (a refund to a guest, a chargeback) is a negative amount. Money in (a cleaning fee, an extra payout) is positive. Gross never changes; Net does.
-            </div>
+        <Modal onClose={() => !saving && setAdjForm(null)} size="md" zIndex={1000} title="Add adjustment"
+          description="Money out (a refund to a guest, a chargeback) is a negative amount. Money in (a cleaning fee, an extra payout) is positive. Gross never changes; Net does."
+          footer={<>
+            <Button variant="secondary" onClick={() => setAdjForm(null)} disabled={saving}>Cancel</Button>
+            <Button onClick={saveAdjustment} disabled={saving}>{saving ? 'Saving…' : 'Save adjustment'}</Button>
+          </>}>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={fieldLabel(T)}>Property</label>
@@ -1090,12 +1088,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <textarea aria-label="Notes" value={adjForm.notes} onChange={e => setA('notes', e.target.value)} rows={2} style={{ ...inp(T), resize: 'vertical' }} />
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-              <button className="btn btn-ghost" onClick={() => setAdjForm(null)} disabled={saving} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '9px 18px', borderRadius: 10 }}>Cancel</button>
-              <button className="btn btn-gold" onClick={saveAdjustment} disabled={saving} style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '9px 18px', borderRadius: 10 }}>{saving ? 'Saving…' : 'Save adjustment'}</button>
-            </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

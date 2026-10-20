@@ -3,8 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
@@ -109,9 +108,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const propertyForId = id => properties.find(p => p.id === id)
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 760 }} role="dialog" aria-modal="true" aria-labelledby="bank-inbox-title">
+    <Modal onClose={onClose} size="lg" labelledBy="bank-inbox-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div>
             <h2 id="bank-inbox-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
@@ -121,7 +118,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
               Review and match incoming transactions to rent.
             </p>
           </div>
-          <button onClick={syncNow} className="btn btn-ghost" style={{ fontSize: FS.sm }}>↻ Sync</button>
+          <Button variant="secondary" size="sm" onClick={syncNow}>↻ Sync</Button>
         </div>
 
         <div style={{ padding: '14px 26px 22px' }}>
@@ -194,9 +191,9 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                       </div>
                       <div style={{ flexShrink: 0 }}>
                         {matched ? (
-                          <button onClick={() => unmatch(t.id)} className="btn btn-ghost" style={{ fontSize: FS.xs }}>
+                          <Button variant="secondary" size="sm" onClick={() => unmatch(t.id)}>
                             Unmatch
-                          </button>
+                          </Button>
                         ) : isCredit ? (
                           <button onClick={() => openMatcher(t.id)}
                             style={{
@@ -236,8 +233,8 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                           </select>
                         )}
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          <button onClick={() => setMatchingId(null)} className="btn btn-ghost" style={{ fontSize: FS.sm }}>Cancel</button>
-                          <button onClick={confirmMatch} disabled={!selRpId} className="btn btn-gold" style={{ fontSize: FS.sm }}>Confirm match</button>
+                          <Button variant="secondary" size="sm" onClick={() => setMatchingId(null)}>Cancel</Button>
+                          <Button variant="primary" size="sm" onClick={confirmMatch} disabled={!selRpId}>Confirm match</Button>
                         </div>
                       </div>
                     )}
@@ -248,11 +245,9 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
+            <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

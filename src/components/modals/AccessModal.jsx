@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
-import FocusTrap from '../../lib/FocusTrap'
-import { EmptyState } from '../ui'
+import { Button, EmptyState, Modal } from '../ui'
 import { SkeletonRows } from '../../lib/Skeleton'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
@@ -94,9 +92,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth:580}} role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="access-modal-title" isDirty={newEmail.trim().length > 0} confirmFn={confirmDiscard}>
         <div style={{padding:'24px 28px 0'}}>
           <h2 id="access-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Company access control</h2>
           <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:20}}>Control which users can see which companies. Admins (like you) always see everything.</p>
@@ -112,7 +108,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
                 style={{flex:1,fontSize:12,...(triedAdd && !newEmail.trim() ? {borderColor:T.red} : {})}}
                 aria-invalid={triedAdd && !newEmail.trim() ? 'true' : undefined}
                 aria-describedby={triedAdd && !newEmail.trim() ? 'am-new-email-err' : undefined}/>
-              <button type="submit" className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}}>Add user</button>
+              <Button variant="primary" size="sm" type="submit">Add user</Button>
             </form>
             {triedAdd && !newEmail.trim() && <span id="am-new-email-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
             <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
@@ -131,7 +127,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
                       {u.id===userId&&<span style={{fontFamily:SANS,fontSize:FS.sm,background:T.gold+'22',color:T.goldText,border:`1px solid ${T.gold}44`,borderRadius:4,padding:'2px 6px'}}>You · admin</span>}
                       {u.id!==userId&&!(access[u.id]||[]).length&&<span style={{fontFamily:MONO,fontSize:FS.xs,background:T.green+'22',color:T.green,border:`1px solid ${T.green}44`,borderRadius:4,padding:'2px 6px'}}>ADMIN</span>}
                     </div>
-                    {u.id!==userId&&<button className="btn btn-danger" style={{fontSize:FS.xs,padding:'4px 10px'}} onClick={()=>removeUser(u.id)}>Remove</button>}
+                    {u.id!==userId&&<Button variant="danger" size="sm" onClick={()=>removeUser(u.id)}>Remove</Button>}
                   </div>
                   <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                     {companies.map(co=>{
@@ -151,10 +147,8 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
               ))
           )}
 
-          <button className="btn btn-ghost" style={{width:'100%',marginTop:8,fontSize:FS.sm}} onClick={onClose}>Close</button>
+          <Button variant="secondary" size="sm" onClick={onClose} style={{width:'100%', marginTop:8}}>Close</Button>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

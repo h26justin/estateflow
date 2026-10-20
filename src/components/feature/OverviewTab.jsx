@@ -5,7 +5,7 @@ import * as api from '../../lib/api'
 import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 
 // ── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, isAdmin, user, showToast, canViewFinancial = true, canEditProperty = true}) {
@@ -98,10 +98,9 @@ export function OverviewTab({selected, fmt, calcMonthlyMortgage, calcGrossYield,
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText,background:T.gold+'22',padding:'2px 8px',borderRadius:20}}>{n.user_email}</span>
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>
                         </div>
-                        {isAdmin&&<button onClick={()=>deleteNote(n.id)}
-                          style={{fontFamily:SANS,fontSize:FS.sm,background:T.red+'18',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>
+                        {isAdmin&&<Button variant="secondary" destructive size="sm" onClick={()=>deleteNote(n.id)} style={{flexShrink:0}}>
                           Delete
-                        </button>}
+                        </Button>}
                       </div>
                       <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
                     </div>

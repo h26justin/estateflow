@@ -17,6 +17,7 @@ import {
   reviewRows, planImport, planSummary, statusCounts, statementFingerprint, auditLines,
   REVIEW_STATUS, REVIEW_STATUS_LABEL,
 } from '../lib/statementImport'
+import { Button } from './ui'
 
 const gbp = n => n == null ? '–' : '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const dmy = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : ''
@@ -218,10 +219,10 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
         <br />The Rent Tracker and the dashboard update from these. Recorded only: nothing is sent anywhere. The whole import can be reverted from Data import → History.
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-ghost" onClick={onBack} disabled={busy}>← Back</button>
-        <button className="btn btn-gold" onClick={approve} disabled={busy || !ctxLoaded || (!summary.rentReceipts && !summary.arrearsReceipts && !plan.expenses.length)}>
+        <Button variant="secondary" onClick={onBack} disabled={busy}>← Back</Button>
+        <Button variant="primary" onClick={approve} disabled={busy || !ctxLoaded || (!summary.rentReceipts && !summary.arrearsReceipts && !plan.expenses.length)}>
           {busy ? 'Importing…' : `Approve import (${rows.filter(r => r.include).length} ${rows.filter(r => r.include).length === 1 ? 'line' : 'lines'})`}
-        </button>
+        </Button>
       </div>
     </div>
   </div>

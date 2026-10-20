@@ -517,7 +517,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   )
 
   // ── UNIFIED SHELL (sub-nav always visible) ───────────────────────────────────
-  const newBtnLabel = dealView==='lettings' ? '+ New letting' : '+ New deal'
+  const newBtnLabel = dealView==='lettings' ? 'New letting' : 'New deal'
   function handleNewBtn() {
     if (dealView==='lettings') setTriggerNewLetting(true)
     else createNewDeal()
@@ -540,9 +540,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         {/* Right side: tab switcher + action button — always same elements, never changes width */}
         <div style={{display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
           {compareIds.length >= 2 && dealView==='list' && (
-            <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>setShowCompare(true)}>
+            <Button variant="secondary" size="sm" onClick={()=>setShowCompare(true)}>
               Compare ({compareIds.length})
-            </button>
+            </Button>
           )}
           <div style={{display:'flex',background:T.surface,borderRadius:8,border:`1px solid ${T.border}`,overflow:'hidden'}}>
             {[['list','List'],['pipeline','Pipeline'],['lettings','Lettings'],['tools','Tools']].map(([k,l])=>(
@@ -557,10 +557,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             ))}
           </div>
           {/* Action button — fixed width so tab bar never shifts */}
-          <button className="btn btn-gold" onClick={handleNewBtn}
-            style={{whiteSpace:'nowrap',width:130,textAlign:'center'}}>
+          <Button variant="primary" icon="plus" onClick={handleNewBtn}>
             {newBtnLabel}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -630,7 +629,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           ? <div className="card" style={{padding:48,textAlign:'center'}}>
               <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="alert-triangle" size={34} color={T.red}/></div>
               <div style={{fontFamily:mono,fontSize:12,color:T.red,marginBottom:16}}>Couldn't load deals — {loadError}</div>
-              <button className="btn btn-ghost" onClick={loadDeals}>Retry</button>
+              <Button variant="secondary" onClick={loadDeals}>Retry</Button>
             </div>
         : filtered.length === 0
           ? <div className="card">
@@ -1121,7 +1120,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     <div className="fade">
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,flexWrap:'wrap'}}>
-        <button onClick={onBack} style={{fontFamily:SANS,fontSize:FS.sm,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:8,padding:'6px 12px',cursor:'pointer'}}>← All deals</button>
+        <Button variant="secondary" size="sm" onClick={onBack}>← All deals</Button>
         <div style={{flex:1,display:'flex',alignItems:'center',gap:6}}>
           <input ref={nameInputRef} value={form.name} onChange={e=>set('name',e.target.value)} onBlur={handleSave}
             style={{fontSize:20,fontWeight:700,background:'none',border:'none',color:T.text,flex:1,minWidth:0,fontFamily:'Georgia,serif'}}
@@ -1129,18 +1128,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           {/* Edit button signposts that the title is editable. Clicking
               focuses the input and selects the whole text so the user can
               start typing immediately. */}
-          <button
-            type="button"
-            onClick={() => {
+          <Button variant="secondary" size="sm" type="button" onClick={() => {
               if (nameInputRef.current) {
                 nameInputRef.current.focus()
                 nameInputRef.current.select()
               }
-            }}
-            title="Rename deal"
-            style={{fontFamily:SANS,fontSize:FS.sm,background:'none',border:`1px solid ${T.border}`,color:T.muted,borderRadius:6,padding:'4px 10px',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
+            }} title="Rename deal" style={{flexShrink:0}}>
             Edit
-          </button>
+          </Button>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
           {/* Save status indicator. Shows "Saving…" while a save is in
@@ -1156,16 +1151,16 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             style={{fontFamily:SANS,fontSize:FS.sm,background:sc.color+'22',border:`1px solid ${sc.color}44`,color:sc.color,borderRadius:8,padding:'6px 10px',fontWeight:700}}>
             {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
           </select>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave} disabled={saving}>
+          <Button variant="primary" size="sm" onClick={handleSave} disabled={saving}>
             {saving?'Saving…':'Save'}
-          </button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
+          </Button>
+          <Button variant="secondary" size="sm" onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
             {exporting ? 'Building PDF…' : 'Download PDF'}
-          </button>
+          </Button>
           {form.status === 'completed' && (
-            <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>onConvert&&onConvert(form)}>Convert to property →</button>
+            <Button variant="primary" size="sm" onClick={()=>onConvert&&onConvert(form)}>Convert to property →</Button>
           )}
-          <button className="btn btn-ghost" style={{fontSize:FS.sm,color:T.red,borderColor:T.red+'44'}} onClick={onDelete}>Delete</button>
+          <Button variant="secondary" size="sm" onClick={onDelete} destructive>Delete</Button>
         </div>
       </div>
 
@@ -1317,8 +1312,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                     {form.stamp_duty_override != null ? '' : '≈ '}{fmt(sd)}
                   </span>
                   {form.stamp_duty_override == null
-                    ? <button onClick={()=>{set('stamp_duty_override', sd); setTimeout(autoSave,0)}} style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,background:'none',border:`1px solid ${T.border}`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Override</button>
-                    : <button onClick={()=>{set('stamp_duty_override', null); setTimeout(autoSave,0)}} style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,background:'none',border:`1px solid ${T.amber}44`,borderRadius:4,padding:'2px 6px',cursor:'pointer'}}>Auto</button>
+                    ? <Button variant="secondary" size="sm" onClick={()=>{set('stamp_duty_override', sd); setTimeout(autoSave,0)}}>Override</Button>
+                    : <Button variant="secondary" size="sm" onClick={()=>{set('stamp_duty_override', null); setTimeout(autoSave,0)}} style={{color:T.amber}}>Auto</Button>
                   }
                   {form.stamp_duty_override != null && (
                     <MoneyInput value={form.stamp_duty_override} min={0}
@@ -1331,10 +1326,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <InputRow label="Legal fees" field="legal_fees" form={form} set={set} onBlur={autoSave} T={T}/>
               {!form.show_conv_breakdown ? (
                 <div style={{padding:'3px 0',borderBottom:`1px solid ${T.border}`}}>
-                  <button onClick={()=>set('show_conv_breakdown',true)}
-                    style={{background:'none',border:'none',cursor:'pointer',color:T.muted,fontFamily:SANS,fontSize:FS.sm,textDecoration:'underline',padding:'4px 0'}}>
+                  <Button variant="ghost" size="sm" onClick={()=>set('show_conv_breakdown',true)}>
                     + Break into solicitor / searches / disbursements
-                  </button>
+                  </Button>
                 </div>
               ) : (<>
                 <InputRow label="→ Solicitor fee" field="solicitor_fee" form={form} set={set} onBlur={autoSave} T={T}/>
@@ -1567,7 +1561,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             </div>
 
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-              <button className="btn btn-gold" onClick={handleSave} disabled={saving}>{saving?'Saving…':'Save deal'}</button>
+              <Button variant="primary" onClick={handleSave} disabled={saving}>{saving?'Saving…':'Save deal'}</Button>
             </div>
           </div>
 
@@ -2017,8 +2011,8 @@ function ContactsTab({ dealId, userId, showToast }) {
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
-          {abView==='deal' && <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>{setAbView('book')}}>Pick from address book</button>}
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={startNew}>+ New contact</button>
+          {abView==='deal' && <Button variant="secondary" size="sm" onClick={()=>{setAbView('book')}}>Pick from address book</Button>}
+          <Button variant="primary" size="sm" onClick={startNew} icon="plus">New contact</Button>
         </div>
       </div>
 
@@ -2043,8 +2037,8 @@ function ContactsTab({ dealId, userId, showToast }) {
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>startEdit(c)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Edit</button>
-                  <button onClick={()=>remove(c.id)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>Remove</button>
+                  <Button variant="secondary" size="sm" onClick={()=>startEdit(c)}>Edit</Button>
+                  <Button variant="secondary" size="sm" onClick={()=>remove(c.id)} destructive>Remove</Button>
                 </div>
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
@@ -2071,11 +2065,11 @@ function ContactsTab({ dealId, userId, showToast }) {
                 <div><label style={label}>Notes</label><input aria-label="Notes" value={form.notes||''} onChange={e=>setForm(p=>({...p,notes:e.target.value}))} placeholder="Optional notes" style={inp}/></div>
               </div>
               <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={save}>Save to deal</button>
+                <Button variant="primary" size="sm" onClick={save}>Save to deal</Button>
                 {editing==='new'&&form.name&&(
-                  <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={async()=>{await save();await saveToBook()}}>Save to deal + address book</button>
+                  <Button variant="secondary" size="sm" onClick={async()=>{await save();await saveToBook()}}>Save to deal + address book</Button>
                 )}
-                <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>setEditing(null)}>Cancel</button>
+                <Button variant="secondary" size="sm" onClick={()=>setEditing(null)}>Cancel</Button>
               </div>
             </div>
           )}
@@ -2110,12 +2104,12 @@ function ContactsTab({ dealId, userId, showToast }) {
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>addFromBook(entry)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
+                  <Button variant="primary" size="sm" onClick={()=>addFromBook(entry)}>
                     + Add to deal
-                  </button>
-                  <button onClick={()=>deleteFromBook(entry.id)} style={{fontFamily:mono,fontSize:11,padding:'5px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={()=>deleteFromBook(entry.id)}>
                     ✕
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -2263,7 +2257,6 @@ function DocumentsTab({ dealId, userId, showToast }) {
   }, [lightbox, photos.length])
 
   const sectStyle = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', display:'block' }
-  const ghostBtn = { fontFamily:mono, fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }
   const meta = (d) => [d.uploaded_by, fmtDate(d.created_at), fmtBytes(d.size)].filter(Boolean).join(' · ')
   const current = lightbox != null ? photos[lightbox] : null
 
@@ -2285,12 +2278,12 @@ function DocumentsTab({ dealId, userId, showToast }) {
           {uploading && (
             <span style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>Uploading {Math.min(uploading.done + 1, uploading.total)}/{uploading.total}…</span>
           )}
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} disabled={!!uploading} onClick={() => photoInputRef.current?.click()}>
+          <Button variant="primary" size="sm" disabled={!!uploading} onClick={() => photoInputRef.current?.click()}>
             + Add photos
-          </button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} disabled={!!uploading} onClick={() => docInputRef.current?.click()}>
+          </Button>
+          <Button variant="secondary" size="sm" disabled={!!uploading} onClick={() => docInputRef.current?.click()}>
             + Upload document
-          </button>
+          </Button>
           <input ref={photoInputRef} type="file" accept={IMAGE_ACCEPT} multiple style={{display:'none'}}
             onChange={e => { handleFiles(e.target.files, 'photo'); e.target.value = '' }}/>
           <input ref={docInputRef} type="file" accept={DOC_ACCEPT} multiple style={{display:'none'}}
@@ -2301,7 +2294,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
       {loading ? <SkeletonTiles count={4}/> : loadError ? (
         <div className="card" style={{padding:32, textAlign:'center'}}>
           <div style={{fontFamily:mono, fontSize:12, color:T.red, marginBottom:12}}>Couldn't load attachments — {loadError}</div>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={load}>Retry</button>
+          <Button variant="secondary" size="sm" onClick={load}>Retry</Button>
         </div>
       ) : (<>
         {/* ── PHOTOS ── */}
@@ -2370,7 +2363,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                     </button>
                     <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:2}}>{meta(doc)}</div>
                   </div>
-                  <button onClick={() => remove(doc)} style={{...ghostBtn, borderColor:T.red+'44', color:T.red}}>Remove</button>
+                  <Button variant="secondary" size="sm" onClick={() => remove(doc)} destructive>Remove</Button>
                 </div>
               ))}
             </div>
@@ -2387,9 +2380,9 @@ function DocumentsTab({ dealId, userId, showToast }) {
               <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted}}>{lightbox + 1} of {photos.length}{meta(current) ? ' · ' + meta(current) : ''}</div>
             </div>
             <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
-              <button style={ghostBtn} onClick={() => openOriginal(current)}>Open full size</button>
-              <button style={{...ghostBtn, borderColor:T.red+'44', color:T.red}} onClick={() => remove(current)}>Remove</button>
-              <button onClick={() => setLightbox(null)} aria-label="Close photo viewer" style={{background:'none', border:'none', color:T.muted, fontSize:20, cursor:'pointer', padding:'4px 8px'}}>✕</button>
+              <Button variant="secondary" size="sm" onClick={() => openOriginal(current)}>Open full size</Button>
+              <Button variant="secondary" size="sm" onClick={() => remove(current)} destructive>Remove</Button>
+              <Button variant="ghost" size="sm" icon="x" onClick={() => setLightbox(null)} aria-label="Close photo viewer" />
             </div>
           </div>
           <div style={{position:'relative', background:'#111', display:'flex', alignItems:'center', justifyContent:'center', minHeight:240}}>
@@ -2441,7 +2434,7 @@ function CompareModal({ deals, companies, onClose }) {
     <Modal onClose={onClose} size="xl" labelledBy="deal-compare-title">
       <div style={{padding:'20px 28px',borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <h2 id="deal-compare-title" style={{fontSize:18,fontWeight:700,color:T.text}}>Deal comparison</h2>
-        <button onClick={onClose} aria-label="Close comparison" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'4px 8px',margin:'-4px -8px'}}>✕</button>
+        <Button variant="ghost" size="sm" icon="x" onClick={onClose} aria-label="Close comparison" />
       </div>
       <div style={{padding:'20px 28px'}}>
         {/* Horizontal scroll container: the comparison grid has a fixed

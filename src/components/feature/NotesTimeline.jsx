@@ -4,7 +4,7 @@ import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState } from '../ui'
 
 // ── NOTES TIMELINE ───────────────────────────────────────────────────────────
 // `composerOnly` renders just the add-note box (no list, no card chrome) for
@@ -61,9 +61,9 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, category, c
       aria-label="New note"
       placeholder="Add a note about this property..."
       style={{width:'100%',minHeight:72,resize:'vertical',marginBottom:8,fontSize:12}}/>
-    <button className="btn btn-gold" style={{fontSize:FS.sm,marginBottom:composerOnly?0:16}} onClick={handleSave} disabled={saving||!newNote.trim()}>
+    <Button variant="primary" size="sm" onClick={handleSave} disabled={saving||!newNote.trim()} style={{marginBottom:composerOnly?0:16}}>
       {saving?'Saving...':'+ Save note'}
-    </button>
+    </Button>
   </>
   if (composerOnly) return composer || null
 
@@ -85,10 +85,9 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, category, c
                       <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.goldText}}>{n.user_email}</span>
                       <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>
                     </div>
-                    {isAdmin&&<button onClick={()=>handleDelete(n.id)}
-                      style={{fontFamily:SANS,fontSize:FS.sm,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                    {isAdmin&&<Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(n.id)}>
                       Delete
-                    </button>}
+                    </Button>}
                   </div>
                   <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
                 </div>

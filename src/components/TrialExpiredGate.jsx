@@ -167,11 +167,9 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
                     {props} {props===1?'property':'properties'} · £{monthly}/month
                   </div>
                 </div>
-                <button onClick={()=>payNow(co.id)} disabled={!!workingCoId}
-                  className="btn btn-gold"
-                  style={{ fontSize:12, whiteSpace:'nowrap' }}>
+                <Button variant="primary" size="sm" onClick={()=>payNow(co.id)} disabled={!!workingCoId}>
                   {isWorking ? 'Redirecting…' : 'Add payment'}
-                </button>
+                </Button>
               </div>
             )
           })}

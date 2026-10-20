@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
+import { Button } from '../ui'
 
 // ── MASTER MILESTONE SETTINGS PANEL ──────────────────────────────────────────
 export function MilestoneSettingsPanel({ user, config, onChange, showToast, T }) {
@@ -58,12 +59,12 @@ export function MilestoneSettingsPanel({ user, config, onChange, showToast, T })
           Configure which steps appear by default when you create a new deal. You can still toggle individual steps on or off inside each deal — these are just the starting defaults.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 4 }}>
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => resetAll(true)} disabled={saving}>
+          <Button variant="secondary" size="sm" onClick={() => resetAll(true)} disabled={saving}>
             Enable all
-          </button>
-          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => resetAll(false)} disabled={saving}>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => resetAll(false)} disabled={saving}>
             Disable all
-          </button>
+          </Button>
           {saving && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'flex', alignItems: 'center' }}>Saving…</span>}
         </div>
       </div>

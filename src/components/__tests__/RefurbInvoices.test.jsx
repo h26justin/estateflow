@@ -38,7 +38,7 @@ describe('Import refurb invoice', () => {
     fireEvent.click(screen.getByText('Allocate to properties →'))
     fireEvent.click(screen.getByText(/Whole block: The Cloisters \(10\)/))
     expect(screen.getAllByText('£2,500.00')).toHaveLength(10)
-    const save = screen.getByText('Save invoice to 10 properties')
+    const save = screen.getByRole('button', { name: 'Save invoice to 10 properties' })
     expect(save.disabled).toBe(false)
     fireEvent.click(save)
     await waitFor(() => expect(createRefurbInvoice).toHaveBeenCalled())
@@ -60,7 +60,7 @@ describe('Import refurb invoice', () => {
     fireEvent.change(inputs[0], { target: { value: 'GLB Building' } })
     fireEvent.change(inputs[1], { target: { value: 'INV-0022' } })
     expect(screen.getByRole('alert').textContent).toMatch(/Already imported/)
-    expect(screen.getByText('Allocate to properties →').disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Allocate to properties →' })).toBeDisabled()
   })
 })
 

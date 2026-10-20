@@ -27,9 +27,10 @@ import StageDrawer, { TaskList, Updates, HistoryRow, ContractorSelect } from './
 import Gantt from './Gantt'
 import { Icon } from '../../lib/icons'
 import MoneyInput from '../../lib/MoneyInput'
-import { mono, fmt, fmtDate, btn, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
+import { mono, fmt, fmtDate, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
 import { FS, SANS } from '../../lib/styles'
 import { SkeletonRows, SkeletonTiles } from '../../lib/Skeleton'
+import { Button } from '../ui'
 
 export const WORKSPACE_TABS = [
   ['overview', 'Overview'],
@@ -392,8 +393,8 @@ export default function RefurbWorkspace({
         </select>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-        {onOpenProperty && <button onClick={onOpenProperty} style={btn(T)}>Property record ↗</button>}
-        {project.deal_id && onOpenDeal && <button onClick={onOpenDeal} style={btn(T)}>Linked deal ↗</button>}
+        {onOpenProperty && <Button variant="secondary" size="sm" onClick={onOpenProperty}>Property record ↗</Button>}
+        {project.deal_id && onOpenDeal && <Button variant="secondary" size="sm" onClick={onOpenDeal}>Linked deal ↗</Button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 14px', marginTop: 12, fontSize: FS.base }}>
         <Detail label="Address" value={property?.address || '—'} T={T} wide />
@@ -429,15 +430,15 @@ export default function RefurbWorkspace({
 
   return <div className="fade">
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-      <button onClick={onBack} style={btn(T)}>← All refurbs</button>
+      <Button variant="secondary" size="sm" onClick={onBack}>← All refurbs</Button>
       {canEdit && <div style={{ display: 'flex', gap: 6 }}>
-        {(project.stage === 'complete' || project.archived_at) && <button onClick={toggleArchive} style={btn(T)}>{project.archived_at ? 'Restore from archive' : 'Archive'}</button>}
-        <button onClick={onDelete} style={btn(T, 'danger')}>Delete</button>
+        {(project.stage === 'complete' || project.archived_at) && <Button variant="secondary" size="sm" onClick={toggleArchive}>{project.archived_at ? 'Restore from archive' : 'Archive'}</Button>}
+        <Button variant="danger" size="sm" onClick={onDelete}>Delete</Button>
       </div>}
     </div>
     {hero}
     {tabs}
-    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: SANS, fontSize: FS.sm }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
+    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: SANS, fontSize: FS.sm }}>{error} <Button variant="secondary" size="sm" onClick={ops.reload}>Try again</Button></div>}
     {loading && !error && <div aria-busy="true" aria-label="Loading the workspace" style={{ padding: 20 }}><SkeletonTiles count={4}/><div style={{ marginTop: 16 }}><SkeletonRows rows={4}/></div></div>}
     {!loading && !error && <>
       {section === 'overview' && <Overview ws={ws} wp={wp} cur={cur} t={t} ffc={ffc} invoiced={invoiced} onSection={onSection} />}
@@ -498,11 +499,11 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 12 }}>
       <div style={{ minWidth: 0 }}>
         <div style={panel(T)}>
-          <div style={sectionHead(T)}><span>Refurb journey</span><button onClick={() => onSection('journey')} style={btn(T)}>Open journey</button></div>
+          <div style={sectionHead(T)}><span>Refurb journey</span><Button variant="secondary" size="sm" onClick={() => onSection('journey')}>Open journey</Button></div>
           {wp.hasJourney ? <>
             <JourneyStrip stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} />
             <div style={{ marginTop: 14 }}><Gantt stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} maxRows={6} /></div>
-          </> : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No journey yet. <button onClick={() => onSection('journey')} style={{ ...btn(T), marginLeft: 6 }}>Start from a template</button></div>}
+          </> : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No journey yet. <Button variant="secondary" size="sm" onClick={() => onSection('journey')} style={{marginLeft: 6}}>Start from a template</Button></div>}
         </div>
         <TaskList ws={ws} stage={null} items={data.tasks.filter(x => x.kind !== 'checklist')} title="Tasks and milestones (all stages)" />
         <Updates ws={ws} stage={null} items={data.updates.slice(0, 8)} title="Latest updates" />
@@ -528,7 +529,7 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
         </div>
         <ProjectDetails ws={ws} />
         <div style={panel(T)}>
-          <div style={sectionHead(T)}><span>Money at a glance</span><button onClick={() => onSection('costs')} style={btn(T)}>Costs</button></div>
+          <div style={sectionHead(T)}><span>Money at a glance</span><Button variant="secondary" size="sm" onClick={() => onSection('costs')}>Costs</Button></div>
           <MoneyRows rows={[['Agreed budget', t.agreed], ['Invoiced', invoiced], ['Paid', t.paid], ['Forecast final cost', ffc.value]]} T={T} />
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
         </div>
@@ -626,7 +627,7 @@ function CostsTab({ ws, t, ffc, invoiced, children }) {
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10 }}>
           <MoneyInput prefix="£" value={ov} onChange={v => setOv(v == null ? '' : v)} onBlur={() => saveOverride()} disabled={!canEdit} placeholder="Use calculated" style={inputStyle(T)} aria-label="Forecast override" />
-          {ffc.overridden && canEdit && <button onClick={() => { setOv(''); saveOverride('') }} style={btn(T)}>Clear</button>}
+          {ffc.overridden && canEdit && <Button variant="secondary" size="sm" onClick={() => { setOv(''); saveOverride('') }}>Clear</Button>}
         </div>
         {project.forecast_cost_reason && <div style={{ fontSize: 12, color: T.amber, marginTop: 6 }}>Reason: {project.forecast_cost_reason}</div>}
       </div>

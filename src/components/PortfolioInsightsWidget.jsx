@@ -5,6 +5,7 @@ import { MONO, FS, statusColors, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import { SkeletonTiles } from '../lib/Skeleton'
+import { Button } from './ui'
 
 // Dashboard widget for #6: AI-generated portfolio insights.
 // Reads the latest stored insights row on mount; provides a "Regenerate"
@@ -112,11 +113,9 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
             </div>
           )}
         </div>
-        <button onClick={regenerate} disabled={busy}
-          className="btn btn-ghost"
-          style={{ fontSize: 11, padding: '6px 14px', opacity: busy ? 0.6 : 1, cursor: busy ? 'wait' : 'pointer' }}>
+        <Button variant="secondary" size="sm" onClick={regenerate} disabled={busy} style={{opacity: busy ? 0.6 : 1}}>
           {busy ? 'Analysing…' : row ? '↻ Refresh' : 'Generate insights'}
-        </button>
+        </Button>
       </div>
 
       {loading && !row ? (
@@ -128,10 +127,9 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 14px' }}>
             Click below and Claude will scan your portfolio for opportunities — under-rented properties, expiring certs, high LTVs, things worth your attention.
           </div>
-          <button className="btn btn-gold" onClick={regenerate} disabled={busy}
-            style={{ fontSize: 12, padding: '8px 18px' }}>
+          <Button variant="primary" size="sm" onClick={regenerate} disabled={busy}>
             {busy ? 'Analysing…' : 'Generate insights'}
-          </button>
+          </Button>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>

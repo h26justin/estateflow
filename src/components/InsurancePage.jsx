@@ -22,9 +22,8 @@ import * as api from '../lib/api'
 import { fmt, plural, fmtDate } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
-import FocusTrap from '../lib/FocusTrap'
-import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
-import { Button, EmptyState } from './ui'
+import { isFormDirty } from '../lib/modalUtils'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 const mono = MONO
@@ -221,7 +220,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setEditing({})}>+ New policy</button>
+          <Button variant="primary" size="sm" onClick={() => setEditing({})}>+ New policy</Button>
         </div>
       </div>
 
@@ -324,9 +323,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           the user clicks it from By Property view. Lets them choose which
           policy to manage, or add a new one. */}
       {propertyPicker && (
-        <div className="overlay" onClick={() => setPropertyPicker(null)}>
-          <FocusTrap onEscape={() => setPropertyPicker(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }} role="dialog" aria-modal="true" aria-labelledby="insurance-picker-title">
+        <Modal onClose={() => setPropertyPicker(null)} size="md" labelledBy="insurance-picker-title">
             <div style={{ padding: '22px 26px 0' }}>
               <h2 id="insurance-picker-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
                 Manage insurance
@@ -384,12 +381,10 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                 + Add another policy
               </button>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setPropertyPicker(null)}>Cancel</button>
+                <Button variant="secondary" size="sm" onClick={() => setPropertyPicker(null)}>Cancel</Button>
               </div>
             </div>
-          </div>
-          </FocusTrap>
-        </div>
+          </Modal>
       )}
     </div>
   )
@@ -872,7 +867,6 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const [snapshot] = useState(form)
   const isDirty = isFormDirty(snapshot, form)
     || [...propertyIds].sort().join(',') !== [...initialIds].sort().join(',')
-  const overlayClose = safeOverlayClose(isDirty, onClose, confirmDiscard)
 
   const s = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -925,9 +919,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   const inpErr = (bad) => bad ? { ...inp, borderColor: T.red } : inp
 
   return (
-    <div className="overlay" onClick={overlayClose}>
-      <FocusTrap onEscape={() => overlayClose({ target: null, currentTarget: null })}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }} role="dialog" aria-modal="true" aria-labelledby="policy-modal-title">
+    <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="lg" labelledBy="policy-modal-title">
         <div style={{ padding: '24px 28px 0' }}>
           <h2 id="policy-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             {isRenewal ? 'Renew Policy' : isNew ? 'Add Insurance Policy' : 'Edit Insurance Policy'}
@@ -1026,14 +1018,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
             <label style={lbl} htmlFor="policy-doc">Policy document (schedule / certificate)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               {form.document_id && (
-                <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }}
-                  onClick={async () => {
+                <Button variant="secondary" size="sm" type="button" onClick={async () => {
                     try {
                       const url = await api.getCompanyDocumentSignedUrlById(form.document_id)
                       if (url) window.open(url, '_blank', 'noopener')
                       else showAppToast('Document not found', 'error')
                     } catch (e) { showAppToast(e.message, 'error') }
-                  }}>View attached document</button>
+                  }}>View attached document</Button>
               )}
               <input id="policy-doc" type="file" accept="application/pdf,image/*"
                 onChange={e => setDocFile(e.target.files?.[0] || null)}
@@ -1099,14 +1090,12 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-gold" style={{ fontSize: FS.sm }}>
+            <Button variant="secondary" size="sm" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" type="submit">
               {isRenewal ? 'Save renewal' : isNew ? 'Add policy' : 'Save changes'}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

@@ -5,7 +5,7 @@ import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState, Modal } from '../ui'
 
 // ── FEATURE FLAGS PANEL (Developer only) ─────────────────────────────────────
 export function FeatureFlagsPanel({ users, companies, T, showToast }) {
@@ -71,7 +71,7 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
           <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Feature Flags</div>
           <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Enable features globally, per user, or per company. Priority: user override → company override → global.</div>
         </div>
-        <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowNew(true)}>+ New Flag</button>
+        <Button variant="primary" size="sm" onClick={()=>setShowNew(true)}>+ New Flag</Button>
       </div>
 
       {showNew && (
@@ -99,8 +99,8 @@ export function FeatureFlagsPanel({ users, companies, T, showToast }) {
             Enable globally by default
           </label>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={createFlag}>Create</button>
-            <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>setShowNew(false)}>Cancel</button>
+            <Button variant="primary" size="sm" onClick={createFlag}>Create</Button>
+            <Button variant="secondary" size="sm" onClick={()=>setShowNew(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -184,15 +184,9 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
   const companyOverrideIds = new Set(companyOverrides.map(o => o.company_id))
 
   return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
-      <div style={{background:T.surface,borderRadius:14,maxWidth:700,width:'100%',maxHeight:'90vh',overflow:'auto',padding:24}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-          <div>
-            <h2 style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:2}}><Icon name="flag" size={16} color={T.goldText} style={{display:'inline-block',verticalAlign:'-2px',marginRight:6}}/>{flag.name}</h2>
-            <code style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{flag.key}</code>
-          </div>
-          <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
-        </div>
+    <Modal onClose={onClose} size="lg" zIndex={1000}
+      title={<><Icon name="flag" size={16} color={T.goldText} style={{display:'inline-block',verticalAlign:'-2px',marginRight:6}}/>{flag.name}</>}
+      description={<code style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{flag.key}</code>}>
         <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:16,lineHeight:1.6}}>
           Global: <strong style={{color:flag.enabled_globally?T.green:T.muted}}>{flag.enabled_globally ? 'ON' : 'OFF'}</strong>. Overrides below take priority.
         </p>
@@ -201,7 +195,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-user overrides ({userOverrides.length})</div>
-            <button onClick={()=>setPickMode('user')} style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add user</button>
+            <Button variant="secondary" size="sm" icon="plus" onClick={()=>setPickMode('user')}>Add user</Button>
           </div>
           {userOverrides.length === 0 && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,padding:10}}>No user overrides.</div>}
           {userOverrides.map(o => {
@@ -213,7 +207,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeUserOverride(o.user_id)} aria-label="Remove user override" style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <Button variant="ghost" size="sm" icon="x" onClick={()=>removeUserOverride(o.user_id)} aria-label="Remove user override" />
                 </div>
               </div>
             )
@@ -224,7 +218,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
         <div style={{marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Per-company overrides ({companyOverrides.length})</div>
-            <button onClick={()=>setPickMode('company')} style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>+ Add company</button>
+            <Button variant="secondary" size="sm" icon="plus" onClick={()=>setPickMode('company')}>Add company</Button>
           </div>
           {companyOverrides.length === 0 && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,padding:10}}>No company overrides.</div>}
           {companyOverrides.map(o => {
@@ -236,7 +230,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:o.enabled?T.green+'22':T.red+'22',color:o.enabled?T.green:T.red,textTransform:'uppercase'}}>
                     {o.enabled ? 'FORCED ON' : 'FORCED OFF'}
                   </span>
-                  <button onClick={()=>removeCompanyOverride(o.company_id)} aria-label="Remove company override" style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>✕</button>
+                  <Button variant="ghost" size="sm" icon="x" onClick={()=>removeCompanyOverride(o.company_id)} aria-label="Remove company override" />
                 </div>
               </div>
             )
@@ -256,8 +250,8 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                 <div key={u.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
                   <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u.email}</span>
                   <div style={{display:'flex',gap:4}}>
-                    <button onClick={()=>addUserOverride(u.id, true)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
-                    <button onClick={()=>addUserOverride(u.id, false)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                    <Button variant="secondary" size="sm" style={{color:T.green,borderColor:T.green}} onClick={()=>addUserOverride(u.id, true)}>Force ON</Button>
+                    <Button variant="secondary" size="sm" destructive onClick={()=>addUserOverride(u.id, false)}>Force OFF</Button>
                   </div>
                 </div>
               ))}
@@ -265,16 +259,15 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                 <div key={c.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',marginBottom:4,background:T.surface,borderRadius:6}}>
                   <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text}}>{c.name}</span>
                   <div style={{display:'flex',gap:4}}>
-                    <button onClick={()=>addCompanyOverride(c.id, true)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.green}`,background:T.green+'22',color:T.green}}>Force ON</button>
-                    <button onClick={()=>addCompanyOverride(c.id, false)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'3px 8px',borderRadius:4,cursor:'pointer',border:`1px solid ${T.red}`,background:T.red+'22',color:T.red}}>Force OFF</button>
+                    <Button variant="secondary" size="sm" style={{color:T.green,borderColor:T.green}} onClick={()=>addCompanyOverride(c.id, true)}>Force ON</Button>
+                    <Button variant="secondary" size="sm" destructive onClick={()=>addCompanyOverride(c.id, false)}>Force OFF</Button>
                   </div>
                 </div>
               ))}
             </div>
-            <button onClick={()=>{setPickMode(null);setSearch('')}} style={{marginTop:8,fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>Cancel</button>
+            <Button variant="secondary" size="sm" style={{marginTop:8}} onClick={()=>{setPickMode(null);setSearch('')}}>Cancel</Button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   )
 }

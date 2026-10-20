@@ -9,7 +9,7 @@ import { loadJsPDF } from '../lib/pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { EmptyState } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 
@@ -528,15 +528,15 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           <select value={selectedYear} onChange={e=>setSelectedYear(+e.target.value)} style={{fontSize:11}}>
             {years.map(y=><option key={y}>{y}</option>)}
           </select>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={exportCSV}>CSV</button>
-          <button className="btn btn-gold" style={{fontSize:FS.sm,background:'transparent',color:T.goldText,border:`1px solid ${T.gold}`}} onClick={exportPDF}>PDF Report</button>
+          <Button variant="primary" size="sm" onClick={exportCSV}>CSV</Button>
+          <Button variant="secondary" size="sm" onClick={exportPDF}>PDF Report</Button>
           {onImport&&(()=>{
             // Show import button if ANY selected company has feature_statements enabled
             const hasFeature = selectedCompany==='all'
               ? companies.some(c=>(companySettings[c.id]||{}).feature_statements)
               : (companySettings[selectedCompany]||{}).feature_statements
             return hasFeature ? (
-              <button className="btn btn-gold" style={{fontSize:FS.sm,background:T.green+'15',color:T.green,border:`1px solid ${T.green}`}} onClick={onImport}>Import statement</button>
+              <Button variant="secondary" size="sm" onClick={onImport}>Import statement</Button>
             ) : null
           })()}
         </div>
@@ -723,7 +723,7 @@ export function ContractorsPage({companies, showToast}) {
           <h1 style={{fontSize:26,fontWeight:700,letterSpacing:'-0.03em',marginBottom:4}}>Contractor directory</h1>
           <p style={{fontFamily:MONO,color:T.muted,fontSize:12}}>{contractors.length} contacts across {Object.keys(byTrade).length} trades</p>
         </div>
-        <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowForm(v=>!v)}>+ Add contractor</button>
+        <Button variant="primary" size="sm" onClick={()=>setShowForm(v=>!v)}>+ Add contractor</Button>
       </div>
 
       {showForm&&<div className="card" style={{padding:'18px 20px',marginBottom:20}}>
@@ -758,8 +758,8 @@ export function ContractorsPage({companies, showToast}) {
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>Save contractor</button>
-          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</button>
+          <Button variant="primary" size="sm" onClick={handleSave}>Save contractor</Button>
+          <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
 
@@ -968,28 +968,14 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
-    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:500, padding:'40px 16px', overflowY:'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:T.surface, border:`1px solid ${T.border}`, borderRadius:18, width:'100%', maxWidth:1100, padding:'28px 32px' }}>
-
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
-          <div>
-            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>Rent review planner</h2>
-            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, lineHeight:1.6 }}>
-              Model the impact of rent increases across your portfolio. {plural(rows.length,'property','properties')} in scope.
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button onClick={exportPDF} disabled={exporting || rows.length === 0}
-              style={{ fontFamily:SANS, fontSize:FS.sm, padding:'8px 16px', borderRadius:8, cursor:exporting?'wait':'pointer', border:`1px solid ${T.gold}`, background:T.gold+'22', color:T.goldText, fontWeight:700 }}>
-              {exporting ? 'Generating…' : 'Export PDF'}
-            </button>
-            <button onClick={onClose}
-              style={{ fontFamily:SANS, fontSize:FS.sm, padding:'8px 16px', borderRadius:8, cursor:'pointer', border:`1px solid ${T.border}`, background:'transparent', color:T.muted }}>
-              Close
-            </button>
-          </div>
-        </div>
+    <Modal onClose={onClose} size={1100} zIndex={500} title="Rent review planner"
+      description={<>Model the impact of rent increases across your portfolio. {plural(rows.length,'property','properties')} in scope.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Close</Button>
+        <Button onClick={exportPDF} disabled={exporting || rows.length === 0} loading={exporting}>
+          {exporting ? 'Generating…' : 'Export PDF'}
+        </Button>
+      </>}>
 
         {/* Summary bar */}
         <div style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:12, padding:'18px 22px', marginBottom:20 }}>
@@ -1130,9 +1116,8 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
                       {r.pct > 0 ? '+' : ''}{r.pct.toFixed(1)}%
                     </span>
                     {overrides[r.p.id] !== undefined && (
-                      <button onClick={() => clearOverride(r.p.id)}
-                        style={{ fontFamily:mono, fontSize:FS.xs, padding:'2px 6px', cursor:'pointer', border:'none', background:'transparent', color:T.muted }}
-                        title="Reset to global" aria-label="Reset to global">✕</button>
+                      <Button variant="ghost" size="sm" icon="x" onClick={() => clearOverride(r.p.id)}
+                        title="Reset to global" aria-label="Reset to global" />
                     )}
                   </div>
                 )}
@@ -1146,7 +1131,6 @@ export function RentReviewModal({ properties, companies, fmt, yieldBasis, onClos
           Tenancy badges based on tenancy end dates: green, expired or vacant · amber, ends within 90 days · red, fixed term &gt; 90 days remaining.
           This tool is for scenario modelling — actual rent increases must follow legal notice requirements (Section 13 etc.).
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

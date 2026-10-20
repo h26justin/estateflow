@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
@@ -10,7 +9,7 @@ import RolePermissionsModal from '../RolePermissionsModal'
 import { canDo, ROLE_OPTIONS, ROLE_OPTION_LABELS, roleFromAccessRow, roleUpdateFor, isAdminDemotion } from '../../lib/permissions'
 import { ShareableLinksTab } from './ShareableLinksTab'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { Button, EmptyState, Modal } from '../ui'
 
 // ── ACCESS MODAL (Admin only) ─────────────────────────────────────────────────
 
@@ -225,16 +224,12 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
   })
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
-      <div className="modal" style={{maxWidth:660}}>
-        <div style={{padding:'22px 26px'}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-            <h2 style={{fontSize:20,fontWeight:700,color:T.text}}>User access management</h2>
-            <button onClick={onClose} aria-label="Close" style={{background:'none',border:'none',color:T.muted,fontSize:20,cursor:'pointer',padding:'6px 10px',margin:'-6px -10px'}}>✕</button>
-          </div>
-          <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:20}}>
-            Manage who can access your companies. Send invitations to new users.
-          </p>
+    <>
+    <Modal onClose={onClose} isDirty={newEmail.trim().length > 0} confirmFn={confirmDiscard} size="lg"
+      title="User access management"
+      description="Manage who can access your companies. Send invitations to new users."
+      footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+        <div>
 
           {/* Tabs */}
           <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:'wrap'}}>
@@ -261,10 +256,9 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
                 <input type="checkbox" id="invite-admin" checked={newIsAdmin} onChange={e=>setNewIsAdmin(e.target.checked)} style={{width:'auto',margin:0}}/>
                 <label htmlFor="invite-admin" style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,cursor:'pointer',whiteSpace:'nowrap'}}>Make admin</label>
               </div>
-              <button className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}}
-                onClick={sendInvite} disabled={adding||!newEmail.trim()}>
+              <Button variant="primary" size="sm" onClick={sendInvite} disabled={adding||!newEmail.trim()}>
                 {adding ? 'Sending…' : 'Send invite'}
-              </button>
+              </Button>
             </div>
             {/* Company selector — only show if more than 1 company */}
             {companies.length > 1 && (
@@ -436,10 +430,8 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
               )}
             </>
           }
-
-          <button className="btn btn-ghost" style={{width:'100%',marginTop:16,fontSize:FS.sm}} onClick={onClose}>Close</button>
         </div>
-      </div>
+    </Modal>
 
       {/* Advanced per-key overrides for one member on one company. Reuses the
           platform-admin modal; its z-index sits above this overlay. */}
@@ -457,6 +449,6 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
             reloadRows()
           }}/>
       )}
-    </div>
+    </>
   )
 }
