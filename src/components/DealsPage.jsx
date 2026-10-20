@@ -21,6 +21,7 @@ import { summariseCopy } from '../lib/dealCopy'
 import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
+import ActionMenu from './ActionMenu'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -655,7 +656,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                         <SignedPhoto path={counts.cover} alt="" wrapAnchor={false}
                           style={{width:64,height:64,objectFit:'cover',borderRadius:8,border:`1px solid ${T.border}`,flexShrink:0}}/>
                       )}
-                      <div style={{flex:1,minWidth:0}}>
+                      {/* flex-basis lets the action buttons drop to their own
+                          row on a phone instead of squeezing the figures. */}
+                      <div style={{flex:'1 1 260px',minWidth:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                           <span style={{fontSize:15,fontWeight:700,color:T.text}}>{deal.name}</span>
                           <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:sc.color+'22',color:sc.color}}>{sc.label}</span>
@@ -690,19 +693,22 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                           style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 12px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.gold}`,background:T.gold+'22',color:T.goldText}}>
                           Edit →
                         </button>
+                        {/* Compare stays visible: it's a multi-select toggle
+                            whose state needs to show on the card. Copy and
+                            Delete live in the ⋯ menu; Delete still confirms. */}
                         <button onClick={()=>setCompareIds(prev=>inCompare?prev.filter(id=>id!==deal.id):prev.length<3?[...prev,deal.id]:prev)}
+                          aria-pressed={inCompare}
+                          disabled={!inCompare && compareIds.length>=3}
+                          title={!inCompare && compareIds.length>=3 ? 'You can compare up to 3 deals' : undefined}
                           style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',
                             border:`1px solid ${inCompare?T.gold:T.border}`,background:inCompare?T.gold+'22':'transparent',color:inCompare?T.goldText:T.muted}}>
-                          {inCompare?'Compare':'Compare'}
+                          {inCompare?'✓ Comparing':'Compare'}
                         </button>
-                        <button onClick={()=>setCopyTarget(deal)}
-                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
-                          Copy
-                        </button>
-                        <button onClick={()=>deleteDeal(deal.id)}
-                          style={{fontFamily:mono,fontSize:FS.xs,padding:'4px 10px',borderRadius:6,cursor:'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
-                          Delete
-                        </button>
+                        <ActionMenu buttonLabel={`More actions for ${deal.name}`} items={[
+                          { label: 'Copy deal', icon: 'file-text', onSelect: () => setCopyTarget(deal) },
+                          { divider: true },
+                          { label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteDeal(deal.id) },
+                        ]}/>
                       </div>
                     </div>
                   </div>

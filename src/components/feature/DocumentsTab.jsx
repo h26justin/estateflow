@@ -10,6 +10,7 @@ import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { EmptyState, Button } from '../ui'
+import { fmtDate } from '../../lib/format'
 
 // ── DOCUMENTS TAB ────────────────────────────────────────────────────────────
 const DOC_CATEGORIES = [
@@ -430,14 +431,14 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                           if (linked) {
                             return (
                               <div style={{marginTop:10,padding:'10px 12px',background:T.green+'11',border:`1px solid ${T.green}44`,borderRadius:8,fontFamily:MONO,fontSize:11,color:T.green,display:'flex',alignItems:'center',gap:8}}>
-                                <span>Linked to Compliance — {candidate.cert_name} expires {candidate.expiry_date}</span>
+                                <span>Linked to Compliance — {candidate.cert_name} expires {fmtDate(candidate.expiry_date)}</span>
                               </div>
                             )
                           }
                           return (
                             <div style={{marginTop:10,padding:'10px 12px',background:T.gold+'11',border:`1px dashed ${T.gold}66`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
                               <div style={{fontFamily:MONO,fontSize:11,color:T.text,lineHeight:1.5}}>
-                                Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{candidate.expiry_date}</strong>.
+                                Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{fmtDate(candidate.expiry_date)}</strong>.
                               </div>
                               <Button size="sm" icon={complianceBusy===doc.id ? undefined : 'plus'} onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id} style={{whiteSpace:'nowrap'}}>
                                 {complianceBusy===doc.id ? 'Adding…' : 'Add to Compliance'}
