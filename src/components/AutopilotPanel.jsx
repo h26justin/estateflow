@@ -52,6 +52,28 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
   const highCount = actions.filter(a => a.severity === 'high').length
   const top = actions.slice(0, 4)
 
+  // Nothing to review (or still loading): one compact line instead of a
+  // full-width card holding a single sentence.
+  if (loading || actions.length === 0) {
+    return (
+      <div className="card" style={{ padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <Icon name="robot" size={15} color={T.muted}/>
+        <h2 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: T.text }}>Portfolio Autopilot</h2>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: loading ? T.faint : T.green, display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+          {!loading && <Icon name="check-circle" size={12} color={T.green}/>}
+          {loading ? 'Checking for actions…' : 'No actions awaiting review'}
+        </span>
+        <span style={{ flex: 1 }}/>
+        {!loading && onOpenFull && (
+          <button type="button" onClick={onOpenFull}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 28, fontFamily: MONO, fontSize: 11, color: T.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            Open Autopilot<Icon name="arrow-right" size={11}/>
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="card" style={{ padding: 18, marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -63,36 +85,24 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
             </span>
           )}
         </h2>
-        {actions.length > 0 && (
-          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
-        )}
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
       </div>
 
-      {loading ? (
-        <SkeletonRows rows={3} height={44}/>
-      ) : actions.length === 0 ? (
-        <div style={{ fontFamily: MONO, color: T.green, fontSize: 12, padding: 16 }}>
-          No actions awaiting review
-        </div>
-      ) : (
-        <>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {top.map(a => {
-              const meta = KIND_META[a.kind] || { icon: '•', label: a.kind }
-              const col = a.severity === 'high' ? T.red : a.severity === 'medium' ? T.amber : T.muted
-              return (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderLeft: `3px solid ${col}`, background: T.bg, borderRadius: 8 }}>
-                  <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={14}/>:meta.icon}</span>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
-            AI-drafted suggestions — review before acting. Nothing is sent automatically.
-          </div>
-        </>
-      )}
+      <div style={{ display: 'grid', gap: 6 }}>
+        {top.map(a => {
+          const meta = KIND_META[a.kind] || { icon: '•', label: a.kind }
+          const col = a.severity === 'high' ? T.red : a.severity === 'medium' ? T.amber : T.muted
+          return (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderLeft: `3px solid ${col}`, background: T.bg, borderRadius: 8 }}>
+              <span style={{ display:'inline-flex', color:T.muted }}>{ICON_NAMES.includes(meta.icon)?<Icon name={meta.icon} size={14}/>:meta.icon}</span>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+        AI-drafted suggestions — review before acting. Nothing is sent automatically.
+      </div>
     </div>
   )
 }

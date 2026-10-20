@@ -47,6 +47,17 @@ describe('Compliance page', () => {
     expect(screen.getByText('Legally in date')).toBeInTheDocument()
   })
 
+  it('never shows a green PRS ready pill beside legal gaps', async () => {
+    renderPage()
+    await screen.findByText('Missing (legal)')
+    // Solo House has every PRS core item (no gas, EICR, EPC) in date but no
+    // tenancy paperwork, so it must not read "PRS ready".
+    expect(screen.queryByText('PRS ready')).toBeNull()
+    const pills = screen.getAllByText(/^Not PRS ready · \d+ gaps?$/)
+    expect(pills.length).toBe(3)
+    expect(pills.some(p => /Tenancy|Agreement/.test(p.getAttribute('title')))).toBe(true)
+  })
+
   it('logs a certificate for a whole building, skipping units already in date', async () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /Log a certificate for a whole building/ }))

@@ -111,16 +111,24 @@ function ReqRow({ req, status, T, onClick, property }) {
 
 // PRS database readiness pill — the Renters' Rights Act database (late
 // 2026) will require registering each let property with its compliance
-// record. Green when the statutory set is in date, amber with a gap count
-// (tooltip lists them) otherwise. Hidden for non-let properties.
-function PrsPill({ property, T }) {
+// record. Green "PRS ready" only when the statutory set is in date AND the
+// card itself has no expired or missing legal item, so it can never sit in
+// green beside a red "4/14 in date". Otherwise red, listing every gap
+// (PRS core items first, then the card's other legal gaps). Hidden for
+// non-let properties.
+function PrsPill({ property, legalGaps, T }) {
   const prs = prsReadiness(property)
   if (!prs) return null
-  const color = prs.ready ? T.green : T.amber
+  // De-duplicate: prsReadiness already reports gas/EICR/EPC/licences.
+  const prsLabels = new Set(['gas_safety', 'eicr', 'epc', 'hmo', 'selective_licence'])
+  const others = (legalGaps || []).filter(g => !prsLabels.has(g.key)).map(g => `${g.label} ${g.state}`)
+  const gaps = [...prs.gaps, ...others]
+  const ready = gaps.length === 0
+  const color = ready ? T.green : T.red
   return (
-    <span title={prs.ready ? 'Gas, EICR, EPC and licensing all in date — ready for PRS database registration' : `PRS database gaps:\n• ${prs.gaps.join('\n• ')}`}
+    <span title={ready ? 'Gas, EICR, EPC, licensing and every other legal item in date — ready for PRS database registration' : `Not PRS ready:\n• ${gaps.join('\n• ')}`}
       style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color, background: color + '1A', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-      {prs.ready ? 'PRS ready' : `PRS: ${prs.gaps.length} gap${prs.gaps.length === 1 ? '' : 's'}`}
+      {ready ? 'PRS ready' : `Not PRS ready · ${gaps.length} gap${gaps.length === 1 ? '' : 's'}`}
     </span>
   )
 }
@@ -130,6 +138,9 @@ function PrsPill({ property, T }) {
 function PropertyCard({ property, company, settings, policies, T, openDetail, gotoInsurance }) {
   const summary = propertyComplianceSummary(property, settings, policies)
   const missingRequired = summary.rows.filter(r => r.status.state === 'missing' && r.req.tier <= 2).length
+  const legalGaps = summary.rows
+    .filter(r => r.req.tier <= 2 && (r.status.state === 'missing' || r.status.state === 'expired'))
+    .map(r => ({ key: r.req.key, label: r.req.short, state: r.status.state }))
   const scoreColor = (summary.expired > 0 || missingRequired > 0) ? T.red
     : (summary.expiring > 0 || summary.missing > 0) ? T.amber : T.green
   const allGood = summary.expired === 0 && summary.expiring === 0 && missingRequired === 0   // advisory gaps do not spoil a tick
@@ -142,7 +153,7 @@ function PropertyCard({ property, company, settings, policies, T, openDetail, go
         <CoPill company={company} T={T} />
         {property.prop_type && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint }}>{property.prop_type}</span>}
         <span style={{ flex: 1 }} />
-        <PrsPill property={property} T={T} />
+        <PrsPill property={property} legalGaps={legalGaps} T={T} />
         {allGood && <Icon name="check-circle" size={15} color={T.green} />}
         <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: scoreColor, background: scoreColor + '1A', padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
           {summary.held}/{summary.total} in date
