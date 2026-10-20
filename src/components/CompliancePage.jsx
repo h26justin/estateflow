@@ -19,7 +19,7 @@ import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { MONO, FS } from '../lib/styles'
 import InsurancePage from './InsurancePage'
-import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty } from '../lib/complianceCatalogue'
+import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty, meesTargetLabel } from '../lib/complianceCatalogue'
 import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
@@ -90,7 +90,7 @@ function ReqRow({ req, status, T, onClick, property }) {
     const meesDays = daysUntilDate(MEES_DEADLINE_ISO)
     if (meesDays !== null) {
       color = T.amber
-      detail = meesDays > 0 ? `${meesDays.toLocaleString('en-GB')}d to C` : 'below band C'
+      detail = meesTargetLabel()
       title = `${req.label} — band ${band}, below the 2030 MEES target of C. Certificate valid ${days}d.`
     }
   }
