@@ -40,14 +40,6 @@ const termLabel = m => {
 // Shared house recipes (lib/styles + the .btn classes in App.jsx), so this
 // page reads like Compliance, Short-Term Let Income and Reports.
 const inputStyle = T => inp(T)
-// Pill buttons as on the Short-Term Let Income page: gold = primary action
-// (ink text on gold), ghost = secondary, danger = destructive.
-const btn = (T, kind = 'ghost') => ({
-  fontFamily: mono, fontSize: 11, fontWeight: kind === 'gold' ? 700 : 500, padding: '7px 14px', borderRadius: 20, cursor: 'pointer',
-  display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'all 0.18s',
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#1C2830' : kind === 'danger' ? T.red : T.text,
-  border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
-})
 // The form offers two ways to repay. Rolled-up stays in the engine but only
 // appears here when editing a loan that already uses it.
 const REPAYMENT_CHOICES = [
@@ -197,8 +189,8 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
       </Field>
       {error && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button style={btn(T)} onClick={onCancel}>Cancel</button>
-        <button style={{ ...btn(T, 'gold'), padding: '8px 16px' }} onClick={submit} disabled={saving}>{saving ? 'Saving…' : initial?.id ? 'Save changes' : 'Add loan'}</button>
+        <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" size="sm" onClick={submit} disabled={saving}>{saving ? 'Saving…' : initial?.id ? 'Save changes' : 'Add loan'}</Button>
       </div>
     </div>
 
@@ -262,13 +254,13 @@ function ScheduleRow({ row, canEdit, onTick, onUntick, onUpdateTick, T, isMobile
     <td style={{ ...td, minWidth: 150 }}>
       {paid && !editing && <span style={{ color: T.green }}>
         Paid {fmtDate(row.paid.paid_date)}{Math.abs(Number(row.paid.amount) - row.payment) > 0.005 && ` · ${fmtP(row.paid.amount)}`}
-        {canEdit && <button onClick={() => { setAmount(row.paid.amount); setDate(row.paid.paid_date); setEditing(true) }} style={{ ...btn(T), padding: '1px 6px', fontSize: FS.xs, marginLeft: 6 }}>Edit</button>}
+        {canEdit && <Button variant="secondary" size="sm" onClick={() => { setAmount(row.paid.amount); setDate(row.paid.paid_date); setEditing(true) }} style={{marginLeft: 6}}>Edit</Button>}
       </span>}
       {paid && editing && <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <MoneyInput prefix="£" value={amount} onChange={setAmount} style={{ ...inputStyle(T), width: 100, padding: '3px 6px' }} />
         <input type="date" value={date || ''} onChange={e => setDate(e.target.value)} style={{ ...inputStyle(T), width: 130, padding: '3px 6px' }} />
-        <button onClick={saveEdit} disabled={busy} style={{ ...btn(T, 'gold'), padding: '3px 8px' }}>Save</button>
-        <button onClick={() => setEditing(false)} style={{ ...btn(T), padding: '3px 8px' }}>×</button>
+        <Button variant="primary" size="sm" onClick={saveEdit} disabled={busy}>Save</Button>
+        <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>×</Button>
       </div>}
     </td>
   </tr>
@@ -284,7 +276,7 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
   const pct = s.periods ? Math.round(s.paidCount / s.periods * 100) : 0
 
   return <div className="fade">
-    <button onClick={onBack} className="btn btn-ghost" style={{ ...btn(T), marginBottom: 14 }}><Icon name="chevron-left" size={13} /> All loans</button>
+    <Button variant="secondary" size="sm" onClick={onBack} style={{marginBottom: 14}}><Icon name="chevron-left" size={13} /> All loans</Button>
     <div style={{ ...card(T), marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
@@ -304,11 +296,11 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
           {loan.notes && <div style={{ fontSize: 12, color: T.muted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{loan.notes}</div>}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-gold" style={btn(T, 'gold')} onClick={onDownload} disabled={pdfBusy} title="Download a statement to send to the lender: loan terms, payments made and still to come">
+          <Button variant="primary" size="sm" onClick={onDownload} disabled={pdfBusy} title="Download a statement to send to the lender: loan terms, payments made and still to come">
             <Icon name="download" size={13} /> {pdfBusy ? 'Preparing PDF…' : 'Download PDF statement'}
-          </button>
-          {canEdit && <button className="btn btn-ghost" style={btn(T)} onClick={onEdit}>Edit</button>}
-          {canEdit && <button className="btn" style={btn(T, 'danger')} onClick={onDelete}>Delete</button>}
+          </Button>
+          {canEdit && <Button variant="secondary" size="sm" onClick={onEdit}>Edit</Button>}
+          {canEdit && <Button variant="danger" size="sm" onClick={onDelete}>Delete</Button>}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10, marginTop: 14 }}>
@@ -338,7 +330,7 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
         <tbody>{rows.map(r => <ScheduleRow key={r.period + ':' + (r.paid?.id || '')} row={r} canEdit={canEdit} onTick={onTick} onUntick={onUntick} onUpdateTick={onUpdateTick} T={T} isMobile={isMobile} />)}</tbody>
       </table>
       {rows.length < s.rows.length && <div style={{ padding: 12, textAlign: 'center' }}>
-        <button style={btn(T)} onClick={() => setShowAll(true)}>Show all {s.rows.length} payments</button>
+        <Button variant="secondary" size="sm" onClick={() => setShowAll(true)}>Show all {s.rows.length} payments</Button>
       </div>}
     </div>
   </div>
@@ -471,13 +463,12 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
       </div>
     </div>
     {mode === 'list' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      {filtered.length > 0 && <button onClick={() => downloadPdf(filtered)} disabled={!!pdfBusy} className="btn btn-ghost" title="Download a PDF of every loan shown, with each loan's payment schedule"
-        style={{ ...btn(T), padding: '8px 14px' }}>
+      {filtered.length > 0 && <Button variant="secondary" size="sm" onClick={() => downloadPdf(filtered)} disabled={!!pdfBusy} title="Download a PDF of every loan shown, with each loan's payment schedule">
         <Icon name="download" size={13} /> {pdfBusy === 'all' ? 'Preparing PDF…' : 'Download PDF'}
-      </button>}
-      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: FS.sm, padding: '8px 16px' }}>
+      </Button>}
+      {editableCompanies.length > 0 && <Button variant="primary" size="sm" onClick={() => setMode('new')}>
         <Icon name="plus" size={13} /> New loan
-      </button>}
+      </Button>}
     </div>}
   </div>
 
@@ -487,7 +478,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
 
   if ((mode === 'view' || mode === 'edit') && selectedId && !selected) {
     return <div className="fade">{pageHead}<div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: SANS, fontSize: FS.sm }}>
-      {loading ? <Skeleton w="40%" h={14} style={{ margin: '0 auto' }}/> : <>That loan was not found. <button style={btn(T)} onClick={() => { setSelectedId(null); setMode('list') }}>All loans</button></>}
+      {loading ? <Skeleton w="40%" h={14} style={{ margin: '0 auto' }}/> : <>That loan was not found. <Button variant="secondary" size="sm" onClick={() => { setSelectedId(null); setMode('list') }}>All loans</Button></>}
     </div></div>
   }
 
@@ -562,7 +553,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
           ))}</tbody>
         </table>
         {repaidCount > 0 && <div style={{ padding: 10, textAlign: 'center' }}>
-          <button style={btn(T)} onClick={() => setShowRepaid(v => !v)}>{showRepaid ? 'Hide' : 'Show'} {repaidCount} repaid loan{repaidCount === 1 ? '' : 's'}</button>
+          <Button variant="secondary" size="sm" onClick={() => setShowRepaid(v => !v)}>{showRepaid ? 'Hide' : 'Show'} {repaidCount} repaid loan{repaidCount === 1 ? '' : 's'}</Button>
         </div>}
       </div>
 

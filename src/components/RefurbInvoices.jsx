@@ -22,18 +22,13 @@ import {
   paidAgainst, invoiceStatus, outstandingOn, invoicesForProject, defaultProjectFor, extractInvoiceFields, round2,
 } from '../lib/refurbInvoices'
 import { pressable } from '../lib/pressable'
-import { EmptyState } from './ui'
+import { Button, EmptyState } from './ui'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 const todayISO = () => new Date().toISOString().slice(0, 10)
 const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', outline: 'none', width: '100%', boxSizing: 'border-box' })
-const btn = (T, kind = 'ghost') => ({
-  fontFamily: mono, fontSize: 11, padding: '6px 12px', borderRadius: 6, cursor: 'pointer',
-  border: `1px solid ${kind === 'gold' ? T.gold : kind === 'danger' ? T.red + '66' : T.border}`,
-  background: kind === 'gold' ? T.gold : 'transparent', color: kind === 'gold' ? '#fff' : kind === 'danger' ? T.red : T.muted,
-})
 const lbl = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 4 })
 const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 14 })
 
@@ -229,7 +224,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         {['upload', 'details', 'allocate'].map((s, i) => <span key={s} style={{ color: step === s ? T.goldText : T.muted }}>{i ? ' → ' : ''}{i + 1}. {{ upload: 'Upload', details: 'Check details', allocate: 'Allocate' }[s]}</span>)}
       </div>
     </div>
-    <button onClick={onCancel} style={btn(T)}>Cancel</button>
+    <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
   </div>
 
   if (!editableCompanies.length) return <div style={panel(T)}>{head}<div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>You need edit access to a company to import invoices.</div></div>
@@ -242,7 +237,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{reading ? 'Reading the invoice…' : 'Drop the contractor invoice or credit note here'}</div>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>PDF preferred. Supplier, invoice number, dates and totals are read where the PDF has text; you confirm everything before it is saved.</div>
     </label>
-    <div style={{ marginTop: 10 }}><button onClick={() => setStep('details')} style={btn(T)}>Enter manually without a file</button></div>
+    <div style={{ marginTop: 10 }}><Button variant="secondary" size="sm" onClick={() => setStep('details')}>Enter manually without a file</Button></div>
   </div>
 
   if (step === 'details') {
@@ -288,8 +283,8 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
       </div>}
       {detailProblems.length > 0 && <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>{detailProblems.join(' · ')}</div>}
       <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-        <button onClick={() => setStep('upload')} style={btn(T)}>← Back</button>
-        <button onClick={() => setStep('allocate')} disabled={!!duplicate || detailProblems.length > 0} style={{ ...btn(T, 'gold'), opacity: duplicate || detailProblems.length ? 0.5 : 1 }}>Allocate to properties →</button>
+        <Button variant="secondary" size="sm" onClick={() => setStep('upload')}>← Back</Button>
+        <Button variant="primary" size="sm" onClick={() => setStep('allocate')} disabled={!!duplicate || detailProblems.length > 0} style={{opacity: duplicate || detailProblems.length ? 0.5 : 1}}>Allocate to properties →</Button>
       </div>
     </div>
   }
@@ -306,9 +301,9 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         {blocks.length > 0 && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
           {blocks.map(g => {
             const all = g.items.every(p => selectedIds.has(p.id))
-            return <button key={g.tail} onClick={() => selectMany(g.items, !all)} style={{ ...btn(T), padding: '4px 10px', color: all ? T.goldText : T.muted, borderColor: all ? T.gold : T.border }}>
+            return <Button variant="secondary" size="sm" key={g.tail} onClick={() => selectMany(g.items, !all)} style={{color: all ? T.goldText : T.muted, borderColor: all ? T.gold : T.border}}>
               {all ? '✓ ' : '+ '}Whole block: {g.tail} ({g.items.length})
-            </button>
+            </Button>
           })}
         </div>}
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search properties" style={{ ...inputStyle(T), marginBottom: 6 }} />
@@ -321,8 +316,8 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
           </label>)}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-          <button onClick={() => selectMany(shown, true)} style={{ ...btn(T), padding: '3px 8px' }}>Select shown</button>
-          <button onClick={() => setRows([])} style={{ ...btn(T), padding: '3px 8px' }}>Clear</button>
+          <Button variant="secondary" size="sm" onClick={() => selectMany(shown, true)}>Select shown</Button>
+          <Button variant="secondary" size="sm" onClick={() => setRows([])}>Clear</Button>
         </div>
       </div>
 
@@ -333,7 +328,7 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
             <button key={k} onClick={() => setMethod(k)} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '6px 12px', border: 'none', cursor: 'pointer', background: method === k ? T.gold : 'transparent', color: method === k ? '#fff' : T.muted }}>{l}</button>
           ))}
         </div>
-        {method === 'percent' && rows.length > 0 && <button onClick={evenPercent} style={{ ...btn(T), marginLeft: 8, padding: '4px 8px' }}>Fill equal %</button>}
+        {method === 'percent' && rows.length > 0 && <Button variant="secondary" size="sm" onClick={evenPercent} style={{marginLeft: 8}}>Fill equal %</Button>}
         {rows.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, padding: '10px 0' }}>Tick one property, several, or a whole block.</div>}
         {rows.map((r, i) => {
           const projs = projectsOf(r.property_id)
@@ -373,10 +368,10 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
           Saving records the cost against each refurb. It does not mark anything paid: log the payment on the invoice when the money goes out.
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <button onClick={() => setStep('details')} style={btn(T)}>← Back</button>
-          <button onClick={save} disabled={saving || problems.length > 0 || !!duplicate} style={{ ...btn(T, 'gold'), opacity: saving || problems.length || duplicate ? 0.5 : 1 }}>
+          <Button variant="secondary" size="sm" onClick={() => setStep('details')}>← Back</Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={saving || problems.length > 0 || !!duplicate} style={{opacity: saving || problems.length || duplicate ? 0.5 : 1}}>
             {saving ? 'Saving…' : `Save ${inv.doc_kind === 'credit_note' ? 'credit note' : 'invoice'} to ${rows.length} ${rows.length === 1 ? 'property' : 'properties'}`}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -400,7 +395,7 @@ export function InvoiceList({ invoices, companies, lines, onOpen, onImport, canI
         <option value="open">Not fully paid</option><option value="all">All</option>
         {Object.entries(INVOICE_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
       </select>
-      {canImport && <button onClick={onImport} style={btn(T, 'gold')}>Import refurb invoice</button>}
+      {canImport && <Button variant="primary" size="sm" onClick={onImport}>Import refurb invoice</Button>}
     </div>
     {rows.length === 0 && <EmptyState compact icon="receipt" title="No invoices here yet" body="Import one to allocate it across properties."/>}
     {rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="table-stack" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -469,7 +464,7 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
 
   const row = { display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : 'minmax(0,1.6fr) minmax(0,1.2fr) 120px 90px', gap: 8, padding: '7px 0', borderTop: `1px solid ${T.border}`, fontSize: FS.base, alignItems: 'center' }
   return <div>
-    <button onClick={onBack} style={{ ...btn(T), marginBottom: 12 }}>← Invoices</button>
+    <Button variant="secondary" size="sm" onClick={onBack} style={{marginBottom: 12}}>← Invoices</Button>
     <div style={panel(T)}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
@@ -481,8 +476,8 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <InvoiceStatusChip status={st} T={T} />
-          {invoice.document_id && <button onClick={openPdf} style={btn(T)}>Open original</button>}
-          {canEdit && <button onClick={remove} style={btn(T, 'danger')}>Delete</button>}
+          {invoice.document_id && <Button variant="secondary" size="sm" onClick={openPdf}>Open original</Button>}
+          {canEdit && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 10, marginTop: 14, fontFamily: mono }}>
@@ -529,7 +524,7 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
         <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', gap: 5, alignItems: 'center', paddingBottom: 8 }}>
           <input type="checkbox" checked={pay.refund} onChange={e => setPay(p => ({ ...p, refund: e.target.checked }))} style={{ width: 'auto', margin: 0 }} /> Refund from contractor
         </label>
-        <button onClick={logPayment} disabled={busy || !(Number(pay.amount) > 0)} style={{ ...btn(T, 'gold'), opacity: busy || !(Number(pay.amount) > 0) ? 0.5 : 1 }}>{busy ? 'Saving…' : pay.refund ? 'Log refund' : 'Log payment'}</button>
+        <Button variant="primary" size="sm" onClick={logPayment} disabled={busy || !(Number(pay.amount) > 0)} style={{opacity: busy || !(Number(pay.amount) > 0) ? 0.5 : 1}}>{busy ? 'Saving…' : pay.refund ? 'Log refund' : 'Log payment'}</Button>
       </div>}
       {canEdit && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>Recorded only: nothing is sent to the bank or Xero. The amount is split across the properties in proportion to their allocation.</div>}
     </div>}
