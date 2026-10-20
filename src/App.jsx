@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
+import { contentMaxWidth } from './lib/layout'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
 import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS, AUTO_ENABLE_NAV_KEYS, navSeenMarker } from './lib/nav'
@@ -1881,7 +1882,7 @@ export default function App({ initialLoginMode = null } = {}) {
           </div>
         )
       })}
-      <main id="main-content" tabIndex={-1} style={{maxWidth:1240,margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
+      <main id="main-content" tabIndex={-1} style={{maxWidth:contentMaxWidth(view),margin:'0 auto',padding:isMobile?'16px 12px 90px':'28px 24px',width:'100%',outline:'none'}}>
         {loading?(<>
           {/* Keep a page heading in the outline while data loads. */}
           <h1 style={SR_ONLY}>{view==='dashboard' ? 'Dashboard' : 'Loading'}</h1>

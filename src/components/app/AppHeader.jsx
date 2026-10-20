@@ -5,6 +5,7 @@ import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import NotificationCentre from '../NotificationCentre'
 import PropertySearchBar from '../PropertySearchBar'
+import { contentMaxWidth } from '../../lib/layout'
 
 // Sticky top bar: logo/breadcrumb, search, notifications, quick-add menu
 // and the account controls. Moved verbatim from App.jsx; every value it
@@ -18,7 +19,7 @@ export function AppHeader({
 }) {
   return (
     <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
-      <div style={{maxWidth:1240,margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+      <div style={{maxWidth:contentMaxWidth(view),margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
         {/* Left: logo on mobile, breadcrumb on desktop (nav lives in the rail) */}
         <div style={{display:'flex',alignItems:'center',flexShrink:0,minWidth:0}}>
           {isMobile

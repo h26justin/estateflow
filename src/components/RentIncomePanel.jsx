@@ -98,7 +98,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
           cur.units > 0 ? `${pct(curOcc)} of units let · ${pct(ytdOcc)} average this year` : 'No units', occColor(curOcc))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(min(640px, 100%), 1fr))', gap: 22 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>By month</div>
           <div style={{ overflowX: 'auto' }}>
