@@ -7,11 +7,12 @@ import * as api from '../../lib/api'
 import FocusTrap from '../../lib/FocusTrap'
 import { pressable } from '../../lib/pressable'
 import { LegalOwnerChoice } from '../CompanyLegalOwner'
+import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
 
 export default function CompanyModal({ onClose, onSave }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
-  const initialForm = { name:'', abbr:'', color:'#C8A84B', companyType:'operating', legalOwner:null }
+  const initialForm = { name:'', abbr:'', color:DEFAULT_COMPANY_COLOR, companyType:'operating', legalOwner:null }
   const [form, setForm] = useState(initialForm)
   const [snapshot] = useState(initialForm)
   const isDirty = isFormDirty(snapshot, form)
@@ -107,7 +108,14 @@ export default function CompanyModal({ onClose, onSave }) {
         {form.companyType !== 'holding' && (
           <LegalOwnerChoice T={T} value={form.legalOwner} onChange={v=>s('legalOwner',v)} idPrefix="cm-legal-owner"/>
         )}
-        <div><label>Colour</label><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{['#C8A84B','#4B8FE0','#2ECC8A','#E05555','#9B59B6','#E0943A','#1ABC9C','#E74C3C'].map(col=><div key={col} {...pressable(()=>s('color',col), { role: 'radio', 'aria-checked': form.color===col, 'aria-label': `Colour ${col}` })} style={{width:32,height:32,borderRadius:8,background:col,cursor:'pointer',border:`3px solid ${form.color===col?'#fff':'transparent'}`,transition:'border 0.15s'}}/>)}</div></div>
+        {/* Presets clear WCAG AA on light surfaces (lib/companyColors). The
+            selected swatch gets a two-tone ring (surface gap + ink outline)
+            so it reads in both themes — the old white border vanished on
+            light backgrounds. */}
+        <div><label id="cm-colour-label">Colour</label><div role="radiogroup" aria-labelledby="cm-colour-label" style={{display:'flex',gap:10,flexWrap:'wrap',padding:3}}>{COMPANY_COLORS.map(({name,hex})=>{
+          const on = (form.color||'').toLowerCase()===hex.toLowerCase()
+          return <div key={hex} {...pressable(()=>s('color',hex), { role: 'radio', 'aria-checked': on, 'aria-label': `Colour ${name}` })} title={name} style={{width:32,height:32,borderRadius:8,background:hex,cursor:'pointer',boxShadow:on?`0 0 0 2px ${T.surface}, 0 0 0 4px ${T.text}`:'none',transition:'box-shadow 0.15s'}}/>
+        })}</div></div>
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-gold">

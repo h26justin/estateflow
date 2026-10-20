@@ -1,6 +1,6 @@
 import { Component } from 'react'
 import { reportClientError } from '../lib/errorReporter'
-import { CV } from '../lib/styles'
+import { CV, FS, MONO, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 
 // Used twice: at the root (main.jsx, full-screen fallback) and around the
@@ -80,16 +80,16 @@ export class ErrorBoundary extends Component {
         <div role="alert" style={{
           maxWidth: 520, margin: '40px auto', background: T.card || CV.card,
           border: `1px solid ${T.border || CV.border}`, borderRadius: 16,
-          padding: '28px 24px', textAlign: 'center', fontFamily: 'inherit',
+          padding: '28px 24px', textAlign: 'center', fontFamily: SANS,
         }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px', color: T.text || CV.text }}>This page hit a problem</h2>
-          <p style={{ fontSize: 13, color: T.muted || CV.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
+          <h2 style={{ fontFamily: SANS, fontSize: FS.lg, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 8px', color: T.text || CV.text }}>This page hit a problem</h2>
+          <p style={{ fontSize: FS.base, color: T.muted || CV.muted, margin: '0 0 16px', lineHeight: 1.6 }}>
             {chunk
               ? 'Properly was updated while this page was open, so part of it could not load. Refresh to pick up the new version; nothing is lost.'
               : 'The rest of the app still works and your data is safe. Try again, or pick another page from the menu.'}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn" onClick={chunk ? () => window.location.reload() : this.reset}>
+            <button className="btn btn-ghost" onClick={chunk ? () => window.location.reload() : this.reset}>
               {chunk ? 'Refresh' : 'Try again'}
             </button>
             <button className="btn btn-gold" onClick={this.goHome}>Go to Dashboard</button>
@@ -98,34 +98,43 @@ export class ErrorBoundary extends Component {
       )
     }
     if (this.state.hasError) {
+      // Root fallback: rendered by main.jsx outside ThemeProvider, so it
+      // reads the theme straight from the CSS custom properties that
+      // <html data-theme> switches (src/styles/app.css) — correct in light
+      // and dark mode without React context.
       const msg = this.state.error?.message || String(this.state.error || '')
+      const btn = {
+        borderRadius: 10, padding: '12px 24px', fontSize: FS.base, fontWeight: 600,
+        cursor: 'pointer', fontFamily: SANS, minHeight: 44,
+      }
       return (
         <div style={{
-          minHeight: '100vh', background: '#F4F3EF',
+          minHeight: '100vh', background: CV.bg, color: CV.text,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24, fontFamily: 'Arial, sans-serif',
+          padding: 24, fontFamily: SANS,
         }}>
-          <div style={{
+          <div role="alert" style={{
             maxWidth: 520, width: '100%',
-            background: '#fff', borderRadius: 16,
-            border: '1px solid #E2DFD8', padding: '36px 32px',
-            textAlign: 'center',
+            background: CV.surface, borderRadius: 16,
+            border: `1px solid ${CV.border}`, padding: '36px 32px',
+            textAlign: 'center', boxShadow: '0 10px 30px rgba(28,40,48,0.10)',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: '#CC3333' }}><Icon name="alert-triangle" size={40} /></div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1A1C26', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: CV.red }}><Icon name="alert-triangle" size={40} /></div>
+            <h2 style={{ fontFamily: SANS, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', color: CV.text, margin: '0 0 8px' }}>
               Something went wrong
             </h2>
-            <p style={{ fontSize: 13, color: '#6B7191', marginBottom: 20, lineHeight: 1.6 }}>
+            <p style={{ fontSize: FS.base, color: CV.muted, margin: '0 0 20px', lineHeight: 1.6 }}>
               {/Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg)
                 ? 'Properly was updated while this page was open, so part of it could not load. Refresh to pick up the new version; nothing is lost.'
                 : 'An unexpected error occurred. Your data is safe.'}
             </p>
             {msg && (
               <div style={{
-                fontSize: 12, color: '#CC3333', background: '#FEF2F2',
-                border: '1px solid #FECACA', borderRadius: 8,
+                fontSize: FS.sm, color: CV.red,
+                background: `color-mix(in srgb, ${CV.red} 9%, ${CV.surface})`,
+                border: `1px solid color-mix(in srgb, ${CV.red} 25%, transparent)`, borderRadius: 8,
                 padding: '10px 14px', textAlign: 'left',
-                marginBottom: 20, fontFamily: 'monospace',
+                marginBottom: 20, fontFamily: MONO,
                 wordBreak: 'break-word',
               }}>
                 {msg}
@@ -134,20 +143,12 @@ export class ErrorBoundary extends Component {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={this.goBack}
-                style={{
-                  background: 'white', color: '#2D3C4A', border: '1px solid #E2DFD8',
-                  borderRadius: 10, padding: '12px 24px', fontSize: 13,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                ← Go Back
+                style={{ ...btn, background: 'transparent', color: CV.text, border: `1px solid ${CV.border}`, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="chevron-left" size={16} /> Go back
               </button>
               <button
                 onClick={this.goHome}
-                style={{
-                  background: '#2D3C4A', color: 'white', border: 'none',
-                  borderRadius: 10, padding: '12px 28px', fontSize: 13,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
+                style={{ ...btn, background: CV.text, color: CV.surface, border: 'none', padding: '12px 28px' }}>
                 Go to Dashboard
               </button>
             </div>
@@ -155,9 +156,9 @@ export class ErrorBoundary extends Component {
               onClick={() => window.location.reload()}
               style={{
                 marginTop: 14,
-                background: 'transparent', color: '#6B7191', border: 'none',
-                fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
-                textDecoration: 'underline',
+                background: 'transparent', color: CV.muted, border: 'none',
+                fontSize: FS.sm, cursor: 'pointer', fontFamily: SANS,
+                textDecoration: 'underline', textUnderlineOffset: 3, minHeight: 32,
               }}>
               Or try refreshing this page
             </button>

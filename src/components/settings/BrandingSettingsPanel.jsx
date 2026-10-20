@@ -3,6 +3,8 @@ import { MONO, FS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { EmptyState } from '../ui'
+import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
+import { readableOr, normalizeHex } from '../../lib/contrast'
 
 // ── COMPANY BRANDING SETTINGS PANEL ──────────────────────────────────────────
 export function BrandingSettingsPanel({ companies, setCompanies, companySettings, setCompanySettings, user, showToast, T }) {
@@ -41,7 +43,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
 
   async function updateCompanyColor(newColor) {
     if (!co || !newColor) return
-    if (!/^#[0-9A-Fa-f]{6}$/.test(newColor)) { showToast('Enter a valid hex colour (e.g. #4B8FE0)', 'error'); return }
+    if (!/^#[0-9A-Fa-f]{6}$/.test(newColor)) { showToast('Enter a valid hex colour (e.g. #2D6FA8)', 'error'); return }
     if (newColor.toLowerCase() === (co.color || '').toLowerCase()) { setColorDraft(null); return }
     setSavingColor(true)
     try {
@@ -99,7 +101,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
                 style={{ fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${selectedCo === c.id ? (c.color || T.gold) : T.border}`,
                   background: selectedCo === c.id ? (c.color || T.gold) + '22' : 'transparent',
-                  color: selectedCo === c.id ? (c.color || T.goldText) : T.muted,
+                  color: selectedCo === c.id ? readableOr(normalizeHex(c.color), T.card, T.text) : T.muted,
                   fontWeight: selectedCo === c.id ? 700 : 400 }}>
                 {c.abbr} {c.name}
               </button>
@@ -152,15 +154,15 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
 
             {/* Preset swatches */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              {['#C8A84B','#4B8FE0','#2ECC8A','#E0943A','#9B59B6','#E05555','#16A085','#34495E','#D35400','#7F8C8D'].map(c => {
+              {COMPANY_COLORS.map(({ name, hex: c }) => {
                 const selected = (co.color || '').toLowerCase() === c.toLowerCase()
                 return (
                   <button key={c} onClick={() => updateCompanyColor(c)}
-                    disabled={savingColor}
+                    disabled={savingColor} aria-label={`Colour ${name}`} aria-pressed={selected}
                     style={{ width: 36, height: 36, borderRadius: 8, cursor: savingColor ? 'wait' : 'pointer',
                       border: `2px solid ${selected ? T.text : 'transparent'}`,
                       background: c, padding: 0, boxShadow: selected ? `0 0 0 2px ${T.card}, 0 0 0 3px ${c}` : 'none' }}
-                    title={c}/>
+                    title={`${name} ${c}`}/>
                 )
               })}
             </div>
@@ -169,16 +171,16 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="color"
-                  value={colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft) ? colorDraft : (co.color || '#C8A84B')}
+                  value={colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft) ? colorDraft : (co.color || DEFAULT_COMPANY_COLOR)}
                   onChange={e => pickCustomColor(e.target.value)}
                   style={{ width: 48, height: 36, border: `1px solid ${T.border}`, borderRadius: 8, cursor: 'pointer', background: 'transparent', padding: 2 }}/>
                 <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Custom</span>
               </label>
-              <input type="text" value={colorDraft !== null ? colorDraft : (co.color || '#C8A84B')}
+              <input type="text" aria-label="Hex colour" value={colorDraft !== null ? colorDraft : (co.color || DEFAULT_COMPANY_COLOR)}
                 onChange={e => setColorDraft(e.target.value)}
                 onBlur={() => { if (colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft)) updateCompanyColor(colorDraft); else setColorDraft(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-                placeholder="#C8A84B"
+                placeholder={DEFAULT_COMPANY_COLOR}
                 style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
               {savingColor && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Saving…</span>}
             </div>
@@ -186,7 +188,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
               <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current:</div>
               <div style={{ width: 48, height: 24, borderRadius: 6, background: co.color || T.gold }}/>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || '#C8A84B'}</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700 }}>{co.color || DEFAULT_COMPANY_COLOR}</span>
             </div>
           </div>
 
@@ -242,7 +244,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
           return (
             <div key={co.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', borderLeft: `3px solid ${co.color||T.gold}` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: co.color||T.goldText, background: (co.color||T.gold)+'22', padding: '3px 10px', borderRadius: 4 }}>{co.abbr}</span>
+                <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: readableOr(normalizeHex(co.color), T.card, T.goldText), background: (normalizeHex(co.color)||T.gold)+'22', padding: '3px 10px', borderRadius: 4 }}>{co.abbr}</span>
                 <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{co.name}</span>
               </div>
 
