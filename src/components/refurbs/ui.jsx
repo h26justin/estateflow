@@ -1,6 +1,6 @@
 // Shared presentational bits for the refurb workspace. Same look as
 // RefurbsPage.jsx (mono labels, gold primary, card panels).
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { STAGE_STATUS_CFG, statusLabel } from '../../lib/refurbWorkspace'
 
 export const mono = MONO
@@ -27,13 +27,13 @@ export function Field({ label: text, children, T, hint }) {
   return <div style={{ minWidth: 0 }}>
     <label style={label(T)}>{text}</label>
     {children}
-    {hint && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 3 }}>{hint}</div>}
+    {hint && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 3 }}>{hint}</div>}
   </div>
 }
 
 export function StatusChip({ stage, T }) {
   const c = STAGE_STATUS_CFG[stage?.status] || STAGE_STATUS_CFG.not_started
-  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{statusLabel(stage)}</span>
+  return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{statusLabel(stage)}</span>
 }
 
 export function Pill({ children, color, T }) {
@@ -50,7 +50,7 @@ export function Bar({ pct, color, T, height = 6 }) {
 export function Empty({ title, body, action, T }) {
   return <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center' }}>
     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{title}</div>
-    {body && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: action ? 14 : 0 }}>{body}</div>}
+    {body && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: action ? 14 : 0 }}>{body}</div>}
     {action}
   </div>
 }
@@ -63,7 +63,7 @@ export function Tile({ label: text, value, sub, onClick, color, T, icon }) {
     <span style={{ minWidth: 0 }}>
       <span style={{ display: 'block', fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.muted }}>{text}</span>
       <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: color || T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
-      {sub && <span style={{ display: 'block', fontFamily: mono, fontSize: FS.xs, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
+      {sub && <span style={{ display: 'block', fontFamily: SANS, fontSize: FS.sm, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</span>}
     </span>
   </Tag>
 }

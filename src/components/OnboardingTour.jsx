@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -104,8 +104,8 @@ export default function OnboardingTour({ user, onComplete }) {
               <ChromeLogo height={26}/>
               <button onClick={skip} disabled={saving} style={{
                 background: 'none', border: 'none', color: T.muted,
-                fontFamily: MONO, fontSize: 11, cursor: 'pointer',
-                letterSpacing: '0.05em', minHeight: 32, padding: '6px 8px', marginRight: -8,
+                fontFamily: SANS, fontSize: FS.sm, cursor: 'pointer',
+                minHeight: 32, padding: '6px 8px', marginRight: -8,
               }}>Skip tour ✕</button>
             </div>
 
@@ -143,7 +143,7 @@ export default function OnboardingTour({ user, onComplete }) {
               {current.title}
             </h2>
             <p style={{
-              fontFamily: MONO, fontSize: FS.base,
+              fontFamily: SANS, fontSize: FS.base,
               color: T.muted, lineHeight: 1.85, marginBottom: current.tip ? 18 : 0,
             }}>
               {current.desc}
@@ -153,7 +153,7 @@ export default function OnboardingTour({ user, onComplete }) {
               <div style={{
                 background: T.gold + '14', border: `1px solid ${T.gold}33`,
                 borderRadius: 10, padding: '11px 15px',
-                fontFamily: MONO, fontSize: FS.sm,
+                fontFamily: SANS, fontSize: FS.sm,
                 color: T.text, lineHeight: 1.75,
               }}>
                 <Icon name="sparkle" size={13} color={T.goldText} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>

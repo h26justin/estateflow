@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react'
-import { MONO, Z } from './styles'
+import { MONO, Z, SANS, FS } from './styles'
 import { useTheme } from './ThemeContext'
 import FocusTrap from './FocusTrap'
 import { Button } from '../components/ui'
@@ -93,7 +93,7 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
             {state.title}
           </h2>
           {state.body && (
-            <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 22, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
+            <p style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 22, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
               {state.body}
             </p>
           )}
@@ -101,7 +101,7 @@ function ConfirmDialog({ state, onConfirm, onCancel }) {
             <input value={value} autoFocus placeholder={state.placeholder}
               onChange={e => setValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') onConfirm(value); if (e.key === 'Escape') onCancel() }}
-              style={{ width: '100%', boxSizing: 'border-box', fontFamily: mono, fontSize: 13, padding: '10px 12px',
+              style={{ width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: FS.base, padding: '10px 12px',
                 borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text,
                 marginBottom: 22 }}/>
           )}

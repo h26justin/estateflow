@@ -8,7 +8,7 @@ import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/c
 import { showAppToast } from '../../lib/toast'
 import { fetchEstateAgents } from '../../lib/api/ownership'
 import FocusTrap from '../../lib/FocusTrap'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 
 // Light section header used to break the long form into scannable groups.
 // Just a divider + an uppercase mono caption — no card, so it stays cheap
@@ -198,8 +198,8 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="property-modal-title">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit Property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
-        <p style={{fontFamily:MONO,color:T.muted,fontSize:11,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
+        <h2 id="property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>{prop?.id ? 'Edit property' : (prop?.purchase_price ? 'Convert Deal to Property' : 'Add New Property')}</h2>
+        <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm,marginBottom:20}}>{prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}</p>
       </div>
       <form onSubmit={e=>{e.preventDefault(); handleSave()}}>
       <div style={{padding:'0 28px 20px',display:'flex',flexDirection:'column',gap:14}}>
@@ -207,18 +207,18 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         <Section title="Property" T={T} first />
         <div className="g2">
           <div>
-            <label htmlFor="pm-name">Property Name *</label>
+            <label htmlFor="pm-name">Property name *</label>
             <input id="pm-name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Flat 1, Station Road" style={triedSave && !form.name ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.name ? 'true' : undefined} aria-describedby={triedSave && !form.name ? 'pm-name-err' : undefined}/>
             {triedSave && !form.name && <span id="pm-name-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
           </div>
           <div><label htmlFor="pm-company">Company *</label><select id="pm-company" value={form.company_id} onChange={e=>s('company_id',e.target.value)}>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
         </div>
         <div>
-          <label htmlFor="pm-address">Full Address *</label>
+          <label htmlFor="pm-address">Full address *</label>
           <input id="pm-address" value={form.address} onChange={e=>s('address',e.target.value)} style={triedSave && !form.address ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.address ? 'true' : undefined} aria-describedby={triedSave && !form.address ? 'pm-address-err' : undefined}/>
           {triedSave && !form.address && <span id="pm-address-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
-        <div className="g2"><div><label htmlFor="pm-prop-type">Property Type</label><input id="pm-prop-type" value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label htmlFor="pm-status">Status</label><select id="pm-status" value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
+        <div className="g2"><div><label htmlFor="pm-prop-type">Property type</label><input id="pm-prop-type" value={form.prop_type} onChange={e=>s('prop_type',e.target.value)} placeholder="e.g. 2-Bed Flat"/></div><div><label htmlFor="pm-status">Status</label><select id="pm-status" value={form.status} onChange={e=>s('status',e.target.value)}>{PROPERTY_STATUSES.map(x=><option key={x} value={x}>{PROPERTY_STATUS_LABELS[x]}</option>)}</select></div></div>
         {marketChange && (
           <div style={{background:T.bg,border:`1px solid ${T.border}`,borderRadius:8,padding:'10px 12px'}}>
             <label htmlFor="pm-status-date">{form.status === 'on_rental_market' ? 'On the market from' : (form.status === 'rented' || form.status === 'let_agreed') ? 'Tenancy starts' : 'Off the market from'}</label>
@@ -230,7 +230,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             </span>
           </div>
         )}
-        <div><label htmlFor="pm-managed-by">Managed By</label>
+        <div><label htmlFor="pm-managed-by">Managed by</label>
           <select id="pm-managed-by" value={form.managed_by_agent_id||''} onChange={e=>{
             const agent = agents.find(a=>a.id===e.target.value)
             setForm(f=>({ ...f, managed_by_agent_id: e.target.value, managed_by: agent ? agent.name : f.managed_by }))
@@ -238,13 +238,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             <option value="">Self-managed / none</option>
             {agents.map(a=><option key={a.id} value={a.id}>{a.name}{a.fee_percent!=null?` — ${Number(a.fee_percent)}%${a.vat_treatment==='ex_vat'?' + VAT':''}`:''}</option>)}
           </select>
-          {!form.managed_by_agent_id && form.managed_by && <div style={{fontFamily:MONO,fontSize:FS.xs,opacity:0.7,marginTop:4}}>Previously: “{form.managed_by}” — pick the agent above to link fees.</div>}
+          {!form.managed_by_agent_id && form.managed_by && <div style={{fontFamily:SANS,fontSize:FS.sm,opacity:0.7,marginTop:4}}>Previously: “{form.managed_by}” — pick the agent above to link fees.</div>}
         </div>
 
         <Section title="Purchase & costs" T={T} />
-        <div className="g2"><div><label htmlFor="pm-purchase-price">Purchase Price</label><MoneyInput id="pm-purchase-price" prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label htmlFor="pm-est-value">Estimated Value</label><MoneyInput id="pm-est-value" prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
-        <div className="g2"><div><label htmlFor="pm-purchase-date">Completion Date</label><input id="pm-purchase-date" type="date" value={form.purchase_date || ''} onChange={e=>s('purchase_date', e.target.value)}/></div><div><label>Refurb</label><div style={{fontFamily:MONO,fontSize:11,color:T.muted,padding:'9px 0'}}>{prop?.id ? 'Managed on the Refurb tab and the Refurbs page' : 'Add the refurb after saving, on the Refurb tab'}</div></div></div>
-        <div className="g2"><div><label htmlFor="pm-stamp-duty">Stamp Duty</label><MoneyInput id="pm-stamp-duty" prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label htmlFor="pm-legal-fees">Legal Fees</label><MoneyInput id="pm-legal-fees" prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
+        <div className="g2"><div><label htmlFor="pm-purchase-price">Purchase price</label><MoneyInput id="pm-purchase-price" prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label htmlFor="pm-est-value">Estimated value</label><MoneyInput id="pm-est-value" prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
+        <div className="g2"><div><label htmlFor="pm-purchase-date">Completion date</label><input id="pm-purchase-date" type="date" value={form.purchase_date || ''} onChange={e=>s('purchase_date', e.target.value)}/></div><div><label>Refurb</label><div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,padding:'9px 0'}}>{prop?.id ? 'Managed on the Refurb tab and the Refurbs page' : 'Add the refurb after saving, on the Refurb tab'}</div></div></div>
+        <div className="g2"><div><label htmlFor="pm-stamp-duty">Stamp duty</label><MoneyInput id="pm-stamp-duty" prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label htmlFor="pm-legal-fees">Legal fees</label><MoneyInput id="pm-legal-fees" prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
 
         <Section title="Financing" T={T} />
         {/* Cash-purchase toggle. When on, the whole mortgage block collapses
@@ -252,7 +252,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             irrelevant fields. "Show anyway" reveals them for the bridging-
             loan edge case without un-ticking cash. */}
         <div style={{padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8}}>
-          <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
+          <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,color:T.text}}>
             <input type="checkbox" checked={isCash} onChange={e=>{ setIsCash(e.target.checked); if(e.target.checked) setRevealMortgage(false) }} style={{width:'auto',margin:0,marginTop:2}}/>
             <span>
               <strong>Cash purchase (no mortgage)</strong>
@@ -261,7 +261,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           </label>
         </div>
         {showMortgage ? (<>
-        <div className="g2"><div><label htmlFor="pm-mortgage-amount">Mortgage Amount</label><MoneyInput id="pm-mortgage-amount" prefix="£" value={form.mortgage_amount} onChange={v=>s('mortgage_amount',v)}/></div><div><label htmlFor="pm-mortgage-rate">Mortgage Rate</label><MoneyInput id="pm-mortgage-rate" suffix="%" value={form.mortgage_rate || ''} onChange={v=>s('mortgage_rate',v)}/></div></div>
+        <div className="g2"><div><label htmlFor="pm-mortgage-amount">Mortgage amount</label><MoneyInput id="pm-mortgage-amount" prefix="£" value={form.mortgage_amount} onChange={v=>s('mortgage_amount',v)}/></div><div><label htmlFor="pm-mortgage-rate">Mortgage rate</label><MoneyInput id="pm-mortgage-rate" suffix="%" value={form.mortgage_rate || ''} onChange={v=>s('mortgage_rate',v)}/></div></div>
 
         {/* Extended mortgage fields — type, actual monthly payment,
             arrangement fees. All optional. monthly_payment overrides
@@ -303,31 +303,31 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         </div>
         <div className="g2">
           <div>
-            <label htmlFor="pm-mortgage-term">Mortgage Term (years)</label>
+            <label htmlFor="pm-mortgage-term">Mortgage term (years)</label>
             <input id="pm-mortgage-term" type="number" value={form.mortgage_term} onChange={e=>s('mortgage_term', e.target.value)} placeholder="25"/>
           </div>
           <div>
-            <label htmlFor="pm-mortgage-fees">Setup / Arrangement Fees</label>
+            <label htmlFor="pm-mortgage-fees">Setup / arrangement fees</label>
             <MoneyInput id="pm-mortgage-fees" prefix="£" value={form.mortgage_fees} onChange={v=>s('mortgage_fees', v)}/>
           </div>
         </div>
         <div>
-          <label htmlFor="pm-mortgage-end-date">Mortgage Product End Date <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when fixed/tracker rate expires — we'll remind you to remortgage)</span></label>
+          <label htmlFor="pm-mortgage-end-date">Mortgage product end date <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when fixed/tracker rate expires — we'll remind you to remortgage)</span></label>
           <input id="pm-mortgage-end-date" type="date" value={form.mortgage_product_end_date || ''} onChange={e=>s('mortgage_product_end_date', e.target.value)}/>
         </div>
         </>) : (
-          <div style={{fontFamily:MONO,fontSize:11,color:T.muted}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
             Mortgage fields hidden for a cash purchase.{' '}
-            <button type="button" onClick={()=>setRevealMortgage(true)} style={{background:'none',border:'none',color:T.goldText,cursor:'pointer',fontFamily:MONO,fontSize:11,padding:0,textDecoration:'underline'}}>Show anyway</button>
+            <button type="button" onClick={()=>setRevealMortgage(true)} style={{background:'none',border:'none',color:T.goldText,cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,padding:0,textDecoration:'underline'}}>Show anyway</button>
           </div>
         )}
 
         <Section title="Tenancy & rent" T={T} />
-        <div className="g2"><div><label htmlFor="pm-rent-pcm">Monthly Rent</label><MoneyInput id="pm-rent-pcm" prefix="£" value={form.rent_pcm} onChange={v=>s('rent_pcm',v)}/></div><div><label htmlFor="pm-rent-due-day">Rent Due Day</label><input id="pm-rent-due-day" value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div></div>
+        <div className="g2"><div><label htmlFor="pm-rent-pcm">Monthly rent</label><MoneyInput id="pm-rent-pcm" prefix="£" value={form.rent_pcm} onChange={v=>s('rent_pcm',v)}/></div><div><label htmlFor="pm-rent-due-day">Rent due day</label><input id="pm-rent-due-day" value={form.rent_due_day} onChange={e=>s('rent_due_day',e.target.value)} placeholder="e.g. 1st"/></div></div>
         <div className="g2">
           <div><label htmlFor="pm-arrears">Arrears</label><MoneyInput id="pm-arrears" prefix="£" value={form.arrears} onChange={v=>s('arrears',v)}/></div>
           <div>
-            <label htmlFor="pm-tenancy-end">Tenancy End <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when the current AST expires)</span></label>
+            <label htmlFor="pm-tenancy-end">Tenancy end <span style={{ color: T.muted, fontWeight: 400, fontSize: FS.xs }}>(when the current AST expires)</span></label>
             {/* type=date so renewal-alerts logic can parse it and we don't
                 get inconsistent date strings. */}
             <input id="pm-tenancy-end" type="date" value={form.tenancy_end || ''} onChange={e=>s('tenancy_end',e.target.value)}/>
@@ -345,11 +345,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           <div><label htmlFor="pm-licensing">Licensing</label><select id="pm-licensing" value={form.licensing_scheme||''} onChange={e=>s('licensing_scheme',e.target.value)}>{LICENSING_SCHEMES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
         </div>
         <div style={{display:'flex',gap:18,flexWrap:'wrap',padding:'8px 12px',background:T.bg,border:`1px solid ${T.border}`,borderRadius:8}}>
-          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,color:T.text}}>
             <input type="checkbox" checked={form.has_gas_supply!==false} onChange={e=>s('has_gas_supply',e.target.checked)} style={{width:'auto',margin:0}}/>
             <span>Has gas supply</span>
           </label>
-          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:MONO,fontSize:11,color:T.text}}>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,color:T.text}}>
             <input type="checkbox" checked={!!form.is_hmo} onChange={e=>s('is_hmo',e.target.checked)} style={{width:'auto',margin:0}}/>
             <span>HMO (house in multiple occupation)</span>
           </label>
@@ -363,11 +363,11 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
             collapses by default so the form doesn't feel longer for
             users who don't care about compliance. */}
         <details style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px' }}>
-          <summary style={{ cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <summary style={{ cursor: 'pointer', fontFamily: SANS, fontSize: FS.sm, color: T.text, fontWeight: 700, listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>Compliance dates (optional)</span>
             <span style={{ fontSize: FS.xs, color: T.muted, fontWeight: 400 }}>tap to expand</span>
           </summary>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6, marginTop: 8, marginBottom: 12 }}>
             Add what you know now — leave the rest blank. We'll remind you in the bell as expiries approach. You can also upload certificates later on the Compliance tab and we'll auto-fill the dates.
           </div>
           <div className="g2">
@@ -399,7 +399,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
           position:sticky pins it to the modal's bottom edge. */}
       <div style={{position:'sticky',bottom:0,background:T.surface,borderTop:`1px solid ${T.border}`,padding:'14px 28px',display:'flex',gap:10,justifyContent:'flex-end',borderBottomLeftRadius:18,borderBottomRightRadius:18}}>
         <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-gold">{prop?.id?'Save Changes':'Add Property'}</button>
+        <button type="submit" className="btn btn-gold">{prop?.id?'Save changes':'Add property'}</button>
       </div>
       </form>
     </div>

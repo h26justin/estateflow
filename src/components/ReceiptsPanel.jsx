@@ -4,7 +4,7 @@
 // unallocated and flagged for review. Reversals (bounce, refund) are negative
 // receipts that point at the original, so the trail is never deleted.
 import { useState, useEffect, useMemo } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -120,9 +120,9 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
     <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Receipts</div>
-        {canEdit && !adding && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={startAdd}>+ Record receipt</button>}
+        {canEdit && !adding && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={startAdd}>+ Record receipt</button>}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginBottom: 10 }}>Money actually received, with what it paid for. Bounces and refunds are recorded against the original, never deleted.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>Money actually received, with what it paid for. Bounces and refunds are recorded against the original, never deleted.</div>
 
       {adding && form && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
@@ -149,23 +149,23 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
                   : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}
               </div>
               <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
-              <button className="btn" style={{ fontSize: 11, color: T.red, height: 34 }} onClick={() => removeAlloc(i)} aria-label="Remove allocation" disabled={form.allocations.length === 1}>✕</button>
+              <button className="btn" style={{ fontSize: FS.sm, color: T.red, height: 34 }} onClick={() => removeAlloc(i)} aria-label="Remove allocation" disabled={form.allocations.length === 1}>✕</button>
             </div>
           ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4, marginBottom: 12 }}>
-            <button className="btn" style={{ fontSize: 11 }} onClick={addAlloc}>+ Split</button>
+            <button className="btn" style={{ fontSize: FS.sm }} onClick={addAlloc}>+ Split</button>
             <span style={{ fontFamily: MONO, fontSize: 11, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>
               {Math.abs(remainder) < 0.005 ? 'Fully allocated' : remainder > 0 ? `${money(remainder)} unallocated` : `${money(-remainder)} over-allocated`}
             </span>
             {remainder > 0.004 && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 11, color: T.muted, cursor: 'pointer' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: SANS, fontSize: FS.sm, color: T.muted, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.allowUnallocated} onChange={e => setForm(f => ({ ...f, allowUnallocated: e.target.checked }))} /> leave the remainder for review
               </label>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save receipt'}</button>
-            <button className="btn" style={{ fontSize: 11 }} onClick={() => { setAdding(false); setForm(null) }}>Cancel</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save receipt'}</button>
+            <button className="btn" style={{ fontSize: FS.sm }} onClick={() => { setAdding(false); setForm(null) }}>Cancel</button>
           </div>
         </div>
       )}
@@ -182,7 +182,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
                 <div style={{ fontSize: 12, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {PAYERS.find(p => p.v === r.payer)?.l || r.payer} · {r.source}{r.kind !== 'receipt' ? ` · ${r.kind}` : ''}{r.reference ? ` · ${r.reference}` : ''}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{allocSummary(r) || 'no allocation'}</div>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{allocSummary(r) || 'no allocation'}</div>
               </div>
               {r.review_status === 'needs_review' && <span style={{ fontFamily: MONO, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44` }}>Review</span>}
               {canEdit && r.kind === 'receipt' && r.amount > 0 && (
@@ -191,7 +191,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
                   <button className="btn" style={{ fontSize: FS.xs }} onClick={() => reverse(r, 'refund')}>Refund</button>
                 </>
               )}
-              {canEdit && <button className="btn" style={{ fontSize: 11, color: T.red }} onClick={() => remove(r)} aria-label="Delete receipt">✕</button>}
+              {canEdit && <button className="btn" style={{ fontSize: FS.sm, color: T.red }} onClick={() => remove(r)} aria-label="Delete receipt">✕</button>}
             </div>
           ))}
         </div>

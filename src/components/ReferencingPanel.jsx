@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
@@ -104,14 +104,14 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
           </span>
         </h3>
         {canEdit && !adding && (
-          <button onClick={startAdd} className="btn btn-ghost" style={{ fontSize: 11 }}>
+          <button onClick={startAdd} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
             + New check
           </button>
         )}
       </div>
 
       {/* Inert / pricing notice */}
-      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 14, fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.5 }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 14, fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.5 }}>
         <strong style={{ color: T.text }}>Provider not yet configured.</strong> Checks are saved as drafts.
         Connect a referencing partner (set <code>REFERENCING_PROVIDER_API_KEY</code>) to order live.
         Pricing is <strong style={{ color: T.text }}>per check</strong> — billed by the chosen provider at order time;
@@ -147,8 +147,8 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-                <button onClick={cancel} className="btn btn-ghost" style={{ fontSize: 11 }} disabled={saving}>Cancel</button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving}>
+                <button onClick={cancel} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={saving}>Cancel</button>
+                <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving}>
                   {saving ? 'Saving…' : 'Order check'}
                 </button>
               </div>
@@ -156,7 +156,7 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
           )}
 
           {items.length === 0 && !adding ? (
-            <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: 12 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, padding: 12 }}>
               No checks yet.
             </div>
           ) : (
@@ -173,11 +173,11 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
                         {it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString('en-GB')}` : ''}
                       </div>
                       {it.result?.summary && (
-                        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.text, marginTop: 4 }}>{it.result.summary}</div>
+                        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginTop: 4 }}>{it.result.summary}</div>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontFamily: MONO, fontSize: FS.xs, color: toneColor(st.tone), border: `1px solid ${toneColor(st.tone)}55`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontFamily: SANS, fontSize: FS.sm, color: toneColor(st.tone), border: `1px solid ${toneColor(st.tone)}55`, borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                         {st.label}
                       </span>
                       {canEdit && (it.status === 'draft' || it.status === 'cancelled' || it.status === 'failed') && (

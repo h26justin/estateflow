@@ -19,7 +19,7 @@
 // Data feeds the "Company P&L & Profit Share" report (ReportsPage).
 
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -37,7 +37,7 @@ function CardShell({ title, sub, T, children, action }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{title}</div>
-          {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2, maxWidth: 560, lineHeight: 1.6 }}>{sub}</div>}
+          {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2, maxWidth: 560, lineHeight: 1.6 }}>{sub}</div>}
         </div>
         {action}
       </div>
@@ -171,7 +171,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
       <CardShell T={T} title="Shareholders"
         sub="Who owns this company — people or holding companies — feeds the Company P&L profit split. Link a corporate shareholder to its own company record and your share flows through it."
         action={canEdit && (
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowShForm(v => !v)}>
+          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setShowShForm(v => !v)}>
             {showShForm ? 'Cancel' : '+ Add Shareholder'}
           </button>
         )}>
@@ -243,7 +243,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                     <option value="">No div. tax estimate</option>
                     {Object.entries(TAX_BAND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
-                ) : s.tax_band && <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{TAX_BAND_LABELS[s.tax_band]}</span>}
+                ) : s.tax_band && <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{TAX_BAND_LABELS[s.tax_band]}</span>}
                 {canEdit ? (
                   <input type="number" min="0.01" max="100" step="0.01" value={s.percentage}
                     aria-label={`${s.name} ownership percentage`}
@@ -302,9 +302,9 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
                 {Object.entries(TAX_BAND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             )}
-            <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addShareholder}>{saving ? 'Saving…' : 'Add'}</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving} onClick={addShareholder}>{saving ? 'Saving…' : 'Add'}</button>
             {shForm.type === 'company' && (
-              <div style={{ flexBasis: '100%', fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
+              <div style={{ flexBasis: '100%', fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
                 Company shareholders get no dividend tax estimate — dividends between UK companies are normally
                 corporation-tax-exempt. To follow your personal share through this holding company, link its
                 Properly record and enter its own shareholders there.
@@ -318,7 +318,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
       {showAgents && <CardShell T={T} title="Managing Agents"
         sub="Each agency's standard fee (% of rent collected). Fees are portfolio-wide — change a fee here and it updates every property that agency manages. Assign an agent to a property in the property form."
         action={canEdit && (
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setShowAgForm(v => !v)}>
+          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setShowAgForm(v => !v)}>
             {showAgForm ? 'Cancel' : '+ Add Agent'}
           </button>
         )}>
@@ -382,7 +382,7 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
               <option value="ex_vat">+ VAT (20%)</option>
               <option value="inc_vat">inc. VAT</option>
             </select>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={saving} onClick={addAgent}>{saving ? 'Saving…' : 'Add'}</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving} onClick={addAgent}>{saving ? 'Saving…' : 'Add'}</button>
           </div>
         )}
       </CardShell>}

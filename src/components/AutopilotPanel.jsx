@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -59,14 +59,14 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
       <div className="card" style={{ padding: '10px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
         <Icon name="robot" size={15} color={T.muted}/>
         <h2 style={{ fontSize: 13, fontWeight: 600, margin: 0, color: T.text }}>Portfolio Autopilot</h2>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: loading ? T.faint : T.green, display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, color: loading ? T.faint : T.green, display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
           {!loading && <Icon name="check-circle" size={12} color={T.green}/>}
           {loading ? 'Checking for actions…' : 'No actions awaiting review'}
         </span>
         <span style={{ flex: 1 }}/>
         {!loading && onOpenFull && (
           <button type="button" onClick={onOpenFull}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 28, fontFamily: MONO, fontSize: 11, color: T.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px', minHeight: 28, fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             Open Autopilot<Icon name="arrow-right" size={11}/>
           </button>
         )}
@@ -85,7 +85,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
             </span>
           )}
         </h2>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onOpenFull}>Review all →</button>
+        <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onOpenFull}>Review all →</button>
       </div>
 
       <div style={{ display: 'grid', gap: 6 }}>
@@ -100,7 +100,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
           )
         })}
       </div>
-      <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+      <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
         AI-drafted suggestions — review before acting. Nothing is sent automatically.
       </div>
     </div>
@@ -240,14 +240,14 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {filtered.length > 1 && (
             <>
-              <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
-              <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
+              <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === 'bulk'} onClick={() => handleBulk('act')}>Mark all {filtered.length} shown actioned</button>
+              <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red }} disabled={busyId === 'bulk'} onClick={() => handleBulk('dismiss')}>Dismiss all {filtered.length} shown</button>
             </>
           )}
-          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={load}>↻ Refresh</button>
+          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={load}>↻ Refresh</button>
         </div>
       </div>
-      <p style={{ fontFamily: MONO, fontSize: 12, color: T.muted, marginBottom: 24 }}>
+      <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 24 }}>
         Daily AI-drafted action list. Every item is a suggestion for you to review — approving an item never sends or books anything automatically.
       </p>
 
@@ -259,7 +259,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
             return (
               <button key={c.id} onClick={() => setCoFilter(c.id)}
                 style={{
-                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                   background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
                   color: coFilter === c.id ? (c.color || T.goldText) : T.muted,
@@ -283,7 +283,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
             return (
               <button key={k} onClick={() => setKindFilter(k)}
                 style={{
-                  fontFamily: MONO, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${kindFilter === k ? T.gold : T.border}`,
                   background: kindFilter === k ? T.gold + '22' : 'transparent',
                   color: kindFilter === k ? T.goldText : T.muted,
@@ -311,7 +311,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
           <div key={group.sev} style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: sevColor(group.sev) }} />
-              <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: MONO }}>
+              <h2 style={{ fontSize: FS.body, fontWeight: 700, fontFamily: SANS }}>
                 {sevLabel(group.sev)} <span style={{ color: T.muted }}>({group.items.length})</span>
               </h2>
             </div>
@@ -362,7 +362,7 @@ export function AutopilotPage({ companyId = null, companies = [] }) {
                           >
                             Dismiss
                           </button>
-                          <button className="btn btn-ghost" style={{ fontSize: 11 }} disabled={busyId === a.id}
+                          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={busyId === a.id}
                             onClick={() => handleSnooze(a)} title="Hide for 30 days; it comes back if still true">
                             Snooze 30d
                           </button>
@@ -417,7 +417,7 @@ function DraftModal({ action, onClose }) {
           <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: T.bg, borderRadius: 8, padding: 16, marginBottom: 16, color: T.text }}>
             {action.draft_body}
           </div>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
             AI-generated draft. Review and edit before sending — Properly does not send this for you.
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

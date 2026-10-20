@@ -16,7 +16,7 @@
 //      #/refurbs/invoices | #/refurbs/invoices/import | #/refurbs/invoice/<id> |
 //      #/refurbs/project/<id>/<section>[/<stageId>]  (the workspace, refurbs/RefurbWorkspace.jsx)
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { MONO, FS, CV } from '../lib/styles'
+import { MONO, FS, CV, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -114,13 +114,13 @@ function useRefurbMutations({ properties, onPropertyPatch, showToast }) {
 // ── Small presentational bits ──────────────────────────────────────────────
 function StageChip({ stage, T }) {
   const c = STAGE_CFG[stage] || STAGE_CFG.planned
-  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{c.label}</span>
+  return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.color + '22', color: c.color, border: `1px solid ${c.color}44`, whiteSpace: 'nowrap' }}>{c.label}</span>
 }
 
 function CoChip({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 function Progress({ pct, tone, T, height = 6, max = 420 }) {
@@ -192,7 +192,7 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
     setSaving(false)
   }
 
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 12, padding: 18, marginBottom: 16 }}>
     <div style={{ fontFamily: mono, fontSize: 11, color: T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>New refurb</div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -251,7 +251,7 @@ function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = '
       <button onClick={submit} disabled={!propertyId || saving} style={{ ...btn(T, 'gold'), opacity: !propertyId || saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Create refurb'}</button>
       <button onClick={onCancel} style={btn(T)}>Cancel</button>
     </div>
-    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 10 }}>Only the property is required. The cover photo, stages, dates and payments are added in the workspace.</div>
+    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10 }}>Only the property is required. The cover photo, stages, dates and payments are added in the workspace.</div>
   </div>
 }
 
@@ -356,7 +356,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   const panel = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 12 }
   const ph = { fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
   const lineRow = { display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${T.border}`, fontSize: 13 }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   const iconBtn = { fontFamily: mono, fontSize: 11, padding: '3px 7px', background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, cursor: 'pointer', color: T.muted }
 
   const renderLine = (l, showKind) => editingLine === l.id ? (
@@ -420,7 +420,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
 
     {suggest === 'complete' && project.stage !== 'complete' && (
       <div style={{ background: T.green + '15', border: `1px solid ${T.green}55`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: mono, fontSize: 12, color: T.text }}>Paid in full. Mark this refurb as complete?</span>
+        <span style={{ fontFamily: SANS, fontSize: FS.base, color: T.text }}>Paid in full. Mark this refurb as complete?</span>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => changeStage('complete')} style={btn(T, 'gold')}>Mark complete</button>
           <button onClick={() => setSuggest(null)} style={btn(T)}>Not yet</button>
@@ -449,7 +449,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
           <div style={lineRow}>
             <div>
               <div style={{ color: T.text }}>Original quote</div>
-              <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{project.contractor_name ? `${project.contractor_name} · ` : ''}what was agreed before work started</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{project.contractor_name ? `${project.contractor_name} · ` : ''}what was agreed before work started</div>
             </div>
             <div style={{ width: 130 }}>
               <MoneyInput prefix="£" value={form.agreed_price} onChange={v => set('agreed_price', v == null ? '' : v)} onBlur={() => saveField('agreed_price')} disabled={!canEdit} placeholder="0"
@@ -471,7 +471,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         {/* Payments */}
         <div style={panel}>
           <div style={ph}><span>Payments</span><span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, textTransform: 'none', letterSpacing: 0 }}>{payments.length} {payments.length === 1 ? 'entry' : 'entries'}</span></div>
-          {payments.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, padding: '10px 0' }}>Nothing paid yet.</div>}
+          {payments.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, padding: '10px 0' }}>Nothing paid yet.</div>}
           {payments.map(l => renderLine(l, true))}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: mono, fontSize: 12, paddingTop: 10, marginTop: 4, borderTop: `1px dashed ${T.border}` }}>
             <span style={{ color: T.muted }}>Paid so far</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.paid)}</b>
@@ -513,7 +513,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
         <div style={panel}>
           <div style={ph}><span>Milestones</span>{milestones && <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, textTransform: 'none', letterSpacing: 0 }}>{milestones.filter(m => m.completed).length}/{milestones.length}</span>}</div>
           {milestones == null && <div aria-busy="true" aria-label="Loading" style={{ display: 'grid', gap: 8 }}><Skeleton h={14}/><Skeleton h={14} w="80%"/></div>}
-          {milestones && milestones.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No checklist for this refurb.</div>}
+          {milestones && milestones.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No checklist for this refurb.</div>}
           {milestones && milestones.filter(m => m.is_enabled !== false).map(m => (
             <button key={m.id} onClick={() => toggleMilestone(m)} disabled={!canEdit}
               style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'transparent', border: 'none', padding: '6px 0', cursor: canEdit ? 'pointer' : 'default', textAlign: 'left', color: m.completed ? T.muted : T.text, fontSize: 13, textDecoration: m.completed ? 'line-through' : 'none' }}>
@@ -530,7 +530,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
 
 function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit = false }) {
   const isExtra = quick.kind === 'extra'
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ marginTop: 12, padding: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
     <div style={{ fontFamily: mono, fontSize: FS.xs, color: isExtra ? T.amber : T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1.2fr 1.6fr auto', gap: 8, alignItems: 'end' }}>
@@ -544,7 +544,7 @@ function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit =
         {onCancel && <button onClick={onCancel} style={btn(T)}>Cancel</button>}
       </div>
     </div>
-    {allowCredit && !isExtra && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, cursor: 'pointer' }}>
+    {allowCredit && !isExtra && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, cursor: 'pointer' }}>
       <input type="checkbox" checked={quick.kind === 'credit'} onChange={e => setQuick(q => ({ ...q, kind: e.target.checked ? 'credit' : 'payment' }))} style={{ width: 'auto', margin: 0 }} />
       This is a refund or credit from the contractor
     </label>}
@@ -565,9 +565,9 @@ function ProjectRow({ project, journey, canEdit, onOpen, onQuickPay, T, isMobile
         <b style={{ fontSize: 15 }}>{p?.name || p?.address || 'Property'}</b>
         <StageChip stage={project.stage} T={T} />
         <CoChip company={p?.company} T={T} />
-        {project.contractor_name && <span style={{ fontFamily: mono, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>{project.contractor_name}</span>}
+        {project.contractor_name && <span style={{ fontFamily: SANS, fontSize: FS.sm, padding: '2px 8px', borderRadius: 20, background: T.bg, color: T.muted, border: `1px solid ${T.border}` }}>{project.contractor_name}</span>}
         {t.over && <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{fmt(t.extras)} over</span>}
-        {t.agreed <= 0 && <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.amber + '22', color: T.amber }}>No price yet</span>}
+        {t.agreed <= 0 && <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.amber + '22', color: T.amber }}>No price yet</span>}
         {journey?.overdueTasks?.length > 0 && <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{journey.overdueTasks.length} overdue</span>}
         {journey?.blocked?.length > 0 && <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red + '22', color: T.red }}>{journey.blocked.length} blocked</span>}
       </div>
@@ -633,11 +633,11 @@ function Board({ projects, canEdit, onOpen, onStage, T }) {
               </select>}
             </div>
           })}
-          {items.length === 0 && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, textAlign: 'center', padding: '20px 0' }}>Nothing here</div>}
+          {items.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, textAlign: 'center', padding: '20px 0' }}>Nothing here</div>}
         </div>
       })}
     </div>
-    {canEdit && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>Drag a card between columns to change its stage, or use the picker on the card.</div>}
+    {canEdit && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>Drag a card between columns to change its stage, or use the picker on the card.</div>}
   </div>
 }
 
@@ -674,7 +674,7 @@ function Ledger({ projects, onOpen, T }) {
       <table className="table-stack" style={{ borderCollapse: 'collapse', width: '100%' }}>
         <thead><tr><th style={th}>Date</th><th style={th}>Refurb</th><th style={th}>Type</th><th style={th}>Paid to</th><th style={th}>Note</th><th style={{ ...th, textAlign: 'right' }}>Amount</th></tr></thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={6} style={{ ...td, fontFamily: mono, fontSize: 11, color: T.faint, textAlign: 'center' }}>No lines yet. Payments logged on any refurb appear here.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={6} style={{ ...td, fontFamily: SANS, fontSize: FS.sm, color: T.faint, textAlign: 'center' }}>No lines yet. Payments logged on any refurb appear here.</td></tr>}
           {rows.map(l => <tr key={l.id}>
             <td data-label="Date" style={{ ...td, fontFamily: mono, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDate(l.date)}</td>
             <td data-label="Refurb" style={td}><button onClick={() => onOpen(l.project)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: T.text, fontWeight: 600, fontSize: 13, textAlign: 'left' }}>{l.project.property?.name || l.project.property?.address}</button><div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{l.project.property?.company?.abbr || ''}</div></td>
@@ -703,9 +703,9 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
       <CoverImage url={coverUrl} crop={cover?.crop} T={T} compact />
       <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
         <StageChip stage={project.stage} T={T} />
-        {project.archived_at && <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#000a', color: '#fff' }}>Archived</span>}
+        {project.archived_at && <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#000a', color: '#fff' }}>Archived</span>}
       </div>
-      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: T.bg }}>
+      {(overdue > 0 || blocked > 0) && <div style={{ position: 'absolute', top: 8, right: 8, fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: T.red, color: T.bg }}>
         {[overdue ? `${overdue} overdue` : null, blocked ? `${blocked} blocked` : null].filter(Boolean).join(' · ')}
       </div>}
     </div>
@@ -714,7 +714,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <b style={{ fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.title && project.title !== 'Refurbishment' ? project.title : (p?.name || p?.address || 'Property')}</b>
         <CoChip company={p?.company} T={T} />
       </div>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {[p?.address || p?.name, project.project_type === 'commercial' ? 'Commercial' : 'Residential'].filter(Boolean).join(' · ')}
       </div>
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
@@ -731,7 +731,7 @@ function ProjectCard({ project, journey, coverUrl, cover, invoiced, onOpen, T })
         <Metric label="Agreed budget" value={fmt(t.agreed)} T={T} />
         <Metric label="Forecast cost" value={fmt(ffc.value)} color={ffc.variance > 0 ? T.red : undefined} T={T} />
       </div>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: project.next_action ? T.goldText : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: project.next_action ? T.goldText : T.faint, marginTop: 'auto', paddingTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {project.next_action ? `Next: ${project.next_action}` : 'No next action set'}
       </div>
     </div>
@@ -904,7 +904,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
       <div>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>Refurbs</h1>
-        {!selected && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+        {!selected && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>
           {summary.active} active · {summary.overBudget} over budget · {fmt(summary.remaining)} remaining to pay
         </div>}
       </div>
@@ -914,11 +914,11 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
       <div style={{ display: 'inline-flex', background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden', flexWrap: 'wrap' }}>
         {VIEWS.map(([k, l]) => (
           <button key={k} onClick={() => { setSub(k); setSelectedId(null); setInvoiceId(null); setImporting(false) }}
-            style={{ fontFamily: mono, fontSize: FS.sm, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? CV.onGold : T.muted }}>{l}</button>
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '7px 14px', border: 'none', cursor: 'pointer', background: sub === k && !selectedId ? T.gold : 'transparent', color: sub === k && !selectedId ? CV.onGold : T.muted }}>{l}</button>
         ))}
       </div>
       <button onClick={() => { setImporting(true); setSub('invoices'); setSelectedId(null); setInvoiceId(null) }} style={{ ...btn(T), padding: '8px 14px', fontSize: 12 }}>Import refurb invoice</button>
-      <button onClick={() => { setCreating(true); setSelectedId(null) }} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ New Refurb</button>
+      <button onClick={() => { setCreating(true); setSelectedId(null) }} style={{ ...btn(T, 'gold'), padding: '8px 16px', fontSize: 12 }}>+ New refurb</button>
     </div>
   </div>
 
@@ -950,7 +950,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     {pageHead}
     <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 24, textAlign: 'center' }}>
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{properties.length ? 'This refurb is not available' : 'Loading…'}</div>
-      {properties.length > 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>It may have been deleted, or it belongs to a company you no longer have access to.</div>}
+      {properties.length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12 }}>It may have been deleted, or it belongs to a company you no longer have access to.</div>}
       <button onClick={() => setSelectedId(null)} style={btn(T)}>← All refurbs</button>
     </div>
   </div>
@@ -1020,7 +1020,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
         <span aria-hidden="true" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>to</span>
         <input type="date" aria-label="Finish to" value={filters.to} min={filters.from || undefined} onChange={e => setFilter('to', e.target.value)} style={{ ...inputStyle(T), width: isMobile ? 0 : 'auto', flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0 }} />
       </div>
-      <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+      <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
         <input type="checkbox" checked={filters.archived} onChange={e => setFilter('archived', e.target.checked)} style={{ width: 'auto', margin: 0 }} /> Archived only
       </label>
       {activeFilters && <button onClick={() => setFilters(f => ({ ...f, q: '', companyId: 'all', status: 'active', contractor: 'all', manager: 'all', from: '', to: '' }))} style={btn(T)}>Clear filters</button>}
@@ -1032,8 +1032,8 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
 
     {(sub === 'cards' || sub === 'list') && listed.length === 0 && !creating && <div style={{ background: T.card, border: `1px dashed ${T.border}`, borderRadius: 12, padding: 28, textAlign: 'center' }}>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{filters.archived ? 'Nothing archived' : activeFilters ? 'No refurbs match these filters' : `No ${filters.type} refurbs on the go`}</div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14 }}>{activeFilters ? 'Clear the filters to see everything.' : 'Start one with the property and, if you have it, the price agreed with the builder.'}</div>
-      {!filters.archived && <button onClick={() => setCreating(true)} style={btn(T, 'gold')}>+ New Refurb</button>}
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14 }}>{activeFilters ? 'Clear the filters to see everything.' : 'Start one with the property and, if you have it, the price agreed with the builder.'}</div>
+      {!filters.archived && <button onClick={() => setCreating(true)} style={btn(T, 'gold')}>+ New refurb</button>}
     </div>}
 
     {sub === 'cards' && listed.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>

@@ -6,7 +6,7 @@ import Modal from '../../lib/Modal'
 import { Icon } from '../../lib/icons'
 import { coverImgStyle, normaliseCrop } from '../../lib/imageResize'
 import { mono, btn } from './ui'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 
 export function CoverImage({ url, crop, alt = '', T, placeholder = 'No cover photo yet', compact = false }) {
   if (!url) return <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: `repeating-linear-gradient(135deg, ${T.bg}, ${T.bg} 10px, ${T.surface} 10px, ${T.surface} 20px)`, color: T.faint }}>
@@ -44,7 +44,7 @@ export default function CoverPhoto({ file, url, canEdit, onUpload, onCropSave, h
       </button>
       <input ref={inputRef} type="file" accept="image/*" onChange={pick} style={{ display: 'none' }} />
     </div>}
-    {error && <div role="alert" style={{ position: 'absolute', left: 10, bottom: 10, right: 160, fontFamily: mono, fontSize: 11, color: '#fff', background: T.red, padding: '6px 10px', borderRadius: 6 }}>{error}</div>}
+    {error && <div role="alert" style={{ position: 'absolute', left: 10, bottom: 10, right: 160, fontFamily: SANS, fontSize: FS.sm, color: '#fff', background: T.red, padding: '6px 10px', borderRadius: 6 }}>{error}</div>}
     {cropping && url && <CropModal url={url} crop={file?.crop} aspect={aspect} T={T} onClose={() => setCropping(false)}
       onSave={async c => { await onCropSave(c); setCropping(false) }} />}
   </div>
@@ -77,7 +77,7 @@ function CropModal({ url, crop, aspect, onClose, onSave, T }) {
   return <Modal onClose={onClose} size="lg" ariaLabel="Adjust cover photo">
     <div style={{ padding: '20px 22px' }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>Adjust cover photo</h2>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>Drag the photo to position it, and use the slider to zoom.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12 }}>Drag the photo to position it, and use the slider to zoom.</div>
       <div ref={frame} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
         style={{ width: '100%', aspectRatio: String(aspect), overflow: 'hidden', borderRadius: 10, cursor: 'grab', touchAction: 'none', background: T.bg, border: `1px solid ${T.border}` }}>
         <img src={url} alt="" draggable={false} style={coverImgStyle(c)} />

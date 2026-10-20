@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO } from '../lib/styles'
+import { MONO, SANS, FS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -157,7 +157,7 @@ export default function BookkeepingRules({ companyId, properties = [], canWrite 
     <div style={{ fontFamily: mono, color: T.text }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontFamily: mono }}>AI bookkeeping</h3>
+          <h3 style={{ margin: 0, fontFamily: SANS }}>AI bookkeeping</h3>
           <p style={{ ...labelStyle, textTransform: 'none', letterSpacing: 0, marginTop: 4 }}>
             Auto-categorise bank transactions with rules, then let AI draft the rest.
           </p>
@@ -199,8 +199,8 @@ export default function BookkeepingRules({ companyId, properties = [], canWrite 
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={() => accept(s)}>Accept</button>
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => reject(s)}>Reject</button>
+                  <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => accept(s)}>Accept</button>
+                  <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => reject(s)}>Reject</button>
                 </div>
               </div>
             ))}
@@ -263,10 +263,10 @@ export default function BookkeepingRules({ companyId, properties = [], canWrite 
                 {r.set_property_id ? <span style={{ color: T.textFaint }}>{' · '}{propName[r.set_property_id] || 'property'}</span> : null}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => toggleActive(r)}>
+                <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => toggleActive(r)}>
                   {r.active ? 'Disable' : 'Enable'}
                 </button>
-                <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => removeRule(r)}>Delete</button>
+                <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => removeRule(r)}>Delete</button>
               </div>
             </div>
           ))}

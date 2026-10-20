@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
-import { MONO, FS, statusColors } from '../lib/styles'
+import { MONO, FS, statusColors, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import { SkeletonTiles } from '../lib/Skeleton'
@@ -107,7 +107,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
             )}
           </h2>
           {row?.generated_at && (
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>
               Generated {timeAgo(row.generated_at)} · refreshes available every 30 min
             </div>
           )}
@@ -125,7 +125,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 22px', textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.6, color: T.goldText }} aria-hidden="true"><Icon name="sparkle" size={26}/></div>
           <div style={{ fontSize: 14, color: T.text, fontWeight: 600, marginBottom: 4 }}>No insights yet</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 14px' }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 14px' }}>
             Click below and Claude will scan your portfolio for opportunities — under-rented properties, expiring certs, high LTVs, things worth your attention.
           </div>
           <button className="btn btn-gold" onClick={regenerate} disabled={busy}
@@ -158,7 +158,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.35 }}>
                   {it.title}
                 </div>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
                   {it.body}
                 </div>
                 {it.action_label && safeInsightLink(it.action_link) && (
@@ -166,7 +166,7 @@ export default function PortfolioInsightsWidget({ companyId = null, companyName 
                     style={{
                       alignSelf: 'flex-start', marginTop: 4,
                       background: 'transparent', border: `1px solid ${palette.fg}66`,
-                      color: palette.fg, fontFamily: MONO, fontSize: FS.xs, fontWeight: 600,
+                      color: palette.fg, fontFamily: SANS, fontSize: FS.sm, fontWeight: 600,
                       padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                     }}>
                     {it.action_label} →

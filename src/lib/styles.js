@@ -19,7 +19,17 @@
 export const MONO = "'DM Mono',monospace"
 
 // UI / heading / body / button face — OwnProperly redesign (design/redesign-2026).
-// DM Mono stays reserved for money, dates, metrics and eyebrow labels.
+//
+// TYPOGRAPHY RULE (one voice per job):
+//   MONO  → numbers, money, dates and metrics in data; numeric table columns;
+//           small eyebrow / section labels (uppercase allowed, 11–12px);
+//           keyboard hints; codes and IDs.
+//   SANS  → everything people read as words: body copy, descriptions, helper
+//           and empty-state text, buttons, chips / filters, form labels, menu
+//           items, nav, toasts, modal text, notes. Sentence case, no forced
+//           uppercase, normal letter-spacing.
+// Recipes: `eyebrow` / `monoLabel` (mono caps), `fieldLabel`, `bodyText`,
+// `helpText` (sans).
 export const SANS =
   "'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
@@ -30,7 +40,9 @@ export const SANS =
 // Type scale (px). NOTHING BELOW 11px: FS.xs is the floor for any text,
 // including eyebrow labels and table captions. Older code still has 8–10px
 // sizes; migrate them up to FS.xs when touched.
-export const FS = { xs: 11, sm: 12, base: 13, md: 15, lg: 18, xl: 24, xxl: 30 }
+//   xs 11 eyebrow / caption · sm 12 helper · base 13 UI text · body 14 body copy
+//   md 15 · lead 16 spec body · lg 18 · h3 20 · xl 24 · xxl 30 H1
+export const FS = { xs: 11, sm: 12, base: 13, body: 14, md: 15, lead: 16, lg: 18, h3: 20, xl: 24, xxl: 30 }
 
 // Corner radius (px). `pill` for fully rounded chips.
 export const R = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 }
@@ -50,7 +62,8 @@ export const CV = {
 
 // ── TYPOGRAPHY ────────────────────────────────────────────────────────────
 
-// Small uppercase mono label. Used above inputs and on small captions.
+// Small uppercase mono eyebrow — section / column labels ("RENT ROLL",
+// "COMPLIANCE"). Not for form fields (use `fieldLabel`) or prose.
 export const monoLabel = (T) => ({
   fontFamily: MONO,
   fontSize: FS.xs,
@@ -61,23 +74,36 @@ export const monoLabel = (T) => ({
   marginBottom: 6,
 })
 
-// Mono body text in muted colour. Used for explanatory paragraphs.
-export const monoMuted = (T) => ({
-  fontFamily: MONO,
+export const eyebrow = monoLabel
+
+// Form-field label (sans, sentence case). Matches the global <label> rule and
+// <Field> in src/components/ui.
+export const fieldLabel = (T) => ({
+  fontFamily: SANS,
   fontSize: FS.sm,
+  fontWeight: 600,
   color: T.muted,
-  lineHeight: 1.6,
+  display: 'block',
+  marginBottom: 6,
 })
 
-// Mono body text in primary colour.
-export const monoText = (T) => ({
-  fontFamily: MONO,
-  fontSize: FS.sm,
+// Body copy in primary colour — descriptions, modal text, notes.
+export const bodyText = (T) => ({
+  fontFamily: SANS,
+  fontSize: FS.base,
   color: T.text,
   lineHeight: 1.6,
 })
 
-// Faint mono — for tertiary annotations like "as of 2026-04-01".
+// Helper / explanatory text in muted colour — under fields, in empty states.
+export const helpText = (T) => ({
+  fontFamily: SANS,
+  fontSize: FS.sm,
+  color: T.muted,
+  lineHeight: 1.55,
+})
+
+// Faint mono — for tertiary data annotations like "as of 2026-04-01".
 export const monoFaint = (T) => ({
   fontFamily: MONO,
   fontSize: FS.xs,
@@ -86,7 +112,7 @@ export const monoFaint = (T) => ({
 
 // Section heading style. `h2` size by default.
 export const heading = (T, level = 2) => {
-  const sizes = { 1: FS.xxl, 2: 26, 3: 16 }
+  const sizes = { 1: FS.xxl, 2: 26, 3: FS.lead }
   return {
     fontFamily: SANS,
     fontSize: sizes[level] || sizes[2],
@@ -127,7 +153,7 @@ export const well = (T) => ({
 
 // Text input / textarea / select. Spread on top: `style={{...inp(T), width: 200}}`.
 export const inp = (T) => ({
-  fontFamily: MONO,
+  fontFamily: SANS,
   fontSize: FS.base,
   background: T.bg,
   border: `1px solid ${T.border}`,
@@ -149,9 +175,9 @@ export const inp = (T) => ({
 export const btnGold = (T) => ({
   background: T.gold,
   color: '#1A2530',
-  fontFamily: MONO,
+  fontFamily: SANS,
   fontSize: FS.base,
-  fontWeight: 700,
+  fontWeight: 600,
   padding: '11px 22px',
   borderRadius: 10,
   border: 'none',
@@ -161,7 +187,7 @@ export const btnGold = (T) => ({
 export const btnGhost = (T) => ({
   background: 'transparent',
   color: T.muted,
-  fontFamily: MONO,
+  fontFamily: SANS,
   fontSize: FS.base,
   padding: '10px 22px',
   borderRadius: 10,
@@ -172,9 +198,9 @@ export const btnGhost = (T) => ({
 export const btnDanger = (T) => ({
   background: T.red,
   color: 'white',
-  fontFamily: MONO,
+  fontFamily: SANS,
   fontSize: FS.base,
-  fontWeight: 700,
+  fontWeight: 600,
   padding: '11px 22px',
   borderRadius: 10,
   border: 'none',
@@ -193,8 +219,8 @@ export const pill = (accent) => ({
   background: accent + '22',
   border: `1px solid ${accent}44`,
   color: accent,
-  fontSize: FS.xs,
-  fontFamily: MONO,
+  fontSize: FS.sm,
+  fontFamily: SANS,
   fontWeight: 600,
 })
 
@@ -257,8 +283,8 @@ export const statusPill = (key, darkMode) => {
     background: c.bg,
     color: c.text,
     border: `1px solid ${c.text}33`,
-    fontFamily: MONO,
-    fontSize: FS.xs,
+    fontFamily: SANS,
+    fontSize: FS.sm,
     fontWeight: 600,
     whiteSpace: 'nowrap',
   }

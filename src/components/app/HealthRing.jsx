@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { healthBand } from '../../lib/dashboardKpis'
 
 // Portfolio health ring (redesign Dashboard hero). `score` is 0-100 (see
@@ -34,7 +34,7 @@ export const HealthRing = memo(({ score, reasons = [] }) => {
           <span style={{width:7,height:7,borderRadius:'50%',background:band.color}}/>{band.label}
         </div>
         {reasons.length > 0 && (
-          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginTop:3,lineHeight:1.5,maxWidth:260,overflowWrap:'anywhere'}}>{reasons.join(' · ')}</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:3,lineHeight:1.5,maxWidth:260,overflowWrap:'anywhere'}}>{reasons.join(' · ')}</div>
         )}
       </div>
     </div>

@@ -151,7 +151,7 @@ describe('RefurbsPage', () => {
   it('creates a refurb with the residential journey', async () => {
     const api = await import('../../lib/api')
     renderPage()
-    fireEvent.click(screen.getAllByText('+ New Refurb')[0])
+    fireEvent.click(screen.getAllByText('+ New refurb')[0])
     const form = screen.getByText('Create refurb').closest('div').parentElement
     fireEvent.change(form.querySelector('select'), { target: { value: 'p2' } })
     fireEvent.click(screen.getByText('Create refurb'))

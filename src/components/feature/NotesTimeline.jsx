@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { SkeletonRows } from '../../lib/Skeleton'
@@ -61,8 +61,8 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, category, c
       aria-label="New note"
       placeholder="Add a note about this property..."
       style={{width:'100%',minHeight:72,resize:'vertical',marginBottom:8,fontSize:12}}/>
-    <button className="btn btn-gold" style={{fontSize:11,marginBottom:composerOnly?0:16}} onClick={handleSave} disabled={saving||!newNote.trim()}>
-      {saving?'Saving...':'+ Save Note'}
+    <button className="btn btn-gold" style={{fontSize:FS.sm,marginBottom:composerOnly?0:16}} onClick={handleSave} disabled={saving||!newNote.trim()}>
+      {saving?'Saving...':'+ Save note'}
     </button>
   </>
   if (composerOnly) return composer || null
@@ -86,11 +86,11 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, category, c
                       <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>{formatDate(n.created_at)}</span>
                     </div>
                     {isAdmin&&<button onClick={()=>handleDelete(n.id)}
-                      style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
+                      style={{fontFamily:SANS,fontSize:FS.sm,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'2px 8px',cursor:'pointer'}}>
                       Delete
                     </button>}
                   </div>
-                  <div style={{fontFamily:MONO,fontSize:12,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,lineHeight:1.8,whiteSpace:'pre-wrap'}}>{n.note}</div>
                 </div>
               ))}
             </div>

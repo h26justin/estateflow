@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 
@@ -102,7 +102,7 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
                   width: '100%', textAlign: 'left',
                   padding: '8px 12px',
                   border: 'none', background: 'transparent',
-                  fontFamily: mono, fontSize: 12,
+                  fontFamily: SANS, fontSize: FS.sm,
                   color: item.disabled ? T.faint : color,
                   cursor: item.disabled ? 'not-allowed' : 'pointer',
                   borderRadius: 6,

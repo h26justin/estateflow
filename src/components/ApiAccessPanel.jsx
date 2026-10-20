@@ -9,7 +9,7 @@
 // copy button until dismissed. Revocation is immediate and permanent.
 
 import { useEffect, useState } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import { useConfirm } from '../lib/ConfirmContext'
 import { listApiTokens, createApiToken, revokeApiToken } from '../lib/api/apiAccess'
@@ -115,7 +115,7 @@ export default function ApiAccessPanel({ T }) {
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         API Access
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7, marginBottom: 16 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, lineHeight: 1.7, marginBottom: 16 }}>
         Personal tokens give <span style={{ color: T.text }}>read-only</span> access to your portfolio data
         (properties, rent, expenses, compliance, maintenance) for tools you trust — for example a Claude
         session referencing your numbers. Tokens can't change anything, and you can revoke them here at any time.
@@ -124,18 +124,18 @@ export default function ApiAccessPanel({ T }) {
 
       {freshToken && (
         <div style={{ border: `1px solid ${T.gold}`, background: T.gold + '11', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.text, fontWeight: 700, marginBottom: 6 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, fontWeight: 700, marginBottom: 6 }}>
             Token created — copy it now
           </div>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 10 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 10 }}>
             This is the only time it will be shown. Store it somewhere safe.
           </div>
           <div style={{ fontFamily: mono, fontSize: 11, color: T.text, wordBreak: 'break-all', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
             {freshToken.token}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={copyFresh}>Copy token</button>
-            <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setFreshToken(null)}>Done — I've saved it</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={copyFresh}>Copy token</button>
+            <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setFreshToken(null)}>Done — I've saved it</button>
           </div>
         </div>
       )}
@@ -171,7 +171,7 @@ export default function ApiAccessPanel({ T }) {
             </div>
           )}
           {active.length === 0 && !freshToken && (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 16 }}>No active tokens.</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>No active tokens.</div>
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
@@ -181,10 +181,10 @@ export default function ApiAccessPanel({ T }) {
               style={{ maxWidth: 240 }}
             />
             <select aria-label="Token expiry" value={expiryDays} onChange={e => setExpiryDays(Number(e.target.value))}
-              style={{ fontFamily: mono, fontSize: 11 }}>
+              style={{ fontFamily: SANS, fontSize: FS.sm }}>
               {EXPIRY_OPTIONS.map(o => <option key={o.days} value={o.days}>Expires in {o.label}</option>)}
             </select>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} disabled={creating} onClick={handleCreate}>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={creating} onClick={handleCreate}>
               {creating ? 'Creating…' : 'Create token'}
             </button>
           </div>

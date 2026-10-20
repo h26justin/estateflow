@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
 import * as api from '../lib/api'
@@ -71,7 +71,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   }
 
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px 26px', marginBottom: 16 }
-  const label = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6, display: 'block' }
+  const label = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, marginBottom: 6, display: 'block' }
 
   function StatusBadge({ status }) {
     const cfg = {
@@ -81,7 +81,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       canceled:  { bg: T.red+'22',   color: T.red,    label: 'Cancelled' },
       free_tier: { bg: T.gold+'22',  color: T.goldText,   label: 'Free tier' },
     }[status] || { bg: T.border, color: T.muted, label: status }
-    return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+    return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
   }
 
   if (loading) return <div style={{ padding: 40 }}><SkeletonList count={2} height={120}/></div>
@@ -90,7 +90,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
   if (loadError) return (
     <div style={{ padding: 40, textAlign: 'center' }}>
       <div style={{ fontFamily: mono, fontSize: 12, color: T.red, marginBottom: 14 }}>Couldn't load billing data — {loadError}</div>
-      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={loadData}>Retry</button>
+      <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={loadData}>Retry</button>
     </div>
   )
 
@@ -102,7 +102,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 0 }}>
           {[['billing','My Billing'],['admin','Admin: All Accounts']].map(([k,l]) => (
             <button key={k} onClick={()=>setAdminTab(k)} style={{
-              fontFamily: mono, fontSize: 11, padding: '8px 16px', borderRadius: '8px 8px 0 0',
+              fontFamily: SANS, fontSize: FS.sm, padding: '8px 16px', borderRadius: '8px 8px 0 0',
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
               background: adminTab===k ? T.gold+'22' : 'transparent',
               color: adminTab===k ? T.goldText : T.muted, fontWeight: adminTab===k ? 600 : 400,
@@ -148,23 +148,23 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                           </span>
                         </div>
                         <div style={{ fontSize: 24, fontWeight: 700, color: T.goldText, letterSpacing: '-0.02em' }}><span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>from </span>{fmt(monthly)}<span style={{ fontSize: 13, color: T.muted, fontFamily: mono }}>/mo</span></div>
-                        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
+                        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
                           {propCount} {propCount===1?'property':'properties'} × £{tierMeta.pricePerProp}/mo · £10/mo minimum applies
                         </div>
                       </>
                     )}
-                    {status === 'free_tier' && <div style={{ fontFamily: mono, fontSize: 13, color: T.goldText, fontWeight: 700 }}>Free tier ✓</div>}
+                    {status === 'free_tier' && <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.goldText, fontWeight: 700 }}>Free tier ✓</div>}
                   </div>
                 </div>
 
                 {/* Trial warning */}
                 {status === 'trialing' && trialDaysLeft <= 7 && trialDaysLeft > 0 && (
-                  <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.amber }}>
+                  <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>
                     Trial ends in {trialDaysLeft} day{trialDaysLeft!==1?'s':''}. Add a payment method to keep access.
                   </div>
                 )}
                 {status === 'past_due' && (
-                  <div style={{ background: T.red+'22', border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: mono, fontSize: 11, color: T.red }}>
+                  <div style={{ background: T.red+'22', border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>
                     Payment failed. Update your payment method to restore full access.
                   </div>
                 )}
@@ -173,21 +173,21 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {(status === 'trialing' || status === 'past_due') && (
-                    <button className="btn btn-gold" style={{ fontSize: 12 }}
+                    <button className="btn btn-gold" style={{ fontSize: FS.sm }}
                       onClick={() => handleCheckout(co.id, 'checkout')}
                       disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Add payment method'}
                     </button>
                   )}
                   {status === 'active' && (
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    <button className="btn btn-ghost" style={{ fontSize: FS.sm }}
                       onClick={() => handleCheckout(co.id, 'portal')}
                       disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Manage subscription'}
                     </button>
                   )}
                   {(status === 'active' || status === 'trialing') && tierKey !== 'investor' && !investorUnavailable && (
-                    <button className="btn btn-ghost" style={{ fontSize: 12, color: TIERS.investor.color, borderColor: TIERS.investor.color }}
+                    <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: TIERS.investor.color, borderColor: TIERS.investor.color }}
                       onClick={() => handleCheckout(co.id, 'subscribe', 'investor')}
                       disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : <><Icon name="star" size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>{`Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}</>}
@@ -206,7 +206,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16 }}>
             All customer accounts — {plural(allCompanies.length,'company','companies')}
           </div>
-          <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontFamily: mono, fontSize: 11, color: T.amber }}>
+          <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>
             Toggle free tier to exempt any company from billing permanently.
           </div>
           {allCompanies.map(co => (
@@ -224,7 +224,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
+                  <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
                   <button role="switch" aria-checked={!!co.is_free_tier}
                     aria-label={`Free tier for ${co.name}`}
                     onClick={() => toggleFreeTier(co.id, co.is_free_tier)}

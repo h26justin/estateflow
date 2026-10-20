@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { EmptyState } from '../ui'
@@ -98,7 +98,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {companies.map(c => (
               <button key={c.id} onClick={() => setSelectedCo(c.id)}
-                style={{ fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
+                style={{ fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
                   border: `1px solid ${selectedCo === c.id ? (c.color || T.gold) : T.border}`,
                   background: selectedCo === c.id ? (c.color || T.gold) + '22' : 'transparent',
                   color: selectedCo === c.id ? readableOr(normalizeHex(c.color), T.card, T.text) : T.muted,
@@ -125,18 +125,18 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
                 }
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 8, lineHeight: 1.7 }}>
                   Upload your company logo to brand PDF report exports. Recommended: PNG with transparent background (PNG, JPG, WebP or GIF), max 2MB.
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   <label style={{ cursor: 'pointer' }}>
-                    <span className="btn btn-gold" style={{ fontSize: 11 }}>
+                    <span className="btn btn-gold" style={{ fontSize: FS.sm }}>
                       {uploading ? 'Uploading…' : logoPreview ? '↑ Replace logo' : '↑ Upload logo'}
                     </span>
                     <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploading}/>
                   </label>
                   {logoPreview && (
-                    <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
+                    <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red + '44' }} onClick={removeLogo}>
                       Remove
                     </button>
                   )}
@@ -148,7 +148,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
           {/* Report accent colour */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '24px' }}>
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Report colour</div>
-            <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 16, lineHeight: 1.7 }}>
               PDF report headers and accents will use this colour. It is also used as the accent colour for this company throughout the app.
             </div>
 
@@ -181,7 +181,7 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
                 onBlur={() => { if (colorDraft && /^#[0-9A-Fa-f]{6}$/.test(colorDraft)) updateCompanyColor(colorDraft); else setColorDraft(null) }}
                 onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
                 placeholder={DEFAULT_COMPANY_COLOR}
-                style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
+                style={{ fontFamily: SANS, fontSize: FS.sm, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', width: 110 }}/>
               {savingColor && <span style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Saving…</span>}
             </div>
 
@@ -232,7 +232,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Company logos for PDF reports</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.7 }}>
           Upload a logo for each company. It will appear on all PDF reports generated for that company. Supported formats: PNG, JPG, WebP, GIF. Recommended: PNG with transparent background, at least 400px wide.
         </div>
       </div>
@@ -253,7 +253,7 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                 <div style={{ width: 180, height: 80, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {cs.logo_url
                     ? <img src={cs.logo_url} alt={co.name} style={{ maxWidth: '90%', maxHeight: '70%', objectFit: 'contain' }}/>
-                    : <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>No logo uploaded</span>
+                    : <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>No logo uploaded</span>
                   }
                 </div>
 
@@ -261,19 +261,19 @@ function BrandingPanel({ companies, companySettings, setCompanySettings, user, s
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <label style={{ cursor: 'pointer' }}>
-                      <span className="btn btn-gold" style={{ fontSize: 11, display: 'inline-block' }}>
+                      <span className="btn btn-gold" style={{ fontSize: FS.sm, display: 'inline-block' }}>
                         {isUploading ? 'Uploading…' : cs.logo_url ? '↑ Replace logo' : '↑ Upload logo'}
                       </span>
                       <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} disabled={isUploading}
                         onChange={e => handleLogoUpload(co.id, e.target.files?.[0])}/>
                     </label>
                     {cs.logo_url && (
-                      <button className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'44' }} onClick={() => removeLogo(co.id)}>
+                      <button className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'44' }} onClick={() => removeLogo(co.id)}>
                         Remove
                       </button>
                     )}
                   </div>
-                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8, lineHeight: 1.6 }}>
                     This logo will appear on all PDF reports for {co.name}.<br/>
                     PNG with transparent background works best on dark PDF headers.
                   </div>

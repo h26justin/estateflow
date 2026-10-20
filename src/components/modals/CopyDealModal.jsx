@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import Modal from '../../lib/Modal'
 import { COPY_OPTIONS, DEFAULT_COPY_OPTIONS, isCopyOptionActive } from '../../lib/dealCopy'
@@ -15,7 +15,7 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
   const toggle = (key) => setOpts(prev => ({ ...prev, [key]: !prev[key] }))
   const setAll = (value) => setOpts(COPY_OPTIONS.reduce((acc, o) => { acc[o.key] = value; return acc }, {}))
 
-  const label = { fontFamily: MONO, fontSize: 12, color: T.text, fontWeight: 600 }
+  const label = { fontFamily: SANS, fontSize: FS.sm, color: T.text, fontWeight: 600 }
   const hint = { fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }
   const quick = {
     fontFamily: MONO, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
@@ -28,7 +28,7 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
         <h2 id="copy-deal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
           What should the copy include?
         </h2>
-        <p style={{ fontFamily: MONO, color: T.muted, fontSize: 12, marginBottom: 16 }}>{deal?.name}</p>
+        <p style={{ fontFamily: SANS, color: T.muted, fontSize: FS.sm, marginBottom: 16 }}>{deal?.name}</p>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           <button type="button" style={quick} onClick={() => setAll(true)}>Select all</button>
@@ -63,7 +63,7 @@ export default function CopyDealModal({ deal, onClose, onConfirm, busy }) {
           })}
         </div>
 
-        <p style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
+        <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.faint, lineHeight: 1.6, marginBottom: 18 }}>
           The copy always keeps the deal type, purchase type and company, and starts back at
           Analysing. {opts.tracker ? '' : 'With tracker steps unticked it gets a fresh tracker from your milestone defaults.'}
         </p>

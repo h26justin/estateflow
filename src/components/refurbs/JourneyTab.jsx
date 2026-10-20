@@ -14,7 +14,7 @@ import {
 import Gantt from './Gantt'
 import { QuickText } from './StageDrawer'
 import { mono, btn, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate } from './ui'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 
 export function JourneyStrip({ stages, onOpen, T }) {
   const tree = stageTree(stages).filter(s => s.status !== 'skipped')
@@ -44,7 +44,7 @@ export function JourneyStrip({ stages, onOpen, T }) {
 
 export function ProgressExplainer({ stages, tasks, T }) {
   const wp = worksProgress(stages, tasks)
-  return <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
+  return <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
     <b style={{ color: T.text }}>How works progress is worked out.</b> Each live stage counts once (or by its weight). Complete = 100%, not started = 0%. A stage under way uses its recorded progress %, else the share of its checklist ticked; a stage with substages averages them. Skipped and archived stages are left out. This measures the work, not the money: the % paid is shown separately under Costs.
     {wp.hasJourney && <div style={{ marginTop: 4 }}>Now: {wp.complete} of {wp.counted} stages complete, works progress {wp.pct}%.{wp.missing > 0 && <span style={{ color: T.amber }}> {wp.missing} {wp.missing === 1 ? 'stage is' : 'stages are'} under way with no progress recorded, counted as 0%.</span>}</div>}
   </div>
@@ -175,7 +175,7 @@ function LegacyChecklist({ ws }) {
   }
   return <div style={panel(T)}>
     <div style={sectionHead(T)}><span>Earlier checklist</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{rows.filter(m => m.completed).length}/{rows.length}</span></div>
-    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Ticked on the earlier refurb tracker before the journey existed. Kept for the record; the journey above is what counts now.</div>
+    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Ticked on the earlier refurb tracker before the journey existed. Kept for the record; the journey above is what counts now.</div>
     {rows.filter(m => m.is_enabled !== false).map(m => <label key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', fontSize: 13, color: m.completed ? T.muted : T.text }}>
       <input type="checkbox" checked={m.completed} disabled={!canEdit} onChange={() => toggle(m)} style={{ width: 16, height: 16, margin: 0 }} />
       <span style={{ flex: 1 }}>{m.label}</span>
@@ -197,13 +197,13 @@ function TemplatePicker({ ws }) {
   const card = (tpl, key, sub) => <button key={key} disabled={busy} onClick={() => go(tpl)}
     style={{ textAlign: 'left', background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14, cursor: 'pointer', color: T.text }}>
     <div style={{ fontWeight: 700, marginBottom: 4 }}>{tpl.name}</div>
-    <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>{sub}</div>
+    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>{sub}</div>
     <div style={{ fontSize: FS.sm, color: T.muted, lineHeight: 1.5 }}>{(tpl.stages || []).map(s => s.name).join(' → ')}</div>
   </button>
   return <div>
     <div style={{ ...panel(T), marginBottom: 14 }}>
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Start this refurb's journey</div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Pick a starting point. The project gets its own copy: rename, reorder, skip or add stages afterwards without changing the template.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Pick a starting point. The project gets its own copy: rename, reorder, skip or add stages afterwards without changing the template.</div>
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
       {builtIns.map((t, i) => card(t, t.name, i === 0 ? 'Suggested for this project' : 'Built-in template'))}
@@ -221,7 +221,7 @@ function StatusEditor({ ws, onClose }) {
   return <Modal onClose={onClose} size="md" ariaLabel="Custom statuses">
     <div style={{ padding: '20px 22px' }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>Custom statuses</h2>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>Name your own statuses, e.g. "Waiting on building control". Each one behaves like the status it is based on, so progress and delay warnings stay correct.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12 }}>Name your own statuses, e.g. "Waiting on building control". Each one behaves like the status it is based on, so progress and delay warnings stay correct.</div>
       {rows.map((r, i) => <div key={r._key} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr auto', gap: 6, marginBottom: 6 }}>
         <input value={r.label} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="Status name" style={inputStyle(T)} aria-label="Status name" />
         <select value={r.category} onChange={e => setRows(rs => rs.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} style={inputStyle(T)} aria-label="Behaves like">
@@ -230,7 +230,7 @@ function StatusEditor({ ws, onClose }) {
         <button onClick={() => setRows(rs => rs.filter((_, j) => j !== i))} style={btn(T)} aria-label="Remove status">✕</button>
       </div>)}
       <button onClick={() => setRows(rs => [...rs, { _key: rowKey(), label: '', category: 'blocked' }])} style={btn(T)}>+ Add status</button>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10 }}>Removing a status here does not change stages already using it; they keep the label until changed.</div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose} style={btn(T)}>Cancel</button>
         <button disabled={saving} onClick={async () => { setSaving(true); const ok = await ops.updateProject({ custom_statuses: clean }); setSaving(false); if (ok) onClose() }} style={btn(T, 'gold')}>{saving ? 'Saving…' : 'Save statuses'}</button>
@@ -247,7 +247,7 @@ export function CascadeModal({ moves, projectEnd, newEnd, onApply, onSkip, T }) 
   return <Modal onClose={onSkip} size="lg" ariaLabel="Revised dates">
     <div style={{ padding: '20px 22px' }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>This change affects later work</h2>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12 }}>These stages wait for the one you changed. Confirm to move their forecast dates. Planned dates (the original programme) do not change.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12 }}>These stages wait for the one you changed. Confirm to move their forecast dates. Planned dates (the original programme) do not change.</div>
       {moves.map(m => <div key={m.stage_id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 8, padding: '7px 0', borderBottom: `1px solid ${T.border}`, fontSize: 13 }}>
         <span><b>{m.name}</b><div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>waits for {m.because}</div></span>
         <span style={{ fontFamily: mono, fontSize: 11 }}>{fmtShort(m.from_start)} – {fmtShort(m.from_end)}</span>

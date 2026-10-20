@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO, CV, FS } from '../lib/styles'
+import { MONO, CV, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -130,7 +130,7 @@ export default function TrashPage({ user, onRestored }) {
       {/* Header */}
       <div style={{marginBottom:20}}>
         <h2 style={{fontSize:20,fontWeight:700,color:T.text,margin:0,marginBottom:4}}>Trash</h2>
-        <p style={{fontFamily:mono,fontSize:11,color:T.muted,lineHeight:1.6}}>
+        <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,lineHeight:1.6}}>
           Deleted items are kept here for 30 days before being permanently removed. You can restore anything during that window.
         </p>
       </div>
@@ -144,7 +144,7 @@ export default function TrashPage({ user, onRestored }) {
             {tabs.map(tab => (
               <button key={tab.key} onClick={() => setFilter(tab.key)}
                 style={{
-                  fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:20, cursor:'pointer',
+                  fontFamily:SANS, fontSize:FS.sm, padding:'6px 14px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${filter===tab.key?T.gold:T.border}`,
                   background:filter===tab.key?T.gold:'transparent',
                   color:filter===tab.key?'#1C2830':T.muted,
@@ -171,7 +171,7 @@ export default function TrashPage({ user, onRestored }) {
                 <div key={`${item._type}-${item.id}`} style={{display:'grid',gridTemplateColumns:'100px 1fr 140px 140px 200px',gap:12,padding:'13px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>
                     <span style={{display:'inline-flex'}}>{ICON_NAMES.includes(cfg.icon)?<Icon name={cfg.icon} size={15}/>:cfg.icon}</span>
-                    <span style={{fontFamily:mono,fontSize:FS.xs,color:cfg.color,fontWeight:700}}>{cfg.label}</span>
+                    <span style={{fontFamily:SANS,fontSize:FS.sm,color:cfg.color,fontWeight:700}}>{cfg.label}</span>
                   </div>
                   <div style={{fontSize:13,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item._name || 'Unnamed'}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>{daysAgo(item.deleted_at)}</div>
@@ -180,11 +180,11 @@ export default function TrashPage({ user, onRestored }) {
                   </div>
                   <div style={{display:'flex',gap:6}}>
                     <button onClick={()=>restore(item)} disabled={working===item.id}
-                      style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.green}44`,background:T.green+'11',color:T.green,fontWeight:700}}>
+                      style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.green}44`,background:T.green+'11',color:T.green,fontWeight:700}}>
                       {working===item.id?'…':'↶ Restore'}
                     </button>
                     <button onClick={()=>purgeNow(item)} disabled={working===item.id}
-                      style={{fontFamily:mono,fontSize:FS.xs,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
+                      style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:6,cursor:working===item.id?'wait':'pointer',border:`1px solid ${T.red}44`,background:'transparent',color:T.red}}>
                       Purge now
                     </button>
                   </div>

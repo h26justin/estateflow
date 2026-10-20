@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
@@ -149,12 +149,12 @@ export default function BankConnectionsModal({ onClose }) {
             <h2 id="bank-connections-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
               Bank Connections
             </h2>
-            <p style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 4 }}>
+            <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginTop: 4 }}>
               Connect your bank · we'll match rent payments automatically.
             </p>
           </div>
           <span style={{
-            fontFamily: mono, fontSize: FS.xs, fontWeight: 700, letterSpacing: '0.1em',
+            fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, 
             padding: '4px 9px', borderRadius: 12,
             background: T.amber + '22', color: T.amber, border: `1px solid ${T.amber}44`,
             flexShrink: 0,
@@ -174,7 +174,7 @@ export default function BankConnectionsModal({ onClose }) {
               <div style={{
                 background: T.amber + '11', border: `1px solid ${T.amber}44`,
                 borderRadius: 10, padding: '12px 14px', marginBottom: 16,
-                fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
+                fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.65,
               }}>
                 <strong>Coming soon.</strong> We're finalising a UK Open
                 Banking integration. Once live, connecting your bank means
@@ -184,22 +184,22 @@ export default function BankConnectionsModal({ onClose }) {
               </div>
 
               <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
                   Which bank do you use? (Optional)
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input value={interestBank} onChange={e => setInterestBank(e.target.value)}
                     placeholder="e.g. Barclays, Lloyds, Starling, Monzo…"
                     style={{
-                      flex: 1, fontFamily: mono, fontSize: 13,
+                      flex: 1, fontFamily: SANS, fontSize: FS.base,
                       background: T.surface, border: `1px solid ${T.border}`, color: T.text,
                       borderRadius: 8, padding: '10px 12px', }}/>
                   <button onClick={registerInterest} disabled={busy}
-                    className="btn btn-gold" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                    className="btn btn-gold" style={{ fontSize: FS.sm, whiteSpace: 'nowrap' }}>
                     {busy ? 'Saving…' : 'Register interest'}
                   </button>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 6 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>
                   We'll never charge extra for Open Banking — it's included in your plan.
                 </div>
               </div>
@@ -211,7 +211,7 @@ export default function BankConnectionsModal({ onClose }) {
               <div style={{
                 background: T.green + '11', border: `1px solid ${T.green}44`,
                 borderRadius: 10, padding: '12px 14px', marginBottom: 16,
-                fontFamily: mono, fontSize: 11, color: T.text, lineHeight: 1.65,
+                fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.65,
               }}>
                 <strong>Open Banking</strong> — FCA-regulated, read-only access.
                 PSD2 consent renews every 90 days. We never see or store your
@@ -221,7 +221,7 @@ export default function BankConnectionsModal({ onClose }) {
               {hasActive && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
                   <button onClick={manualSync} disabled={syncing}
-                    className="btn btn-ghost" style={{ fontSize: 11 }}>
+                    className="btn btn-ghost" style={{ fontSize: FS.sm }}>
                     {syncing ? 'Syncing…' : '↻ Sync now'}
                   </button>
                 </div>
@@ -235,7 +235,7 @@ export default function BankConnectionsModal({ onClose }) {
                 <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                   Add a connection
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 12, lineHeight: 1.65 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12, lineHeight: 1.65 }}>
                   We'll redirect you to our Open Banking partner to pick your
                   bank and sign in. Takes about 30 seconds. You stay on your
                   bank's official login screen — we never see your credentials.
@@ -244,7 +244,7 @@ export default function BankConnectionsModal({ onClose }) {
                   className="btn btn-gold" style={{ fontSize: 13, padding: '10px 22px', width: '100%' }}>
                   {connecting ? 'Redirecting…' : 'Connect a bank account →'}
                 </button>
-                <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 10, textAlign: 'center' }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 10, textAlign: 'center' }}>
                   Supported: Barclays · HSBC · Lloyds · NatWest · Santander · Monzo · Starling · Revolut · and 30+ more
                 </div>
               </div>
@@ -270,7 +270,7 @@ export default function BankConnectionsModal({ onClose }) {
                       {r.institution_name || 'Bank not specified'}
                     </div>
                     <span style={{
-                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
+                      fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                       padding: '2px 8px', borderRadius: 10,
                       background: (T[STATUS_TONE[r.status]] || T.muted) + '22',
                       color: T[STATUS_TONE[r.status]] || T.muted,
@@ -289,7 +289,7 @@ export default function BankConnectionsModal({ onClose }) {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 12, padding: '9px 18px' }}>Close</button>
+            <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
           </div>
         </div>
       </div>

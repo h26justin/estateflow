@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
@@ -96,7 +96,7 @@ export default function CustomizeDashModal({
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customise dashboard</h2>
-            <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Drag to reorder, toggle to show/hide. {enabledCount} {tab === 'sections' ? 'sections' : 'cards'} on.</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{background:'transparent',border:'none',color:T.muted,fontSize:20,cursor:'pointer'}}>✕</button>
         </div>
@@ -105,7 +105,7 @@ export default function CustomizeDashModal({
         <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:`1px solid ${T.border}`}}>
           {['sections','widgets'].map(t => (
             <button key={t} onClick={()=>setTab(t)}
-              style={{fontFamily:mono,fontSize:11,padding:'8px 14px',cursor:'pointer',background:'transparent',border:'none',
+              style={{fontFamily:SANS,fontSize:FS.sm,padding:'8px 14px',cursor:'pointer',background:'transparent',border:'none',
                 color: tab === t ? T.goldText : T.muted,
                 borderBottom: tab === t ? `2px solid ${T.gold}` : '2px solid transparent',
                 fontWeight: tab === t ? 700 : 400,
@@ -116,7 +116,7 @@ export default function CustomizeDashModal({
           ))}
         </div>
 
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.faint,marginBottom:10,fontStyle:'italic'}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:10,fontStyle:'italic'}}>
           {tab === 'sections'
             ? 'Reorder major page sections. Drag the ⋮⋮ handle, or use the arrows.'
             : 'Reorder and toggle the KPI cards at the top of the dashboard.'}
@@ -157,7 +157,7 @@ export default function CustomizeDashModal({
                 <div style={{fontSize:22,width:24,display:'flex',justifyContent:'center'}}>{ICON_NAMES.includes(def.icon)?<Icon name={def.icon} size={20} color={T.muted}/>:def.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:2}}>{def.label}</div>
-                  <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{def.description}</div>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{def.description}</div>
                 </div>
                 <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={e=>e.stopPropagation()}>
                   <input type="checkbox" checked={w.enabled} onChange={()=>toggle(w.key)} style={{width:18,height:18,cursor:'pointer'}}/>

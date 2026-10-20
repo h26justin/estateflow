@@ -3,7 +3,7 @@ import { canDo } from '../../lib/permissions'
 import ActionMenu from '../ActionMenu'
 import { ContractorsPage } from '../DashboardComponents'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import { calcGrossYield } from '../../lib/propertyCalcs'
 import { plural } from '../../lib/format'
@@ -83,7 +83,7 @@ export function PropertiesView({
         </div>
         {portfolioTab==='properties'&&(
           <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
-            <button className="btn btn-gold" style={{fontSize:11,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add Property</button>
+            <button className="btn btn-gold" style={{fontSize:FS.sm,whiteSpace:'nowrap'}} onClick={()=>{setEditProp(null);setShowAddProp(true)}} disabled={!canEdit} title={!canEdit ? 'You don\'t have permission to add properties to this company' : ''}>+ Add property</button>
             {/* Less-used bulk actions sit behind ⋯ */}
             <ActionMenu buttonLabel="More portfolio actions" items={[
               { label: 'Add a block of flats', icon: 'building', disabled: !canEdit, onSelect: () => openWorkflow('bulk-add') },
@@ -98,7 +98,7 @@ export function PropertiesView({
       <div role="group" aria-label="Portfolio section" style={{display:'flex',gap:6,marginBottom:14,overflowX:'auto',scrollbarWidth:'none'}}>
         {[['properties','building','Properties'],['companies','grid','Companies'],['map','map','Map'],['contractors','wrench','Contractors']].map(([k,ic,l])=>(
           <button key={k} type="button" onClick={()=>setPortfolioTab(k)} aria-pressed={portfolioTab===k}
-            style={{display:'inline-flex',alignItems:'center',gap:6,flexShrink:0,fontFamily:MONO,fontSize:11,padding:isMobile?'6px 11px':'6px 14px',borderRadius:8,cursor:'pointer',
+            style={{display:'inline-flex',alignItems:'center',gap:6,flexShrink:0,fontFamily:SANS,fontSize:FS.sm,padding:isMobile?'6px 11px':'6px 14px',borderRadius:8,cursor:'pointer',
               border:`1px solid ${portfolioTab===k?T.gold:T.border}`,
               background:portfolioTab===k?T.gold:'transparent',
               color:portfolioTab===k?CV.onGold:T.muted,fontWeight:portfolioTab===k?700:400}}>
@@ -116,7 +116,7 @@ export function PropertiesView({
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:18,alignItems:'center'}}>
           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
           {[{id:'all',abbr:'All',color:T.goldText},...companies].map(c=>(
-            <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:MONO,fontSize:11,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
+            <button key={c.id} onClick={()=>setCoFilter(c.id)} aria-pressed={coFilter===c.id} style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',color:coFilter===c.id?(c.color||T.goldText):T.muted,transition:'all 0.18s'}}>{c.abbr||c.name}</button>
           ))}
         </div>
         <PropertyMap
@@ -144,7 +144,7 @@ export function PropertiesView({
         <label style={{display:'inline-flex',alignItems:'center',gap:6,flex:isMobile?'1 1 0':'0 0 auto',minWidth:0,fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>
           {!isMobile&&'Sort'}
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} aria-label="Sort properties by"
-            style={{flex:1,minWidth:0,width:isMobile?'100%':'auto',padding:'6px 8px',fontFamily:MONO,fontSize:12,textTransform:'none',letterSpacing:0,minHeight:34}}>
+            style={{flex:1,minWidth:0,width:isMobile?'100%':'auto',padding:'6px 8px',fontFamily:SANS,fontSize:FS.sm,textTransform:'none',minHeight:34}}>
             {SORT_OPTIONS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
           </select>
         </label>
@@ -158,7 +158,7 @@ export function PropertiesView({
             <button key={k} type="button" onClick={()=>setPropLayout(k)} title={`${lbl} view`} aria-label={`${lbl} view`} aria-pressed={propLayout===k}
               style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',minHeight:28,minWidth:36,justifyContent:'center',borderRadius:7,cursor:'pointer',border:'none',
                 background:propLayout===k?T.gold:'transparent',color:propLayout===k?CV.onGold:T.muted,
-                fontFamily:MONO,fontSize:FS.xs,fontWeight:propLayout===k?700:400}}>
+                fontFamily:SANS,fontSize:FS.sm,fontWeight:propLayout===k?700:400}}>
               <Icon name={ic} size={14}/>{!isMobile&&lbl}
             </button>
           ))}

@@ -1,4 +1,4 @@
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 // ── INSURANCE PAGE ────────────────────────────────────────────────────────
 // Top-level page for managing insurance policies. Three views:
 //   • Active   — current/upcoming-expiry policies (default)
@@ -221,7 +221,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => setEditing({})}>+ New Policy</button>
+          <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => setEditing({})}>+ New policy</button>
         </div>
       </div>
 
@@ -232,7 +232,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
             <button key={c.id} onClick={() => setCoFilter(c.id)}
               style={{
-                fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`,
                 background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent',
                 color: coFilter === c.id ? (c.color || T.goldText) : T.muted,
@@ -249,7 +249,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
         {[['by_property', 'By Property'], ['active', 'Active'], ['expiring', 'Expiring Soon'], ['expired', 'Expired'], ['all', 'All'], ['history', 'History']].map(([k, l]) => (
           <button key={k} onClick={() => setView(k)}
             style={{
-              fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+              fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
               border: `1px solid ${view === k ? T.gold : T.border}`,
               background: view === k ? T.gold + '22' : 'transparent',
               color: view === k ? T.goldText : T.muted,
@@ -285,7 +285,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
           {policies.length === 0 ? (
             <EmptyState compact icon="shield-check" title="No policies yet"
               body="Add your first insurance policy to start tracking renewals."
-              action={<Button size="sm" icon="plus" onClick={() => setEditing({})}>Add Policy</Button>}/>
+              action={<Button size="sm" icon="plus" onClick={() => setEditing({})}>Add policy</Button>}/>
           ) : (
             <EmptyState compact icon="shield-check"
               title={view === 'expiring' ? 'No policies expiring in the next 90 days.'
@@ -331,7 +331,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
               <h2 id="insurance-picker-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
                 Manage insurance
               </h2>
-              <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 16 }}>
+              <p style={{ fontFamily: SANS, color: T.muted, fontSize: FS.base, marginBottom: 16 }}>
                 {propertyPicker.property.name || propertyPicker.property.address} is covered by {propertyPicker.policies.length} policies. Which would you like to manage?
               </p>
             </div>
@@ -348,7 +348,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                       padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
                       background: T.bg, border: `1px solid ${T.border}`,
                       borderLeft: `3px solid ${color}`,
-                      textAlign: 'left', fontFamily: mono,
+                      textAlign: 'left', fontFamily: SANS,
                     }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{pol.policy_name}</div>
@@ -378,13 +378,13 @@ export default function InsurancePage({ user, companies = [], properties = [], s
                 style={{
                   padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
                   background: 'transparent', border: `1px dashed ${T.gold}`,
-                  color: T.goldText, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                  color: T.goldText, fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                   textAlign: 'center', marginTop: 4,
                 }}>
                 + Add another policy
               </button>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setPropertyPicker(null)}>Cancel</button>
+                <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setPropertyPicker(null)}>Cancel</button>
               </div>
             </div>
           </div>
@@ -426,7 +426,7 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{policy.policy_name}</span>
-          <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+          <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
             background: policy.company?.color ? policy.company.color + '22' : T.muted + '22',
             color: policy.company?.color || T.muted }}>
             {policy.company?.abbr || policy.company?.name || '—'}
@@ -460,27 +460,27 @@ function PolicyRow({ policy, onEdit, onRenew, onDelete, onShowHistory, T }) {
                 else showAppToast('Document not found', 'error')
               } catch (e) { showAppToast(e.message, 'error') }
             }}
-            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
             Doc
           </button>
         )}
         {policy.previous_policy_id && (
           <button onClick={onShowHistory} title="View history chain"
-            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
             History
           </button>
         )}
         {(bucket === 'expired' || bucket === 'urgent' || bucket === 'soon') && (
           <button onClick={onRenew} title="Create next year's renewal"
-            style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
               background: T.gold + '22', border: `1px solid ${T.gold}`, color: T.goldText, fontWeight: 700 }}>
             ↻ Renew
           </button>
         )}
         <button onClick={onEdit}
-          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+          style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
             background: 'transparent', border: `1px solid ${T.border}`, color: T.text }}>
           Edit
         </button>
@@ -630,7 +630,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
             </div>
           ))}
         </div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
           Click any property to view or update its policy. Properties with no coverage open a new-policy form pre-ticked.
         </div>
       </div>
@@ -667,7 +667,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
                     padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
                     background: T.bg, border: `1px solid ${T.border}`,
                     borderLeft: `3px solid ${status.color}`,
-                    fontFamily: mono, fontSize: 11, color: T.text,
+                    fontFamily: SANS, fontSize: FS.sm, color: T.text,
                     textAlign: 'left',
                     transition: 'background 0.12s',
                   }}
@@ -687,7 +687,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{
-                      fontFamily: mono, fontSize: FS.xs, fontWeight: 700,
+                      fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
                       padding: '3px 8px', borderRadius: 4,
                       background: status.color + '22', color: status.color,
                       whiteSpace: 'nowrap',
@@ -736,14 +736,14 @@ function HistoryView({ chain, allPolicies, onSelect, selectedId, T }) {
     <div style={{ display: 'grid', gap: 14 }}>
       {/* Chain picker */}
       <div style={card}>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
           Pick a policy to see its history
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {heads.map(p => (
             <button key={p.id} onClick={() => onSelect(p.id)}
               style={{
-                fontFamily: mono, fontSize: 11, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+                fontFamily: SANS, fontSize: FS.sm, padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
                 border: `1px solid ${selectedId === p.id ? T.gold : T.border}`,
                 background: selectedId === p.id ? T.gold + '22' : 'transparent',
                 color: selectedId === p.id ? T.goldText : T.text,
@@ -917,7 +917,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
     onSave(data, propertyIds)
   }
 
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, display: 'block' }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, marginBottom: 4, display: 'block' }
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '8px 12px', width: '100%', outline: 'none' }
   const errStyle = { fontFamily: mono, fontSize: FS.xs, color: T.red, display: 'block', marginTop: 4 }
   // Merge the red required-border into the shared input style when a field
@@ -942,7 +942,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
         <form onSubmit={e => { e.preventDefault(); handleSubmit() }} style={{ padding: '0 28px 28px', display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl} htmlFor="policy-name">Policy Name *</label>
+              <label style={lbl} htmlFor="policy-name">Policy name *</label>
               <input id="policy-name" style={inpErr(triedSave && !form.policy_name)} value={form.policy_name} onChange={e => s('policy_name', e.target.value)}
                 placeholder="e.g. Buildings Insurance 2026"
                 aria-invalid={triedSave && !form.policy_name ? 'true' : undefined}
@@ -962,13 +962,13 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl} htmlFor="policy-type">Policy Type</label>
+              <label style={lbl} htmlFor="policy-type">Policy type</label>
               <select id="policy-type" style={inp} value={form.policy_type} onChange={e => s('policy_type', e.target.value)}>
                 {api.POLICY_TYPES.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
               </select>
             </div>
             <div>
-              <label style={lbl} htmlFor="policy-freq">Payment Frequency</label>
+              <label style={lbl} htmlFor="policy-freq">Payment frequency</label>
               <select id="policy-freq" style={inp} value={form.payment_freq} onChange={e => s('payment_freq', e.target.value)}>
                 <option value="annual">Annual (one-off)</option>
                 <option value="monthly">Monthly</option>
@@ -990,18 +990,18 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl} htmlFor="policy-number">Policy Number</label>
+              <label style={lbl} htmlFor="policy-number">Policy number</label>
               <input id="policy-number" style={inp} value={form.policy_number} onChange={e => s('policy_number', e.target.value)} />
             </div>
             <div>
-              <label style={lbl} htmlFor="policy-start">Start Date *</label>
+              <label style={lbl} htmlFor="policy-start">Start date *</label>
               <input id="policy-start" style={inpErr(triedSave && !form.start_date)} type="date" value={form.start_date} onChange={e => s('start_date', e.target.value)}
                 aria-invalid={triedSave && !form.start_date ? 'true' : undefined}
                 aria-describedby={triedSave && !form.start_date ? 'policy-start-err' : undefined} />
               {triedSave && !form.start_date && <span id="policy-start-err" style={errStyle}>Required</span>}
             </div>
             <div>
-              <label style={lbl} htmlFor="policy-expiry">Expiry Date *</label>
+              <label style={lbl} htmlFor="policy-expiry">Expiry date *</label>
               <input id="policy-expiry" style={inpErr(triedSave && !form.expiry_date)} type="date" value={form.expiry_date} onChange={e => s('expiry_date', e.target.value)}
                 aria-invalid={triedSave && !form.expiry_date ? 'true' : undefined}
                 aria-describedby={triedSave && !form.expiry_date ? 'policy-expiry-err' : undefined} />
@@ -1011,7 +1011,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={lbl} htmlFor="policy-premium">Annual Premium</label>
+              <label style={lbl} htmlFor="policy-premium">Annual premium</label>
               <MoneyInput id="policy-premium" prefix="£" value={form.premium} onChange={v => s('premium', v)} style={inp} />
             </div>
             <div>
@@ -1026,7 +1026,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
             <label style={lbl} htmlFor="policy-doc">Policy document (schedule / certificate)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               {form.document_id && (
-                <button type="button" className="btn btn-ghost" style={{ fontSize: 11 }}
+                <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }}
                   onClick={async () => {
                     try {
                       const url = await api.getCompanyDocumentSignedUrlById(form.document_id)
@@ -1037,7 +1037,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
               )}
               <input id="policy-doc" type="file" accept="application/pdf,image/*"
                 onChange={e => setDocFile(e.target.files?.[0] || null)}
-                style={{ fontFamily: mono, fontSize: 11, color: T.muted }} />
+                style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }} />
             </div>
             {docFile && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 4 }}>{docFile.name} will be attached on save{form.document_id ? ' (replaces the current document)' : ''}</div>}
           </div>
@@ -1045,7 +1045,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           {/* Property picker */}
           <div>
             <label style={lbl}>Properties covered</label>
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
               Tick all properties this policy covers. Leave all unticked for a company-wide policy.
               {propertyIds.length > 0 && ` · ${propertyIds.length} selected`}
             </div>
@@ -1062,11 +1062,11 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                 {/* Select all / none */}
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 6, paddingBottom: 6, borderBottom: `1px solid ${T.border}`, marginBottom: 4 }}>
                   <button type="button" onClick={() => setPropertyIds(availableProps.map(p => p.id))}
-                    style={{ fontFamily: mono, fontSize: FS.xs, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
+                    style={{ fontFamily: SANS, fontSize: FS.sm, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Select all
                   </button>
                   <button type="button" onClick={() => setPropertyIds([])}
-                    style={{ fontFamily: mono, fontSize: FS.xs, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
+                    style={{ fontFamily: SANS, fontSize: FS.sm, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'transparent', border: `1px solid ${T.border}`, color: T.muted }}>
                     Clear
                   </button>
                 </div>
@@ -1076,7 +1076,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
                     <label key={p.id}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', borderRadius: 4,
-                        cursor: 'pointer', fontFamily: mono, fontSize: 11,
+                        cursor: 'pointer', fontFamily: SANS, fontSize: FS.sm,
                         background: checked ? T.gold + '11' : 'transparent',
                         color: T.text,
                       }}>
@@ -1099,9 +1099,9 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
-            <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-gold" style={{ fontSize: 12 }}>
-              {isRenewal ? 'Save Renewal' : isNew ? 'Add Policy' : 'Save Changes'}
+            <button type="button" className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-gold" style={{ fontSize: FS.sm }}>
+              {isRenewal ? 'Save renewal' : isNew ? 'Add policy' : 'Save changes'}
             </button>
           </div>
         </form>

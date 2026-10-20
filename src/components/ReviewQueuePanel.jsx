@@ -1,7 +1,7 @@
 // Receipts that need a human decision: unallocated remainders, possible
 // duplicates across sources, conflicts. Nothing here is auto-resolved.
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -60,12 +60,12 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.text }}>Receipts to review</div>
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>Unallocated money, possible duplicates and conflicts. Nothing is resolved automatically.</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Unallocated money, possible duplicates and conflicts. Nothing is resolved automatically.</div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', fontSize: 20, color: T.muted, cursor: 'pointer' }}>×</button>
         </div>
         {items === null && <SkeletonList count={2} height={56}/>}
-        {items && items.length === 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: T.green, padding: '12px 0' }}>Nothing waiting for review.</div>}
+        {items && items.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.green, padding: '12px 0' }}>Nothing waiting for review.</div>}
         {items && items.map(r => {
           const p = propFor(r)
           const co = companies.find(c => c.id === (p.company_id || r.company_id))
@@ -74,7 +74,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
             <div key={r.id} style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${T.amber}`, borderRadius: 10, padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: T.text }}>{money(r.amount)}</div>
-                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: MONO, fontSize: FS.xs, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
+                <div style={{ fontSize: 12, color: T.text }}>{p.name || 'Property'}{co ? <span style={{ fontFamily: SANS, fontSize: FS.sm, color: co.color || T.goldText, marginLeft: 6 }}>{co.abbr || co.name}</span> : null}</div>
                 <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>{fmtDate(r.received_date)} · {r.payer?.replace('_', ' ')} · {r.source}{r.reference ? ` · ${r.reference}` : ''}</div>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   {canEdit && !isEditing && <button className="btn btn-gold" style={{ fontSize: FS.xs }} onClick={() => startEdit(r)}>Allocate</button>}
@@ -82,7 +82,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                   {canEdit && !isEditing && /duplicate/i.test(r.review_reason || '') && <button className="btn" style={{ fontSize: FS.xs, color: T.red }} onClick={() => remove(r)}>Delete duplicate</button>}
                 </div>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginTop: 4 }}>{r.review_reason || 'Needs review'}</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginTop: 4 }}>{r.review_reason || 'Needs review'}</div>
               {isEditing && (
                 <div style={{ marginTop: 10 }}>
                   {editing.allocations.map((a, i) => (

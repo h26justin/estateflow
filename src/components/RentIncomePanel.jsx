@@ -1,4 +1,4 @@
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { monthRate, occupancyRate } from '../lib/rentForecast'
@@ -55,7 +55,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
     <div style={{ background: T.bg, borderRadius: 10, padding: '12px 14px', minWidth: 0 }}>
       <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 20, fontWeight: 700, color: color || T.text, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 4 }}>{sub}</div>}
     </div>
   )
 
@@ -78,13 +78,13 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
     <section className="card" style={{ padding: '20px 22px', marginBottom: 20 }} aria-label="Rental income">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 4 }}>Rental Income</h2>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>Due vs collected by rent month · {year} to date</div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 4 }}>Rental income</h2>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Due vs collected by rent month · {year} to date</div>
         </div>
         {onOpenRent && (
           <button onClick={onOpenRent} aria-label="Open Rent Tracker"
-            style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontFamily: MONO, fontSize: FS.xs, color: T.muted, letterSpacing: '0.1em', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            RENT TRACKER <Icon name="arrow-right" size={11} />
+            style={{ background: 'none', border: `1px solid ${T.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            Rent tracker <Icon name="arrow-right" size={11} />
           </button>
         )}
       </div>
@@ -134,12 +134,12 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
             </table>
           </div>
           {backfillMonths.length > 0 && (
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
               Left out of due and collected until the amount is entered (marked paid with no amount): {backfillMonths.map(mo => `${mo.label.slice(0, 3)} ${mo.needsBackfill} (${fmt(mo.backfillRent)})`).join(' · ')}. Enter the amounts in the Rent Tracker.
             </div>
           )}
           {overpaid > 0.005 && (
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
               Received above the rent due for a period ({fmt(overpaid)} this year) is not counted as collected, so one overpayment cannot hide another tenant's arrears.
             </div>
           )}
@@ -178,7 +178,7 @@ export default function RentIncomePanel({ months = [], companies = [], onOpenRen
               </tbody>
             </table>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 8, lineHeight: 1.5 }}>
             Figures are by rent period, the month the rent is for, matching the Rent Tracker. Occupied counts units with rent due that month out of units owned that month. Short-term lets are reported on their own page and left out of both.
           </div>
         </div>

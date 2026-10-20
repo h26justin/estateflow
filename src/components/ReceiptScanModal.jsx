@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import FocusTrap from '../lib/FocusTrap'
@@ -111,9 +111,9 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
       <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="receipt-scan-modal-title">
         <div style={{ padding: '22px 24px 0' }}>
           <h2 id="receipt-scan-modal-title" style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 4 }}>
-            Scan Receipt
+            Scan receipt
           </h2>
-          <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
             {stage === 'capture' && 'Snap or upload a receipt and we\'ll extract the details.'}
             {stage === 'scanning' && 'AI is reading your receipt…'}
             {stage === 'review' && 'Check the extracted fields, then save.'}
@@ -123,7 +123,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
 
         <div style={{ padding: '0 24px 22px' }}>
           {error && (
-            <div style={{ background: T.red+'11', border:`1px solid ${T.red}44`, borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontFamily: MONO, fontSize: 11, color: T.red }}>
+            <div style={{ background: T.red+'11', border:`1px solid ${T.red}44`, borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>
               {error}
             </div>
           )}
@@ -139,7 +139,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
                 className="btn btn-gold" style={{ fontSize: 14, padding: '14px 28px', width: '100%' }}>
                 Open camera
               </button>
-              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
                 On mobile this opens your camera. Desktop opens a file picker.
               </div>
             </div>
@@ -199,10 +199,10 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
-                <button onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null) }} className="btn btn-ghost" style={{ fontSize: 12 }}>
+                <button onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null) }} className="btn btn-ghost" style={{ fontSize: FS.sm }}>
                   ← Re-scan
                 </button>
-                <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }}>
+                <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }}>
                   Save expense
                 </button>
               </div>

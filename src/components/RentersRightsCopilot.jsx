@@ -4,6 +4,7 @@ import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
 import { safeOverlayClose } from '../lib/modalUtils'
 import { SkeletonList } from '../lib/Skeleton'
+import { SANS, FS } from '../lib/styles'
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -46,8 +47,8 @@ function Toggle({ T, on, onClick, disabled }) {
         minWidth: 110,
         borderColor: on ? T.green : T.border,
         color: on ? T.green : T.muted,
-        fontFamily: "'DM Mono', monospace",
-        fontSize: 12,
+        fontFamily: SANS,
+        fontSize: FS.sm,
       }}
     >
       {on ? 'Done' : 'Mark done'}
@@ -97,7 +98,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
         <div role="dialog" aria-modal="true" aria-label="Draft a notice" className="card"
           style={{ width: 'min(640px, 100%)', maxHeight: '90vh', overflow: 'auto', padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontFamily: "'DM Mono', monospace" }}>Draft a notice / letter</h3>
+            <h3 style={{ margin: 0, fontFamily: SANS }}>Draft a notice / letter</h3>
             <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close">✕</button>
           </div>
 
@@ -105,7 +106,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
             <>
               <label style={{ fontSize: 12, color: T.muted }}>Type</label>
               <select className="card" value={noticeType} onChange={(e) => setNoticeType(e.target.value)}
-                style={{ width: '100%', padding: 8, marginBottom: 10, fontFamily: "'DM Mono', monospace" }}>
+                style={{ width: '100%', padding: 8, marginBottom: 10, fontFamily: SANS }}>
                 {NOTICE_TYPES.map((n) => <option key={n.v} value={n.v}>{n.l}</option>)}
               </select>
 
@@ -121,7 +122,7 @@ function NoticeModal({ T, property, tenantName, onClose }) {
               <label style={{ fontSize: 12, color: T.muted }}>Facts / context (optional)</label>
               <textarea className="card" value={facts} onChange={(e) => setFacts(e.target.value)} rows={4}
                 placeholder="Relevant facts — arrears amount, dates, repair details. Leave blank for placeholders."
-                style={{ width: '100%', padding: 8, marginBottom: 14, fontFamily: "'DM Mono', monospace" }} />
+                style={{ width: '100%', padding: 8, marginBottom: 14, fontFamily: SANS }} />
 
               <button type="button" className="btn-gold" onClick={run} disabled={drafting} style={{ width: '100%' }}>
                 {drafting ? 'Drafting…' : 'Generate draft'}
@@ -256,7 +257,7 @@ export function RentersRightsCopilot({ companyId, property }) {
       <Banner T={T} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <h3 style={{ margin: 0, fontFamily: "'DM Mono', monospace" }}>
+        <h3 style={{ margin: 0, fontFamily: SANS }}>
           Compliance checklist {property ? `· ${property.name || property.address}` : '· portfolio'}
         </h3>
         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: done === RRA_CHECKLIST.length ? T.green : T.goldText }}>
@@ -287,7 +288,7 @@ export function RentersRightsCopilot({ companyId, property }) {
 
       {property && (
         <>
-          <h3 style={{ fontFamily: "'DM Mono', monospace", marginBottom: 8 }}>Awaab's-Law repair timers</h3>
+          <h3 style={{ fontFamily: SANS, marginBottom: 8 }}>Awaab's-Law repair timers</h3>
           <div style={{ marginBottom: 20 }}>
             <RepairTimers T={T} propertyId={propertyId} />
           </div>

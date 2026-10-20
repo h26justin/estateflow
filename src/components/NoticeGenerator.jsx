@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, SANS } from '../lib/styles'
+import { MONO, SANS, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import FocusTrap from '../lib/FocusTrap'
@@ -276,7 +276,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
                         <button key={opt.v} type="button" aria-pressed={active}
                           onClick={() => setChecklist(c => ({ ...c, [it.id]: opt.v }))}
                           style={{
-                            fontFamily: mono, fontSize: 11, fontWeight: 700, minWidth: 44, minHeight: 32,
+                            fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, minWidth: 44, minHeight: 32,
                             padding: '4px 10px', borderRadius: 6,
                             border: `1px solid ${active ? opt.activeBd : T.border}`,
                             background: active ? opt.activeBg : 'transparent',

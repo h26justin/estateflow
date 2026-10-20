@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { showAppToast } from '../../lib/toast'
 import { copyToClipboard } from '../../lib/clipboard'
@@ -150,7 +150,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
         <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 6 }}>
           <strong style={{ color: T.text }}>Shareable invite links</strong>
         </div>
-        <p style={{ fontFamily: mono, fontSize: 11, color: T.faint, lineHeight: 1.6 }}>
+        <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.faint, lineHeight: 1.6 }}>
           Generate a link or code that anyone can use to join your company —
           no need to type their email upfront. Useful for inviting via WhatsApp,
           Slack, or in person. New invites expire after {COMPANY_INVITE_DEFAULTS.expiryDays} days and
@@ -169,7 +169,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
           <div>
             <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Company</label>
             <select aria-label="Company" value={formCompanyId} onChange={e => setFormCompanyId(e.target.value)}
-              style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
+              style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -182,18 +182,18 @@ export function ShareableLinksTab({ companies, showToast, T }) {
           <div>
             <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Expires</label>
             <select aria-label="Expires" value={formExpiry} onChange={e => setFormExpiry(e.target.value)}
-              style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
+              style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}>
               {EXPIRY_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Label (optional)</label>
             <input aria-label="Label (optional)" value={formLabel} onChange={e => setFormLabel(e.target.value)} placeholder="e.g. WhatsApp share"
-              style={{ width: '100%', fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
+              style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, padding: '7px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.text }}/>
           </div>
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Role for joiners</label>
+          <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 6 }}>Role for joiners</label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {[
               { v: 'viewer', l: 'Viewer',  desc: 'Read-only access' },
@@ -216,7 +216,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                   <span style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color: active ? T.goldText : T.text, verticalAlign: 'middle' }}>
                     {opt.l}
                   </span>
-                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2, marginLeft: 22 }}>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2, marginLeft: 22 }}>
                     {opt.desc}
                   </div>
                 </label>
@@ -225,7 +225,7 @@ export function ShareableLinksTab({ companies, showToast, T }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
-          <button type="submit" disabled={creating || !formCompanyId} className="btn btn-gold" style={{ fontSize: 11 }}>
+          <button type="submit" disabled={creating || !formCompanyId} className="btn btn-gold" style={{ fontSize: FS.sm }}>
             {creating ? 'Generating…' : '+ Generate invite'}
           </button>
         </div>
@@ -268,17 +268,17 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                                     viewer: { label: 'Viewer', bg: T.muted, text: T.muted },
                                   }[role] || { label: role, bg: T.muted, text: T.muted }
                                   return (
-                                    <span style={{ fontFamily: mono, fontSize: FS.xs, color: meta.text, background: meta.bg + '22', padding: '2px 6px', borderRadius: 4 }}>
+                                    <span style={{ fontFamily: SANS, fontSize: FS.sm, color: meta.text, background: meta.bg + '22', padding: '2px 6px', borderRadius: 4 }}>
                                       {meta.label}
                                     </span>
                                   )
                                 })()}
                                 {inv.label && (
-                                  <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>{inv.label}</span>
+                                  <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, fontStyle: 'italic' }}>{inv.label}</span>
                                 )}
                               </div>
                               <button onClick={() => revoke(inv)}
-                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}`, color: T.red, background: T.red + '11' }}>
+                                style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}`, color: T.red, background: T.red + '11' }}>
                                 Revoke
                               </button>
                             </div>
@@ -286,13 +286,13 @@ export function ShareableLinksTab({ companies, showToast, T }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                               <input readOnly value={inviteUrl(inv.code)}
                                 onClick={e => e.target.select()}
-                                style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '6px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.muted, minWidth: 0 }}/>
+                                style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '6px 10px', borderRadius: 6, border: `1px solid ${T.border}`, background: T.surface, color: T.muted, minWidth: 0 }}/>
                               <button onClick={() => copy(inviteUrl(inv.code), inv.id + '-url')}
-                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-url' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-url' ? T.green : T.text, whiteSpace: 'nowrap' }}>
+                                style={{ fontFamily: SANS, fontSize: FS.sm, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-url' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-url' ? T.green : T.text, whiteSpace: 'nowrap' }}>
                                 {copiedId === inv.id + '-url' ? 'Copied' : 'Copy URL'}
                               </button>
                               <button onClick={() => copy(inv.code, inv.id + '-code')}
-                                style={{ fontFamily: mono, fontSize: FS.xs, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-code' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-code' ? T.green : T.text, whiteSpace: 'nowrap' }}>
+                                style={{ fontFamily: SANS, fontSize: FS.sm, padding: '6px 12px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: copiedId === inv.id + '-code' ? T.green + '22' : 'transparent', color: copiedId === inv.id + '-code' ? T.green : T.text, whiteSpace: 'nowrap' }}>
                                 {copiedId === inv.id + '-code' ? 'Copied' : 'Copy code'}
                               </button>
                             </div>

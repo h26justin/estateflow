@@ -5,7 +5,7 @@ import { SmartAlerts } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { aggregateDeals } from '../../lib/dealCashflow'
 import { propertyComplianceSummary } from '../../lib/complianceStatus'
-import { MONO, CV, FS } from '../../lib/styles'
+import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
 import PropertySearchBar from '../PropertySearchBar'
 import PortfolioInsightsWidget from '../PortfolioInsightsWidget'
@@ -120,7 +120,7 @@ export function DashboardView({
             <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
             <button
               onClick={()=>setDashCoFilter([])}
-              style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+              style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                 border:`1px solid ${dashCoFilter.length===0?T.gold:T.border}`,
                 background:dashCoFilter.length===0?T.gold:'transparent',
                 color:dashCoFilter.length===0?CV.onGold:T.muted,fontWeight:dashCoFilter.length===0?700:400}}>
@@ -145,7 +145,7 @@ export function DashboardView({
                     // If all companies selected, snap back to 'all'
                     return next.length===companies.length ? [] : next
                   })}
-                  style={{fontFamily:MONO,fontSize:11,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 14px',borderRadius:20,cursor:'pointer',transition:'all 0.18s',
                     border:`1px solid ${sel?(c.color||T.gold):T.border}`,
                     background:sel?(c.color||T.gold)+'22':'transparent',
                     color:sel?(c.color||T.goldText):T.muted}}>
@@ -171,7 +171,7 @@ export function DashboardView({
         const SECTION_DEFS = {
           rent_income: {
             icon: 'pound',
-            label: 'Rental Income',
+            label: 'Rental income',
             description: 'Due vs collected by month, year to date, with a per-company split',
             render: () => <RentIncomePanel months={rentSnapshot.ytd} companies={companyStats} onOpenRent={()=>setView('rent')} isMobile={isMobile}/>,
           },
@@ -183,7 +183,7 @@ export function DashboardView({
           },
           by_company: {
             icon: 'grid',
-            label: 'By Company',
+            label: 'By company',
             description: 'A card per company with its property/rent stats',
             render: () => renderByCompany(),
           },
@@ -209,7 +209,7 @@ export function DashboardView({
           },
           tenant_inbox: {
             icon: 'inbox',
-            label: 'Tenant Inbox',
+            label: 'Tenant inbox',
             description: 'Latest messages and repair requests from tenants',
             render: () => <TenantInbox user={user} companies={companies} showToast={showToast} companySettings={companySettings}/>,
           },
@@ -230,13 +230,13 @@ export function DashboardView({
                   <div style={{ marginTop: 28, marginBottom: 20, background: T.card, border: `1px solid ${T.gold}66`, borderRadius: 14, padding: '20px 22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <Icon name="sparkle" size={16} color={T.goldText}/>
-                      <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>AI Portfolio Insights</h2>
+                      <h2 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>AI portfolio insights</h2>
                       <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: T.gold + '22', color: T.goldText }}>INVESTOR</span>
                     </div>
-                    <p style={{ fontFamily: MONO, fontSize: 11, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
+                    <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, lineHeight: 1.7, marginBottom: 12 }}>
                       Get Claude-generated weekly observations about under-rented units, expiring certs, high LTVs and refinance opportunities. Available on the £5/property Investor tier.
                     </p>
-                    <button className="btn btn-gold" style={{ fontSize: 12 }}
+                    <button className="btn btn-gold" style={{ fontSize: FS.sm }}
                       onClick={() => {
                         // 'billing' is a Settings sub-tab, not a top-level
                         // view. Set the hash BEFORE switching views —
@@ -263,7 +263,7 @@ export function DashboardView({
           },
           property_map: {
             icon: 'map',
-            label: 'Property Map',
+            label: 'Property map',
             description: 'Compact map showing all your properties',
             render: () => (
               <div style={{ marginTop: 28 }}>
@@ -286,13 +286,13 @@ export function DashboardView({
           },
           company_documents: {
             icon: 'folder',
-            label: 'Company Documents',
+            label: 'Company documents',
             description: 'Documents stored at company level (only shows when a company is selected)',
             render: () => (
               activeCoTab && (companySettings[activeCoTab]||{}).feature_documents
                 ? <div style={{marginTop:28}}>
-                    <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company Documents</h2>
-                    <p style={{fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:14}}>
+                    <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:6}}>Company documents</h2>
+                    <p style={{fontFamily:SANS,fontSize:FS.base,color:T.muted,marginBottom:14}}>
                       Documents stored at company level — for items that apply across all properties (e.g. company insurance, bank letters)
                     </p>
                     <CompanyDocumentsTab companyId={activeCoTab} showToast={showToast} isAdmin={isAdmin} user={user}/>
@@ -691,10 +691,10 @@ export function DashboardView({
         function renderByCompany() {
           return (
             <>
-              <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By Company</h2>
+              <h2 style={{fontSize:18,fontWeight:600,letterSpacing:'-0.02em',marginBottom:14}}>By company</h2>
               {companies.length===0
                 ?<Card padding="md"><EmptyState compact icon="building" title="No companies yet" body="Add your first one to get started."
-                    action={<Button icon="plus" onClick={()=>setShowAddCo(true)}>Add Company</Button>}/></Card>
+                    action={<Button icon="plus" onClick={()=>setShowAddCo(true)}>Add company</Button>}/></Card>
                 :<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(min(300px,100%),1fr))',gap:14,marginBottom:28}}>
                     {companyStats.map(c=>(
                       <div key={c.id} className="card" style={{padding:'20px 22px',borderLeft:`3px solid ${c.color}`}}>
@@ -710,7 +710,7 @@ export function DashboardView({
                             </div>
                           ))}
                         </div>
-                        <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:11}} onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}}>View Properties -&gt;</button>
+                        <button className="btn btn-ghost" style={{width:'100%',marginTop:12,fontSize:FS.sm}} onClick={()=>{setCoFilter(c.id);setStatusFilter('all');setPortfolioTab('properties');setView('properties')}}>View properties -&gt;</button>
                       </div>
                     ))}
                   </div>
@@ -729,7 +729,7 @@ export function DashboardView({
                 Dashboard · {visibleSections.length} sections shown
               </div>
               <button onClick={()=>{ setCustomizeDashTab('sections'); setShowCustomizeDash(true) }}
-                style={{fontFamily:MONO,fontSize:FS.xs,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,padding:'4px 10px',minHeight:28,borderRadius:6,cursor:'pointer',border:`1px solid ${T.border}`,background:'transparent',color:T.muted}}>
                 Customise
               </button>
             </div>

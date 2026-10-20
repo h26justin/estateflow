@@ -9,7 +9,7 @@ import {
   wouldCreateCycle, isTaskOverdue, TASK_PRIORITIES, isoDate,
 } from '../../lib/refurbWorkspace'
 import { mono, btn, inputStyle, panel, sectionHead, Field, StatusChip, Pill, fmtDate, fmtWhen, todayISO } from './ui'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 import { EmptyState } from '../ui'
 
 const TEXT_FIELDS = ['name', 'scope', 'next_action', 'blockers', 'decisions', 'notes', 'responsible_name']
@@ -148,7 +148,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
                 <input type="date" aria-label={`${lbl} finish`} value={form[`${k}_end`]} onChange={e => set(`${k}_end`, e.target.value)} onBlur={() => save(`${k}_end`)} disabled={dis} style={inputStyle(T)} />
               </div>
             ))}
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>Leave Forecast blank to follow the plan. Moving a forecast or actual finish checks the stages that depend on this one.</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 4 }}>Leave Forecast blank to follow the plan. Moving a forecast or actual finish checks the stages that depend on this one.</div>
           </div>
 
           {/* Next action / blockers / decisions */}
@@ -185,14 +185,14 @@ export default function StageDrawer({ ws, stageId, onClose }) {
           {/* Dependencies */}
           <div style={panel(T)}>
             <div style={sectionHead(T)}><span>Depends on</span></div>
-            {preds.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, marginBottom: 8 }}>Can start any time.</div>}
+            {preds.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Can start any time.</div>}
             {preds.map(d => <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '1fr 86px auto', gap: 6, alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 13 }}>{nameOf(d.depends_on_id)}</span>
               <input type="number" defaultValue={d.lag_days} disabled={dis} title="Days to wait after it finishes" aria-label="Lag days"
                 onBlur={e => { const v = Math.round(Number(e.target.value) || 0); if (v !== d.lag_days) ops.updateDependency(d, v) }} style={{ ...inputStyle(T), padding: '4px 6px' }} />
               {canEdit ? <button onClick={() => ops.removeDependency(d)} style={btn(T)} aria-label="Remove dependency">✕</button> : <span />}
             </div>)}
-            {preds.length > 0 && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
+            {preds.length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>Number = days to wait after that stage finishes.</div>}
             {canEdit && <AddDependency stage={stage} others={others} deps={data.deps} onAdd={ops.addDependency} T={T} />}
             {succs.length > 0 && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>Waiting on this: {succs.map(d => nameOf(d.stage_id)).join(', ')}</div>}
           </div>
@@ -200,7 +200,7 @@ export default function StageDrawer({ ws, stageId, onClose }) {
           {/* Substages */}
           {!stage.parent_id && <div style={panel(T)}>
             <div style={sectionHead(T)}><span>Substages</span></div>
-            {children.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint, marginBottom: 8 }}>None. Add substages to break this stage down; its progress then comes from them.</div>}
+            {children.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 8 }}>None. Add substages to break this stage down; its progress then comes from them.</div>}
             {children.map(c => <button key={c.id} onClick={() => ws.openStage(c.id)} style={{ display: 'flex', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', borderBottom: `1px solid ${T.border}`, padding: '7px 0', cursor: 'pointer', color: T.text, fontSize: 13, gap: 8 }}>
               <span style={{ textAlign: 'left' }}>{c.name}</span><StatusChip stage={c} T={T} />
             </button>)}
@@ -267,7 +267,7 @@ function AddDependency({ stage, others, deps, onAdd, T }) {
         await onAdd(stage, pick); setPick('')
       }}>Add</button>
     </div>
-    {err && <div role="alert" style={{ fontFamily: mono, fontSize: FS.xs, color: T.red, marginTop: 4 }}>{err}</div>}
+    {err && <div role="alert" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginTop: 4 }}>{err}</div>}
   </div>
 }
 

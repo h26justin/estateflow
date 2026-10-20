@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { FS } from '../lib/styles'
+import { FS, SANS } from '../lib/styles'
 import { Button, EmptyState } from './ui'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
@@ -58,12 +58,12 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom: 6 }}>
         Integrations
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
         Connect each Properly company to its own Xero organisation. Each connection has independent sync controls.
       </div>
 
       {visibleCompanies.length === 0 && (
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 26px', fontFamily: mono, fontSize: 12, color: T.muted }}>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 26px', fontFamily: SANS, fontSize: FS.base, color: T.muted }}>
           No companies yet. Create one in Settings → Companies first.
         </div>
       )}
@@ -87,7 +87,7 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
       <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.1em', margin: '26px 0 6px' }}>
         Short-term lets
       </div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 18, lineHeight: 1.5 }}>
         Pull Airbnb / Booking.com / Vrbo / direct bookings from your channel manager into the Rent Tracker as revenue. Hostaway and Lodgify are both supported — each company can hold its own account on either.
       </div>
       {visibleCompanies.map(co => {
@@ -248,19 +248,19 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Hostaway</div>
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · Vrbo · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
 
       {!isConnected ? (
         <>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Reservations sync in as dated Rent Tracker entries, tagged with the channel (Airbnb, Booking.com, Vrbo…). Get your credentials in Hostaway: <strong style={{ color: T.text }}>Settings → Hostaway API</strong> — your numeric Account ID plus an API key's secret.
           </div>
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
@@ -289,7 +289,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
       ) : (
         <>
           {mappings.length > 0 ? (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 6 }}>
               {sortedMappings.map(m => {
                 const prop = properties.find(p => p.id === m.property_id)
                 return (
@@ -301,7 +301,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -317,23 +317,23 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy || mappings.length === 0}>
+            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
             </button>
-            <button onClick={hostawayProps ? () => setHostawayProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+            <button onClick={hostawayProps ? () => setHostawayProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
               {busy==='props' ? 'Loading listings…' : (hostawayProps ? 'Hide mappings' : 'Edit mappings')}
             </button>
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:10, 12:10, 18:10 UTC).
           </div>
 
@@ -350,7 +350,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
                   const current = mappings.find(m => String(m.hostaway_listing_id) === String(hl.id))
                   return (
                     <div key={hl.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
-                      <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{hl.name}</div>
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{hl.name}</div>
                       <select style={selectStyle}
                         value={current?.property_id || ''}
                         onChange={e => setMappingFor(hl, e.target.value || null)}>
@@ -364,7 +364,7 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
                 })}
               </div>
               <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
-                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
                   {busy==='save' ? 'Saving…' : 'Save mappings'}
                 </button>
               </div>
@@ -499,19 +499,19 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{company.name} · Lodgify</div>
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>
               Airbnb · Booking.com · direct bookings
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Connected' : 'Not connected'}
         </span>
       </div>
 
       {!isConnected ? (
         <>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Bookings sync in as dated Rent Tracker entries — paid, part-paid or pending from the booking's balance, tagged with the channel (Airbnb, Booking.com…). Get your key in Lodgify: <strong style={{ color: T.text }}>Settings → Public API</strong>.
           </div>
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
@@ -531,7 +531,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
       ) : (
         <>
           {mappings.length > 0 ? (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 6 }}>
               {sortedMappings.map(m => {
                 const prop = properties.find(p => p.id === m.property_id)
                 return (
@@ -543,7 +543,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
               })}
             </div>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.amber, marginBottom: 6 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginBottom: 6 }}>
               No listings mapped yet — nothing will sync until you map one.
             </div>
           )}
@@ -559,23 +559,23 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
           {lastSync && (
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
               {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
               {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
             </div>
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
-            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy || mappings.length === 0}>
+            <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
             </button>
-            <button onClick={lodgifyProps ? () => setLodgifyProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+            <button onClick={lodgifyProps ? () => setLodgifyProps(null) : openMappingEditor} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
               {busy==='props' ? 'Loading listings…' : (lodgifyProps ? 'Hide mappings' : 'Edit mappings')}
             </button>
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>
           </div>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
             Also syncs automatically three times a day (04:00, 12:00, 18:00 UTC).
           </div>
 
@@ -592,7 +592,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
                   const current = mappings.find(m => String(m.lodgify_property_id) === String(lp.id))
                   return (
                     <div key={lp.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
-                      <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{lp.name}</div>
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, overflow:'hidden', textOverflow:'ellipsis' }}>{lp.name}</div>
                       <select style={selectStyle}
                         value={current?.property_id || ''}
                         onChange={e => setMappingFor(lp, e.target.value || null)}>
@@ -606,7 +606,7 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
                 })}
               </div>
               <div style={{ marginTop: 12, display:'flex', justifyContent:'flex-end' }}>
-                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+                <button onClick={saveMappings} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
                   {busy==='save' ? 'Saving…' : 'Save mappings'}
                 </button>
               </div>
@@ -700,14 +700,14 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
             </div>
           </div>
         </div>
-        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding:'4px 11px', borderRadius: 20, background: isConnected ? T.green+'22' : T.border, color: isConnected ? T.green : T.muted }}>
           {isConnected ? 'Xero connected' : 'Not connected'}
         </span>
       </div>
 
       {isConnected ? (
         <>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 6 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 6 }}>
             <span style={{ color: T.muted }}>Xero organisation:</span> {connection.tenant_name || connection.tenant_id}
           </div>
           {connection.last_sync_at && (
@@ -720,12 +720,12 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
           )}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
             {canWrite && (
-              <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: 12 }} disabled={!!busy}>
+              <button onClick={syncNow} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={!!busy}>
                 {busy==='sync' ? 'Syncing…' : 'Sync now'}
               </button>
             )}
             {canWrite && (
-              <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}>
+              <button onClick={() => setShowSettings(s => !s)} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}>
                 {showSettings ? 'Hide settings' : 'Settings'}
               </button>
             )}
@@ -733,17 +733,17 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
                 kept). Disconnect + Connect would cascade-delete the
                 company's xero_sync_settings row. */}
             {canAdmin && (
-              <button onClick={connect} className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy}
+              <button onClick={connect} className="btn btn-ghost" style={{ fontSize: FS.sm }} disabled={!!busy}
                 title="Sign in to Xero again to renew this connection. Sync settings are kept.">
                 {busy==='connect' ? 'Redirecting…' : 'Reconnect'}
               </button>
             )}
-            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: 12, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
+            <button onClick={disconnect} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }} disabled={!!busy}>
               Disconnect
             </button>
           </div>
           {!canWrite && (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
               You have read-only access to {company.name}, so you can't sync it with Xero.
             </div>
           )}
@@ -757,7 +757,7 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
         </>
       ) : (
         <>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6, marginBottom: 12 }}>
             Push rent payments and expenses from {company.name} into a Xero organisation as bank transactions. Use Xero tracking categories to run P&L per property.
           </div>
           {canAdmin ? (
@@ -765,7 +765,7 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
               {busy==='connect' ? 'Redirecting…' : `Connect ${company.name} to Xero`}
             </Button>
           ) : (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
               Only an owner or admin of {company.name} can connect it to Xero.
             </div>
           )}
@@ -847,7 +847,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer', accentColor: T.gold }}/>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{label}</div>
-        {desc && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
+        {desc && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
       </div>
     </div>
   )
@@ -904,7 +904,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       <Section title="Account code mapping (Chart of Accounts)">
         <div style={{ display:'grid', gap: 10 }}>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Rent income account</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Rent income account</label>
             <select aria-label="Rent income account" style={selectStyle}
               value={settings?.income_account_code || ''}
               onChange={e => patch('income_account_code', e.target.value || null)}>
@@ -913,7 +913,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Expense account</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Expense account</label>
             <select aria-label="Expense account" style={selectStyle}
               value={settings?.expense_account_code || ''}
               onChange={e => patch('expense_account_code', e.target.value || null)}>
@@ -922,7 +922,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Mortgage interest account (optional)</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Mortgage interest account (optional)</label>
             <select aria-label="Mortgage interest account (optional)" style={selectStyle}
               value={settings?.mortgage_interest_account_code || ''}
               onChange={e => patch('mortgage_interest_account_code', e.target.value || null)}>
@@ -931,7 +931,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Tenancy deposits account (only if "Deposits separate" is on)</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Tenancy deposits account (only if "Deposits separate" is on)</label>
             <select style={selectStyle}
               value={settings?.deposits_account_code || ''}
               onChange={e => patch('deposits_account_code', e.target.value || null)}>
@@ -941,7 +941,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Refurb costs account (only if "Refurb separate" is on)</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Refurb costs account (only if "Refurb separate" is on)</label>
             <select style={selectStyle}
               value={settings?.refurb_account_code || ''}
               onChange={e => patch('refurb_account_code', e.target.value || null)}>
@@ -956,13 +956,13 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
       <Section title="Bank account">
         <div style={{ display:'grid', gap: 10 }}>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Post to Xero from (required): nothing dated earlier is ever posted</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Post to Xero from (required): nothing dated earlier is ever posted</label>
             <input aria-label="Post to Xero from (required): nothing dated earlier is ever posted" type="date" style={selectStyle}
               value={settings?.push_from_date || ''}
               onChange={e => patch('push_from_date', e.target.value || null)}/>
           </div>
           <div>
-            <label style={{ fontFamily: mono, fontSize: 11, color: T.muted, display:'block', marginBottom: 5 }}>Default bank account (used unless overridden per property)</label>
+            <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Default bank account (used unless overridden per property)</label>
             <select aria-label="Default bank account (used unless overridden per property)" style={selectStyle}
               value={settings?.default_bank_account_id || ''}
               onChange={e => patch('default_bank_account_id', e.target.value || null)}>
@@ -978,7 +978,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               <div style={{ display:'grid', gap: 6, marginTop: 10, paddingLeft: 8, borderLeft: `2px solid ${T.border}` }}>
                 {properties.map(p => (
                   <div key={p.id} style={{ display:'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems:'center' }}>
-                    <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name || p.address}</div>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name || p.address}</div>
                     <select style={{ ...selectStyle, maxWidth: 'none' }}
                       value={settings?.per_property_bank_accounts?.[p.id] || ''}
                       onChange={e => patchPropBank(p.id, e.target.value || null)}>
@@ -998,7 +998,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         <div style={{ display:'grid', gap: 6 }}>
           {properties.map(p => (
             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background: T.bg, borderRadius: 8 }}>
-              <span style={{ fontFamily: mono, fontSize: 11, color: T.text }}>{p.name || p.address}</span>
+              <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>{p.name || p.address}</span>
               <button onClick={async () => {
                 try {
                   const r = await api.runXeroSyncForProperties(company.id, [p.id])
@@ -1015,7 +1015,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
 
       <Section title="Danger zone">
         <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Undo the last push</strong> deletes from Xero the bank transactions Properly posted in its most recent push. Xero keeps any that are already reconciled; those are listed and left alone.
           </div>
           <button onClick={async () => {
@@ -1031,12 +1031,12 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               showAppToast(`Deleted ${r.deleted} of ${r.count} from Xero${r.failed ? `, ${r.failed} kept (e.g. ${r.errors?.[0] || 'reconciled'})` : ''}`, r.failed ? 'error' : undefined)
               onSaved?.()
             } catch (e) { showAppToast(e.message, 'error') }
-          }} className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'66' }}>
+          }} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }}>
             Undo last push for {company.name}
           </button>
         </div>
         <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px' }}>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Re-sync everything</strong> wipes the sync map so the next sync re-pushes every record. Use this if you've manually deleted transactions from Xero and want to re-create them. Doesn't touch the Xero side directly.
           </div>
           <button onClick={async () => {
@@ -1050,14 +1050,14 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
               showAppToast(`Cleared ${n} sync map entries. Click Sync now to re-push.`)
               onSaved?.()
             } catch (e) { showAppToast(e.message, 'error') }
-          }} className="btn btn-ghost" style={{ fontSize: 11, color: T.red, borderColor: T.red+'66' }}>
+          }} className="btn btn-ghost" style={{ fontSize: FS.sm, color: T.red, borderColor: T.red+'66' }}>
             Wipe sync map for {company.name}
           </button>
         </div>
       </Section>
 
       <div style={{ marginTop: 18, display:'flex', justifyContent:'flex-end' }}>
-        <button onClick={save} className="btn btn-gold" style={{ fontSize: 12 }} disabled={saving}>
+        <button onClick={save} className="btn btn-gold" style={{ fontSize: FS.sm }} disabled={saving}>
           {saving ? 'Saving…' : 'Save settings'}
         </button>
       </div>

@@ -16,7 +16,7 @@
 // countAssociatedCompanies in companyPnl.js.
 
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import * as api from '../lib/api'
 import { companyEffectiveStakes } from '../lib/companyPnl'
@@ -76,7 +76,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
     <div className="card" style={{ padding: '14px 16px' }}>
       <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: accent || T.text }}>{value}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 
@@ -90,12 +90,12 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
 
       <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>Group holdings</div>
-        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 12, lineHeight: 1.6, maxWidth: 620 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 12, lineHeight: 1.6, maxWidth: 620 }}>
           Companies this one holds a stake in, from the shareholder links. Attributable figures are the stake %
           × each company's own numbers — a planning view, not a formal valuation of {company.abbr || company.name}.
         </div>
         {rows.length === 0 ? (
-          <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, padding: '10px 0', lineHeight: 1.7 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, padding: '10px 0', lineHeight: 1.7 }}>
             No holdings linked yet. On each company this one owns, open Shareholders, add
             "{company.name}" as a <b>Company</b> shareholder, and link it to this record — its stake
             and figures will appear here.
@@ -116,7 +116,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
             ))}
           </div>
         )}
-        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
           Dividend income and the profit split live in Reports → Company P&L with {company.abbr || company.name} selected.
         </div>
       </div>
@@ -126,7 +126,7 @@ export default function HoldingGroupPanel({ company, companies = [], properties 
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: canEdit ? 'pointer' : 'default', marginTop: 8 }}>
           <input type="checkbox" checked={company.ct_passive !== false} disabled={!canEdit || savingPassive}
             onChange={e => togglePassive(e.target.checked)} style={{ marginTop: 2 }} />
-          <span style={{ fontFamily: MONO, fontSize: 11, color: T.text, lineHeight: 1.7 }}>
+          <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, lineHeight: 1.7 }}>
             Passive holding company — it only holds shares and passes dividends through.
             <span style={{ color: T.muted, display: 'block', fontSize: FS.xs }}>
               Passive holding companies are excluded from HMRC's associated-company count, which sets how the

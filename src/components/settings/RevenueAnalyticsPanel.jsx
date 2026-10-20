@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { plural } from '../../lib/format'
@@ -68,7 +68,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
     <div>
       <div style={{marginBottom:20}}>
         <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>Revenue Analytics</div>
-        <div style={{fontFamily:mono,fontSize:11,color:T.muted}}>Key metrics updated in real-time. MRR assumes £2/property/month.</div>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Key metrics updated in real-time. MRR assumes £2/property/month.</div>
       </div>
 
       {/* KPI cards */}
@@ -83,7 +83,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
           <div key={i} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:14}}>
             <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{k.label}</div>
             <div style={{fontFamily:mono,fontSize:20,fontWeight:700,color:k.color,marginBottom:4}}>{k.value}</div>
-            <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>{k.sub}</div>
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -115,7 +115,7 @@ export function RevenueAnalyticsPanel({ companies, T, showToast }) {
             </tbody>
           </table>
         </div>
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:10,lineHeight:1.6}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:10,lineHeight:1.6}}>
           "Activated" = user has created at least one property. Retention = % of signups who activated.
         </div>
       </div>

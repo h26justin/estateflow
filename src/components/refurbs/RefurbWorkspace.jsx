@@ -28,7 +28,7 @@ import Gantt from './Gantt'
 import { Icon } from '../../lib/icons'
 import MoneyInput from '../../lib/MoneyInput'
 import { mono, fmt, fmtDate, btn, inputStyle, panel, sectionHead, Field, Pill, Bar, Tile, todayISO } from './ui'
-import { FS } from '../../lib/styles'
+import { FS, SANS } from '../../lib/styles'
 import { SkeletonRows, SkeletonTiles } from '../../lib/Skeleton'
 
 export const WORKSPACE_TABS = [
@@ -384,7 +384,7 @@ export default function RefurbWorkspace({
             {project.archived_at && <Pill color={T.muted} T={T}>Archived</Pill>}
           </div>
           <h2 style={{ margin: 0, fontSize: isMobile ? 21 : 26, fontWeight: 800, letterSpacing: '-0.01em' }}>{project.title && project.title !== 'Refurbishment' ? project.title : `${ws.propertyName} refurb`}</h2>
-          <div style={{ fontFamily: mono, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 4 }}>{company?.name || company?.abbr || 'No company'} · {property?.prop_type || 'Property type not set'}</div>
         </div>
         <select value={project.stage} disabled={!canEdit} onChange={e => changeOverall(e.target.value)} aria-label="Overall status"
           style={{ ...inputStyle(T), width: 'auto', fontWeight: 700, color: STAGE_CFG[project.stage]?.color }}>
@@ -437,7 +437,7 @@ export default function RefurbWorkspace({
     </div>
     {hero}
     {tabs}
-    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: mono, fontSize: 12 }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
+    {error && <div role="alert" style={{ ...panel(T), borderColor: T.red, color: T.red, fontFamily: SANS, fontSize: FS.sm }}>{error} <button onClick={ops.reload} style={btn(T)}>Try again</button></div>}
     {loading && !error && <div aria-busy="true" aria-label="Loading the workspace" style={{ padding: 20 }}><SkeletonTiles count={4}/><div style={{ marginTop: 16 }}><SkeletonRows rows={4}/></div></div>}
     {!loading && !error && <>
       {section === 'overview' && <Overview ws={ws} wp={wp} cur={cur} t={t} ffc={ffc} invoiced={invoiced} onSection={onSection} />}
@@ -469,7 +469,7 @@ function DateCell({ label, value, editable, onSave, note, warn, T }) {
       ? <input type="date" value={v} aria-label={label} onChange={e => setV(e.target.value)}
           onBlur={async () => { const r = await onSave(v); if (r === false) setV(isoDate(value) || '') }} style={{ ...inputStyle(T), padding: '4px 6px', marginTop: 2 }} />
       : <div style={{ fontWeight: 600 }}>{value ? fmtDate(value) : '—'}</div>}
-    {note && <div style={{ fontFamily: mono, fontSize: FS.xs, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
+    {note && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.red : T.faint, marginTop: 2 }}>{note}</div>}
   </div>
 }
 
@@ -502,7 +502,7 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
           {wp.hasJourney ? <>
             <JourneyStrip stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} />
             <div style={{ marginTop: 14 }}><Gantt stages={data.stages} onOpen={s => ws.openStage(s.id)} T={T} maxRows={6} /></div>
-          </> : <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No journey yet. <button onClick={() => onSection('journey')} style={{ ...btn(T), marginLeft: 6 }}>Start from a template</button></div>}
+          </> : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No journey yet. <button onClick={() => onSection('journey')} style={{ ...btn(T), marginLeft: 6 }}>Start from a template</button></div>}
         </div>
         <TaskList ws={ws} stage={null} items={data.tasks.filter(x => x.kind !== 'checklist')} title="Tasks and milestones (all stages)" />
         <Updates ws={ws} stage={null} items={data.updates.slice(0, 8)} title="Latest updates" />
@@ -520,17 +520,17 @@ function Overview({ ws, wp, cur, t, ffc, invoiced, onSection }) {
         </div>
         <div style={panel(T)} id="refurb-attention">
           <div style={sectionHead(T)}><span>Needs attention</span><span style={{ textTransform: 'none', letterSpacing: 0 }}>{attention.length}</span></div>
-          {attention.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>No overdue tasks, blocked or delayed stages.</div>}
+          {attention.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>No overdue tasks, blocked or delayed stages.</div>}
           {attention.map(a => <button key={a.key} onClick={a.onClick || undefined} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderLeft: `3px solid ${a.color}`, padding: '6px 10px', marginBottom: 6, cursor: a.onClick ? 'pointer' : 'default', color: T.text }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{a.text}</div>
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{a.sub}</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{a.sub}</div>
           </button>)}
         </div>
         <ProjectDetails ws={ws} />
         <div style={panel(T)}>
           <div style={sectionHead(T)}><span>Money at a glance</span><button onClick={() => onSection('costs')} style={btn(T)}>Costs</button></div>
           <MoneyRows rows={[['Agreed budget', t.agreed], ['Invoiced', invoiced], ['Paid', t.paid], ['Forecast final cost', ffc.value]]} T={T} />
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>Paid {t.pct}% of agreed. Works progress {wp.hasJourney ? `${wp.pct}%` : 'not tracked yet'}. The two are measured separately.</div>
         </div>
       </div>
     </div>
@@ -621,7 +621,7 @@ function CostsTab({ ws, t, ffc, invoiced, children }) {
       </div>
       <div>
         <div style={sectionHead(T)}><span>Forecast final cost</span>{ffc.overridden && <Pill color={T.amber} T={T}>Set by PM</Pill>}</div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, lineHeight: 1.6 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
           Calculated as the larger of the revised approved budget ({fmt(t.agreed)}) and invoiced plus committed-not-yet-invoiced ({fmt(invoiced)} + {fmt(0)}): <b style={{ color: T.text }}>{fmt(ffc.calculated)}</b>. Committed orders come from procurement records once they exist. Pending variations never change it until approved.
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10 }}>
@@ -649,9 +649,9 @@ function HistoryTab({ ws }) {
         {stagesWithHistory.map(id => <option key={id} value={id}>{stageName(id) || 'Removed stage'}</option>)}
       </select>
     </div>
-    {rows.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
+    {rows.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>Nothing recorded yet. Changes to dates, stages, budgets and sign-offs appear here, with who made them and why.</div>}
     {rows.map(e => <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0 }}>
-      {e.stage_id && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
+      {e.stage_id && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, marginTop: 6 }}>{stageName(e.stage_id) || 'Removed stage'}</div>}
       <HistoryRow e={e} T={T} />
     </div>)}
     <div style={{ marginTop: 10 }}><ProgressExplainer stages={data.stages} tasks={data.tasks} T={T} /></div>

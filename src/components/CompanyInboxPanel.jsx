@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { Skeleton } from '../lib/Skeleton'
@@ -77,7 +77,7 @@ export default function CompanyInboxPanel({ companies, T }) {
             Statement inbox
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, color: theme.text, marginBottom: 4 }}>Forward rental statements to your portfolio</div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted, lineHeight: 1.65 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: theme.muted, lineHeight: 1.65 }}>
             Each company has a unique forwarding address. When your letting agent emails a statement PDF to it, Properly will scan the file, extract the rent payments, and drop a notification in your bell ready to review and import — no manual upload.
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function CompanyInboxPanel({ companies, T }) {
               </div>
 
               {!addr ? (
-                <div style={{ fontFamily: MONO, fontSize: 11, color: theme.muted }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: theme.muted }}>
                   No address allocated yet — re-save the company to provision one.
                 </div>
               ) : (
@@ -119,7 +119,7 @@ export default function CompanyInboxPanel({ companies, T }) {
                   }}>{addr}</code>
                   <button onClick={() => copyAddress(addr)}
                     style={{
-                      fontFamily: MONO, fontSize: 11, padding: '7px 12px',
+                      fontFamily: SANS, fontSize: FS.sm, padding: '7px 12px',
                       borderRadius: 6, border: `1px solid ${theme.gold}`,
                       background: theme.gold + '22', color: theme.gold,
                       cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap',
@@ -129,7 +129,7 @@ export default function CompanyInboxPanel({ companies, T }) {
                   <button onClick={() => rotate(co.id)} disabled={busyCo === co.id}
                     title="Generate a new address (the old one will stop working immediately)"
                     style={{
-                      fontFamily: MONO, fontSize: FS.xs, padding: '7px 10px',
+                      fontFamily: SANS, fontSize: FS.sm, padding: '7px 10px',
                       borderRadius: 6, border: `1px solid ${theme.border}`,
                       background: 'transparent', color: theme.muted,
                       cursor: busyCo === co.id ? 'wait' : 'pointer', whiteSpace: 'nowrap',
@@ -146,7 +146,7 @@ export default function CompanyInboxPanel({ companies, T }) {
       <div style={{
         marginTop: 16, padding: '12px 14px',
         background: theme.gold + '11', border: `1px solid ${theme.gold}44`,
-        borderRadius: 8, fontFamily: MONO, fontSize: 11, color: theme.text, lineHeight: 1.7,
+        borderRadius: 8, fontFamily: SANS, fontSize: FS.sm, color: theme.text, lineHeight: 1.7,
       }}>
         <strong>How to use:</strong>
         <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>

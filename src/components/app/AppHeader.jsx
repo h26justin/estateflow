@@ -1,7 +1,7 @@
 import { VIEW_LABELS } from '../../lib/nav'
 import { supabase } from '../../lib/supabase'
 import { ChromeLogo } from '../Logo'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import NotificationCentre from '../NotificationCentre'
 import PropertySearchBar from '../PropertySearchBar'
@@ -29,12 +29,12 @@ export function AppHeader({
               // current location. (The old header showed the static string
               // "Portfolio / Property".)
               ? <nav aria-label="Breadcrumb" style={{fontFamily:MONO,fontSize:12,color:T.muted,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:6,minWidth:0}}>
-                  <button onClick={closeDetail} style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                  <button onClick={closeDetail} style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:SANS,fontSize:FS.sm,color:T.muted,}}
                     onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>Portfolio</button>
                   {(()=>{ const co = companies.find(c=>c.id===selected.company_id); return co ? <>
                     <span aria-hidden="true">/</span>
                     <button onClick={()=>{setCoFilter(co.id);setStatusFilter('all');setPortfolioTab('properties');setSelectedId(null);setView('properties')}}
-                      style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:MONO,fontSize:12,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}
+                      style={{background:'none',border:'none',cursor:'pointer',padding:0,fontFamily:SANS,fontSize:FS.sm,color:T.muted,}}
                       onMouseEnter={e=>e.currentTarget.style.color=T.text} onMouseLeave={e=>e.currentTarget.style.color=T.muted}>{co.abbr||co.name}</button>
                   </> : null })()}
                   <span aria-hidden="true">/</span>
@@ -73,7 +73,7 @@ export function AppHeader({
         <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <button className="btn btn-gold" style={{fontSize:11,padding:'6px 14px',display:'flex',alignItems:'center',gap:6}}
+              <button className="btn btn-gold" style={{fontSize:FS.sm,padding:'6px 14px',display:'flex',alignItems:'center',gap:6}}
                 onClick={()=>setShowNewMenu(m=>!m)}>
                 <span style={{fontSize:14,fontWeight:700}}>+</span> New
                 <span style={{fontSize:FS.xs,opacity:0.8}}>{showNewMenu?'▲':'▼'}</span>
@@ -87,27 +87,27 @@ export function AppHeader({
                     background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                     padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                     {[
-                      {icon:'home',label:'Add Property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
-                      {icon:'building',label:'Add Block of Flats', action:()=>openWorkflow('bulk-add')},
-                      {icon:'grid',label:'Add Company',     action:()=>setShowAddCo(true)},
-                      {icon:'file-text',label:'Import Statement',action:()=>openWorkflow('import')},
-                      {icon:'clipboard-check',label:'Rental Statement Audit',action:()=>openWorkflow('statement-audit')},
-                      {icon:'upload',label:'Import Historic Data',action:()=>openWorkflow('import-data')},
-                      {icon:'receipt',label:'Scan Receipt',    action:()=>setShowReceiptScan(true)},
+                      {icon:'home',label:'Add property',    action:()=>{setEditProp(null);setShowAddProp(true)}},
+                      {icon:'building',label:'Add block of flats', action:()=>openWorkflow('bulk-add')},
+                      {icon:'grid',label:'Add company',     action:()=>setShowAddCo(true)},
+                      {icon:'file-text',label:'Import statement',action:()=>openWorkflow('import')},
+                      {icon:'clipboard-check',label:'Rental statement audit',action:()=>openWorkflow('statement-audit')},
+                      {icon:'upload',label:'Import historic data',action:()=>openWorkflow('import-data')},
+                      {icon:'receipt',label:'Scan receipt',    action:()=>setShowReceiptScan(true)},
                       // For these three "drill into a property" actions:
                       // if the user has exactly one property, just open it on
                       // the right tab. If they have many, take them to the
                       // portfolio so they can pick. (Was previously a toast
                       // instruction with no action — looked broken.)
-                      {icon:'pound',label:'Log Expense',     action:()=>{
+                      {icon:'pound',label:'Log expense',     action:()=>{
                         if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('expenses'); setView('detail') }
                         else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log against' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                       }},
-                      {icon:'clipboard-check',label:'Add Compliance',  action:()=>{
+                      {icon:'clipboard-check',label:'Add compliance',  action:()=>{
                         if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('compliance'); setView('detail') }
                         else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to add a certificate to' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                       }},
-                      {icon:'wrench',label:'Log Maintenance', action:()=>{
+                      {icon:'wrench',label:'Log maintenance', action:()=>{
                         if (activeProperties.length === 1) { setSelectedId(activeProperties[0].id); setDetailTab('maintenance'); setView('detail') }
                         else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                       }},
@@ -120,7 +120,7 @@ export function AppHeader({
                         onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                         onMouseLeave={e=>e.currentTarget.style.background='none'}>
                         <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={16}/>:<span style={{fontSize:16}}>{item.icon}</span>}</span>
-                        <span style={{fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
+                        <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,fontWeight:500}}>{item.label}</span>
                       </button>
                     ))}
                   </div>
@@ -160,7 +160,7 @@ export function AppHeader({
                   ? `${trialing.length} companies on trial — soonest ends in ${soonest.days} day${soonest.days===1?'':'s'} (${soonest.c.name})`
                   : `Trial ends in ${soonest.days} day${soonest.days===1?'':'s'} (${soonest.c.name})`}
                 style={{
-                  fontFamily:MONO, fontSize:11, fontWeight:700,
+                  fontFamily:SANS, fontSize:FS.sm, fontWeight:600,
                   padding:'5px 12px', borderRadius:20, cursor:'pointer',
                   border:`1px solid ${tone}`, background:tone+'22', color:toneText,
                   whiteSpace:'nowrap',
@@ -170,7 +170,7 @@ export function AppHeader({
             )
           })()}
           <NotificationCentre/>
-          {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:11,padding:'6px 12px',color:T.goldText,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
+          {isPlatformAdmin&&<button className="btn btn-ghost" style={{fontSize:FS.sm,padding:'6px 12px',color:T.goldText,borderColor:T.gold+'44'}} onClick={()=>setShowAdmin(true)}>Admin</button>}
           {/* "⋯ More" menu — houses pages that aren't worth their own tab
               (Feedback, Sign Out, etc.). Keeps primary nav focused on
               daily-use pages. */}
@@ -189,10 +189,10 @@ export function AppHeader({
                     padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                     {[
                       {icon:'search', label:'Search & jump…', hint:'⌘K', action:()=>setShowPalette(true)},
-                      {icon:'sparkle',label:'Help & Guides', action:()=>openSettingsTab('help')},
+                      {icon:'sparkle',label:'Help & guides', action:()=>openSettingsTab('help')},
                       {icon:'trash',label:'Trash', action:()=>openSettingsTab('trash')},
                       {icon:'message',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
-                      {icon:'log-out', label:'Sign Out',  action:()=>supabase.auth.signOut(), divider:true},
+                      {icon:'log-out', label:'Sign out',  action:()=>supabase.auth.signOut(), divider:true},
                     ].map((item,i,arr)=>(
                       <button key={item.label} role="menuitem"
                         onClick={()=>{item.action();setShowMoreMenu(false)}}
@@ -204,8 +204,8 @@ export function AppHeader({
                         onMouseEnter={e=>e.currentTarget.style.background=T.bg}
                         onMouseLeave={e=>e.currentTarget.style.background='none'}>
                         <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:14}}>{item.icon}</span>}</span>
-                        <span style={{flex:1,fontFamily:MONO,fontSize:12,color:T.text,fontWeight:500}}>{item.label}</span>
-                        {item.hint && <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
+                        <span style={{flex:1,fontFamily:SANS,fontSize:FS.sm,color:T.text,fontWeight:500}}>{item.label}</span>
+                        {item.hint && <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                       </button>
                     ))}
                   </div>

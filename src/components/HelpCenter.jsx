@@ -1,23 +1,23 @@
 import { useState, useMemo } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { pressable } from '../lib/pressable'
 
 const CATEGORIES = [
-  { key: 'start',       label: 'Getting Started',      icon: 'sparkle' },
+  { key: 'start',       label: 'Getting started',      icon: 'sparkle' },
   { key: 'properties',  label: 'Properties',            icon: 'home' },
   { key: 'companies',   label: 'Companies',             icon: 'grid' },
-  { key: 'rent',        label: 'Rent Tracker',          icon: 'pound' },
+  { key: 'rent',        label: 'Rent tracker',          icon: 'pound' },
   { key: 'compliance',  label: 'Compliance',            icon: 'shield-check' },
-  { key: 'tenancy',     label: 'Tenancy & Legal',       icon: 'scale' },
+  { key: 'tenancy',     label: 'Tenancy & legal',       icon: 'scale' },
   { key: 'maintenance', label: 'Maintenance',           icon: 'wrench' },
-  { key: 'documents',   label: 'Documents & Expenses',  icon: 'folder' },
+  { key: 'documents',   label: 'Documents & expenses',  icon: 'folder' },
   { key: 'deals',       label: 'Deals & Calculator',    icon: 'target' },
-  { key: 'lettings',    label: 'Lettings Pipeline',     icon: 'key' },
+  { key: 'lettings',    label: 'Lettings pipeline',     icon: 'key' },
   { key: 'reports',     label: 'Reports',               icon: 'pie-chart' },
-  { key: 'portal',      label: 'Tenant Portal',         icon: 'home' },
-  { key: 'settings',    label: 'Settings & Account',    icon: 'settings' },
+  { key: 'portal',      label: 'Tenant portal',         icon: 'home' },
+  { key: 'settings',    label: 'Settings & account',    icon: 'settings' },
   { key: 'ai',          label: 'AI Tools',              icon: 'sparkle' },
 ]
 
@@ -36,19 +36,19 @@ const GUIDES = [
     steps: [
       "Navigate to Portfolio using the top navigation bar.",
       "Switch to the Companies tab using the sub-navigation (Properties / Companies / Contractors).",
-      "Click the \"+ Add Company\" button in the top-right corner.",
+      "Click the \"+ Add company\" button in the top-right corner.",
       "Enter the company name (e.g. \"Vale Property Group\") and a short code (3\u20134 letters, e.g. \"VPG\").",
       "Choose a colour for the company \u2014 this will be used throughout the app and on PDF reports.",
-      "Click \"Add Company\" to save. Your new company will appear in the company tabs.",
+      "Click \"Add company\" to save. Your new company will appear in the company tabs.",
     ]},
   { id: 3, cat: 'start', title: 'Adding your first property', tags: ['property','create','setup'],
     steps: [
       "Navigate to Portfolio and stay on the Properties tab.",
-      "Click \"+ Add Property\" in the top-right corner.",
+      "Click \"+ Add property\" in the top-right corner.",
       "Fill in the required fields: Property Name, Company (select from dropdown), and Full Address.",
       "Add optional details: property type, purchase price, estimated value, refurb cost, mortgage amount, monthly rent, stamp duty, and legal fees.",
       "Set the property status: Purchased, Refurb, Rented, or Vacant.",
-      "Click \"Add Property\" to save. Your property now appears in the portfolio and all stats update automatically.",
+      "Click \"Add property\" to save. Your property now appears in the portfolio and all stats update automatically.",
     ]},
   { id: 4, cat: 'start', title: 'Understanding the dashboard & smart alerts', tags: ['dashboard','alerts','overview'],
     steps: [
@@ -63,7 +63,7 @@ const GUIDES = [
       "Go to Settings (cog icon in the navigation bar).",
       "You will land on the Profile tab by default.",
       "Enter your full name and phone number.",
-      "Click \"Save Profile\" to save your changes.",
+      "Click \"Save profile\" to save your changes.",
       "Your email address is shown but cannot be changed here \u2014 use the Security & Data tab to update it.",
       "You can also replay the app tour from this tab at any time by clicking the \"Replay tour\" button.",
     ]},
@@ -80,11 +80,11 @@ const GUIDES = [
   { id: 7, cat: 'properties', title: 'Adding a property', tags: ['property','add','create','new'],
     steps: [
       "Navigate to Portfolio > Properties tab.",
-      "Click \"+ Add Property\" in the top-right corner.",
+      "Click \"+ Add property\" in the top-right corner.",
       "Enter the property name (e.g. \"Flat 1, Station Road\"), select the company it belongs to, and add the full address.",
       "Fill in financial details: purchase price, estimated value, refurb cost, mortgage amount and rate, stamp duty, and legal fees.",
       "Set the monthly rent, rent due day, and arrears (if any).",
-      "Choose the property status and click \"Add Property\" to save.",
+      "Choose the property status and click \"Add property\" to save.",
       "Tip: If you are viewing a specific company on the Companies tab and click Add Property, the company will be pre-selected for you.",
     ]},
   { id: 8, cat: 'properties', title: 'Editing property details', tags: ['property','edit','update','change'],
@@ -93,7 +93,7 @@ const GUIDES = [
       "On the property detail page, click the \"Edit\" button in the top-right area.",
       "The edit modal will open with all current values pre-filled.",
       "Change any field: name, address, company, status, financial details, rent, mortgage, or notes.",
-      "Click \"Save Changes\" to update. All related stats (yield, invested totals, etc.) will recalculate automatically.",
+      "Click \"Save changes\" to update. All related stats (yield, invested totals, etc.) will recalculate automatically.",
     ]},
   { id: 9, cat: 'properties', title: 'Updating mortgage amount & rate', tags: ['mortgage','rate','update','remortgage'],
     steps: [
@@ -101,7 +101,7 @@ const GUIDES = [
       "Find the \"Mortgage Amount\" field and enter the new outstanding balance.",
       "Find the \"Mortgage Rate\" field and enter the new annual interest rate as a percentage (e.g. 5.5 for 5.5%).",
       "The mortgage term field is used for repayment calculations \u2014 update this if you have remortgaged to a new term.",
-      "Click \"Save Changes\". The property detail page will show updated monthly mortgage costs and profit figures.",
+      "Click \"Save changes\". The property detail page will show updated monthly mortgage costs and profit figures.",
       "Tip: After a remortgage, also update the Deposit field if you released or added equity.",
     ]},
   { id: 10, cat: 'properties', title: 'Changing property status', tags: ['status','purchased','rented','vacant','refurb','on rental market','marketing'],
@@ -109,7 +109,7 @@ const GUIDES = [
       "Open the property and click \"Edit\".",
       "Find the \"Status\" dropdown. Options are: Purchased, Refurb, Let agreed, Rented, Short-Term Let, Notice given, On rental market, Vacant and Sold.",
       "On rental market means the property is ready and being advertised but no tenant is paying yet. When you choose it, enter the date it went on the market: rent is not expected from that date and those months do not count against your collection %. When a tenant moves in, set the status to Rented and enter the tenancy start date: rent is expected again from that day. Earlier months keep their history.",
-      "Select the new status and click \"Save Changes\".",
+      "Select the new status and click \"Save changes\".",
       "Status affects how the property appears across the app: Rented properties count toward rental income, Vacant properties trigger alerts, and Refurb properties appear in refurbishment tracking.",
       "The rent calendar will show \"refurb\" or \"void\" markers based on the status you set.",
     ]},
@@ -141,7 +141,7 @@ const GUIDES = [
     steps: [
       "Open the property you want to delete by clicking on it from the Properties list.",
       "Scroll down to find the delete option on the property detail page.",
-      "Click \"Delete Property\". A confirmation modal will appear.",
+      "Click \"Delete property\". A confirmation modal will appear.",
       "Enter your account password to confirm the deletion. This is a security step to prevent accidental deletions.",
       "Click \"Permanently delete\". The property and all its related data (compliance, rent payments, documents, etc.) will be removed.",
       "Warning: This action cannot be undone. Consider exporting your data first via Reports if you need a record.",
@@ -151,11 +151,11 @@ const GUIDES = [
   { id: 15, cat: 'companies', title: 'Creating a company', tags: ['company','create','add','new'],
     steps: [
       "Go to Portfolio > Companies tab.",
-      "Click \"+ Add Company\" in the top-right.",
+      "Click \"+ Add company\" in the top-right.",
       "Enter the company name exactly as it appears on your incorporation documents (e.g. \"EXH Property Group Limited\").",
       "Enter a short code (3\u20134 letters) which will be used as a compact label throughout the app.",
       "Select a colour \u2014 this is used for company badges, chart colours, property borders, and PDF report headers.",
-      "Click \"Add Company\" to save.",
+      "Click \"Add company\" to save.",
     ]},
   { id: 16, cat: 'companies', title: 'Renaming a company', tags: ['company','rename','name','change'],
     steps: [
@@ -186,7 +186,7 @@ const GUIDES = [
     steps: [
       "Open the property you want to move and click \"Edit\".",
       "In the \"Company\" dropdown, select the new company you want to assign this property to.",
-      "Click \"Save Changes\".",
+      "Click \"Save changes\".",
       "The property will now appear under the new company in all views: Portfolio, Rent Tracker, Reports, and Compliance.",
       "All historical data (rent payments, compliance records, documents) stays with the property \u2014 nothing is lost.",
     ]},
@@ -268,7 +268,7 @@ const GUIDES = [
   { id: 27, cat: 'compliance', title: 'Adding a compliance certificate', tags: ['compliance','certificate','add','gas','epc','eicr'],
     steps: [
       "Open the property and switch to the Compliance tab.",
-      "Click \"+ Add Certificate\" or the relevant certificate type button.",
+      "Click \"+ Add certificate\" or the relevant certificate type button.",
       "Select the certificate type: Gas Safety, EICR, EPC, HMO Licence, Legionella, PAT Testing, Fire Safety, or Other.",
       "Enter the issue date and expiry date.",
       "Optionally add the certificate number, provider/contractor name, and upload a copy of the certificate.",
@@ -382,7 +382,7 @@ const GUIDES = [
   { id: 40, cat: 'maintenance', title: 'Adding & managing contractors', tags: ['contractor','add','manage','directory'],
     steps: [
       "Go to Portfolio > Contractors tab (or use the Contractors link in the navigation bar if enabled).",
-      "Click \"+ Add Contractor\" to add a new contractor to your directory.",
+      "Click \"+ Add contractor\" to add a new contractor to your directory.",
       "Enter their name, trade (e.g. Plumber, Electrician), phone number, email, and any notes.",
       "Assign them to one or more companies so they appear when logging jobs for properties in those companies.",
       "Your contractor directory is searchable and filterable by trade.",
@@ -423,7 +423,7 @@ const GUIDES = [
   { id: 45, cat: 'documents', title: 'Adding & categorising expenses', tags: ['expense','add','category','cost'],
     steps: [
       "Open the property and switch to the Expenses tab.",
-      "Click \"+ Add Expense\" to log a new cost.",
+      "Click \"+ Add expense\" to log a new cost.",
       "Enter the amount, date, category (e.g. Insurance, Repairs, Management Fees, Legal, Utilities), and a description.",
       "Expenses are tracked per property and feed into P&L reports and the portfolio financial summary.",
       "Tip: Log regular costs like insurance premiums and letting agent fees so your profit calculations are accurate.",
@@ -611,12 +611,12 @@ const GUIDES = [
       "Toggle each alert type on or off: Rent Arrears, Lease Expiry, Compliance Expiry, Vacant Properties, and Weekly Summary.",
       "These control which alerts appear in the Smart Alerts panel on your Dashboard.",
       "Weekly Summary emails you every Monday morning with last week's rent expected vs received, month-to-date collection, arrears and the properties owing most, certificates expiring or overdue in the next 30 days, tenancies ending in the next 60 days and how many properties are empty. It goes to your login email and covers only the companies you can access.",
-      "Click \"Save Preferences\" to apply your changes.",
+      "Click \"Save preferences\" to apply your changes.",
     ]},
   { id: 68, cat: 'settings', title: 'Managing user access (multi-user)', tags: ['access','user','multi','team','permission'],
     steps: [
       "Go to Settings > Companies & team > Team & Access. You must be an admin to see this section.",
-      "Click \"Manage User Access\" to open the access management modal.",
+      "Click \"Manage user access\" to open the access management modal.",
       "You will see all users in your account with checkboxes for each company.",
       "Check a company to grant access or uncheck to revoke it.",
       "Invited users can view and manage properties within the companies they have access to.",
@@ -688,15 +688,15 @@ export default function HelpCenter() {
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 16 }}>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting Started</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Getting started</div>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
           Step-by-step guides for every feature in Properly. Search or browse by category.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
+          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:restart-tour'))}>
             {"▶ Replay app tour"}
           </button>
-          <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: mono, fontSize: 11, color: T.goldText, textDecoration: 'none' }}>
+          <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, textDecoration: 'none' }}>
             {"Read full blog guides →"}
           </a>
         </div>
@@ -706,13 +706,13 @@ export default function HelpCenter() {
       <div style={{ marginBottom: 16 }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search guides... e.g. mortgage, deposit, tenant"
-          style={{ width: '100%', fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', boxSizing: 'border-box' }}/>
+          style={{ width: '100%', fontFamily: SANS, fontSize: FS.sm, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 10, padding: '10px 16px', boxSizing: 'border-box' }}/>
       </div>
 
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 20 }}>
         <button onClick={() => setActiveCat('all')}
-          style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+          style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
             border: `1px solid ${activeCat === 'all' ? T.gold : T.border}`,
             background: activeCat === 'all' ? T.gold + '22' : 'transparent',
             color: activeCat === 'all' ? T.goldText : T.muted, fontWeight: activeCat === 'all' ? 700 : 400 }}>
@@ -722,7 +722,7 @@ export default function HelpCenter() {
           const count = GUIDES.filter(g => g.cat === c.key).length
           return (
             <button key={c.key} onClick={() => setActiveCat(c.key)}
-              style={{ fontFamily: mono, fontSize: FS.xs, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+              style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
                 border: `1px solid ${activeCat === c.key ? T.gold : T.border}`,
                 background: activeCat === c.key ? T.gold + '22' : 'transparent',
                 color: activeCat === c.key ? T.goldText : T.muted, fontWeight: activeCat === c.key ? 700 : 400 }}>
@@ -734,7 +734,7 @@ export default function HelpCenter() {
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, textAlign: 'center', padding: 40 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, textAlign: 'center', padding: 40 }}>
           No guides match your search. Try a different keyword.
         </div>
       ) : (
@@ -798,7 +798,7 @@ export default function HelpCenter() {
 
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 24px', marginTop: 8 }}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Need more help?</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.7 }}>
           {"Email us at "}
           <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, fontWeight: 700 }}>hello@ownproperly.com</a>
           {" or use the Feedback tab to send us a message directly from the app."}

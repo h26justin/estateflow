@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { pressable } from '../../lib/pressable'
 
@@ -26,7 +26,7 @@ const BreakdownRow = memo(({item, T}) => {
   }
   const inner = (
     <>
-      <span style={{fontFamily:MONO,fontSize:FS.xs,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
+      <span style={{fontFamily:SANS,fontSize:FS.sm,color:clickable&&hover?T.goldText:(item.indent?T.faint:T.muted),flex:1,display:'flex',alignItems:'center',gap:4,minWidth:0}}>
         {item.indent&&<span style={{color:T.border}}>└</span>}
         <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.label}</span>
         {clickable&&<Icon name="arrow-right" size={10} color={hover?T.gold:T.faint}/>}
@@ -100,7 +100,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
       </div>
       <div title={label} style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</div>
       <div style={{fontSize:22,fontWeight:700,color:(!accent||accent===T.gold)?T.goldText:accent,letterSpacing:'-0.02em',marginBottom:2,overflowWrap:'anywhere'}}>{value}</div>
-      {sub&&<div style={{fontFamily:MONO,fontSize:11,color:T.faint,lineHeight:1.5,overflowWrap:'anywhere'}}>{sub}</div>}
+      {sub&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,lineHeight:1.5,overflowWrap:'anywhere'}}>{sub}</div>}
       {/* Optional 2-column strip of small label/value pairs on the card face,
           for cards whose story needs a few figures at a glance (e.g. the last
           three months of rent) rather than one sub-line. */}
@@ -122,7 +122,7 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
               {table.rows.map((r,ri)=>(
                 <tr key={ri}>
                   {r.cells.map((cell,ci)=>(
-                    <td key={ci} style={{fontFamily:MONO,fontSize:FS.xs,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
+                    <td key={ci} style={{fontFamily:ci?MONO:SANS,fontSize:ci?FS.xs:FS.sm,fontWeight:r.strong?700:400,color:(r.colors&&r.colors[ci])||(ci?T.text:T.muted),textAlign:ci?'right':'left',padding:`3px 0 3px ${ci?6:0}px`,whiteSpace:'nowrap',borderTop:ri?`1px solid ${T.border}`:'none'}}>{cell}</td>
                   ))}
                 </tr>
               ))}
@@ -149,13 +149,13 @@ export const StatCard = memo(({icon,label,value,sub,strip,table,accent,breakdown
             <div key={i} style={{minWidth:0}}>
               {item.separator&&<div style={{borderTop:`1px solid ${T.border}`,margin:'4px 0'}}/>}
               <BreakdownRow item={item} T={T}/>
-              {item.note&&<div style={{fontFamily:MONO,fontSize:FS.xs,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
+              {item.note&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginTop:2,lineHeight:1.5,paddingLeft:2,whiteSpace:'normal',overflowWrap:'anywhere'}}>{item.note}</div>}
             </div>
           ))}
           {onNavigate&&(
             <div style={{borderTop:`1px solid ${T.border}`,marginTop:6,paddingTop:8,display:'flex',justifyContent:'flex-end'}}>
               <button type="button" onClick={e=>{e.stopPropagation();setOpen(false);onNavigate()}}
-                style={{background:'none',border:'none',cursor:'pointer',padding:'4px 2px',minHeight:28,fontFamily:MONO,fontSize:11,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:4}}>
+                style={{background:'none',border:'none',cursor:'pointer',padding:'4px 2px',minHeight:28,fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.goldText,display:'inline-flex',alignItems:'center',gap:4}}>
                 Open {navLabel||label}<Icon name="arrow-right" size={11}/>
               </button>
             </div>

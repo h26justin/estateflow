@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { safeOverlayClose } from '../../lib/modalUtils'
@@ -33,16 +33,16 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
       <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
       <div className="modal" style={{maxWidth:460}} role="dialog" aria-modal="true" aria-labelledby="sell-property-modal-title">
         <div style={{padding:'28px 28px'}}>
-          <h2 id="sell-property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as Sold</h2>
-          <p style={{fontFamily:MONO,color:T.muted,fontSize:12,marginBottom:20}}>{property?.name}</p>
+          <h2 id="sell-property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as sold</h2>
+          <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm,marginBottom:20}}>{property?.name}</p>
           <div style={{marginBottom:14}}>
-            <label>Sale Price</label>
+            <label>Sale price</label>
             <MoneyInput aria-label="Sale Price" prefix="£" value={price} onChange={v=>setPrice(v)}
               onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
               placeholder="0" autoFocus/>
           </div>
           <div style={{marginBottom:14}}>
-            <label>Sale Date</label>
+            <label>Sale date</label>
             <input aria-label="Sale Date" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
           </div>
           {numPrice > 0 && totalInvested > 0 && (

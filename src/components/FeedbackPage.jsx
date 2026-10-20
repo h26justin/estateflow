@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { Button } from './ui'
@@ -40,7 +40,7 @@ export default function FeedbackPage({ user, showToast }) {
   }
 
   const inp = { fontFamily: mono, fontSize: 13, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none', width: '100%', boxSizing: 'border-box' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 6 }
   const TYPES = [
     { key: 'feature', icon: 'sparkle', label: 'Feature Request', desc: 'Suggest something new' },
     { key: 'bug',     icon: 'alert-circle', label: 'Bug Report',      desc: 'Something not working?' },
@@ -50,7 +50,7 @@ export default function FeedbackPage({ user, showToast }) {
   return (
     <div className="fade" style={{ maxWidth: 640, margin: '0 auto', padding: '0 16px 60px' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>Feedback</h1>
-      <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 28 }}>
+      <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 28 }}>
         Properly is new and your feedback shapes what we build next. Tell us what is broken, what is missing, or what you love.
       </p>
 
@@ -58,7 +58,7 @@ export default function FeedbackPage({ user, showToast }) {
         <div style={{ background: T.card, border: `1px solid ${T.green}44`, borderRadius: 14, padding: '40px 28px', textAlign: 'center' }}>
           <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.green }}><Icon name="check-circle" size={40}/></div>
           <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: T.text }}>Thanks for your feedback!</div>
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, marginBottom: 20 }}>We read every message and will be in touch if we have questions.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, marginBottom: 20 }}>We read every message and will be in touch if we have questions.</div>
           <Button variant="secondary" size="sm" onClick={() => setSent(false)}>
             Send another
           </Button>
@@ -71,7 +71,7 @@ export default function FeedbackPage({ user, showToast }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {TYPES.map(t => (
                 <button key={t.key} onClick={() => setType(t.key)} style={{
-                  fontFamily: mono, background: type === t.key ? T.gold + '18' : T.bg,
+                  fontFamily: SANS, background: type === t.key ? T.gold + '18' : T.bg,
                   border: `1px solid ${type === t.key ? T.gold : T.border}`,
                   borderRadius: 10, padding: '10px 8px', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s'
                 }}>
@@ -97,10 +97,10 @@ export default function FeedbackPage({ user, showToast }) {
           </div>
 
           <Button fullWidth size="lg" onClick={handleSubmit} disabled={sending}>
-            {sending ? 'Sending...' : 'Send Feedback'}
+            {sending ? 'Sending...' : 'Send feedback'}
           </Button>
 
-          <p style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
+          <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, textAlign: 'center', marginTop: 12, marginBottom: 0 }}>
             Or email us directly at{' '}
             <a href="mailto:hello@ownproperly.com" style={{ color: T.goldText, textDecoration: 'none' }}>hello@ownproperly.com</a>
           </p>

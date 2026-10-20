@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -379,12 +379,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
 
   // ── Render helpers ───────────────────────────────────────────────────────
   const label = (t) => <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{t}</div>
-  const pill = (text, colour) => <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: colour, background: colour + '22', border: `1px solid ${colour}55`, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{text}</span>
+  const pill = (text, colour) => <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: colour, background: colour + '22', border: `1px solid ${colour}55`, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{text}</span>
   const yesNo = (value, onChange, disabled) => (
     <div style={{ display: 'inline-flex', border: `1px solid ${T.border}`, borderRadius: 8, overflow: 'hidden' }}>
       {[true, false].map(v => (
         <button key={String(v)} type="button" disabled={disabled} onClick={() => onChange(v)}
-          style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, padding: '3px 9px', border: 'none', cursor: disabled ? 'default' : 'pointer',
+          style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 9px', border: 'none', cursor: disabled ? 'default' : 'pointer',
             background: value === v ? (v ? T.green : T.amber) : 'transparent', color: value === v ? '#0E141A' : T.muted }}>
           {v ? 'Yes' : 'No'}
         </button>
@@ -417,10 +417,10 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     const ok = check.balances
     return (
       <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: (ok ? T.green : T.red) + '14', border: `1px solid ${ok ? T.green : T.red}55` }}>
-        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: ok ? T.green : T.red }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: ok ? T.green : T.red }}>
           {ok ? 'Statement balances: gross income minus fees and deductions equals the amount transferred.' : 'Discrepancy found: the statement does not balance.'}
         </div>
-        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 6, fontFamily: MONO, fontSize: 11, color: T.text }}>
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 6, fontFamily: SANS, fontSize: FS.sm, color: T.text }}>
           <span>Expected net: <b>{fmt(check.expected)}</b></span>
           <span>Stated on document: <b>{check.stated == null ? 'not found' : fmt(check.stated)}</b></span>
           <span>Difference: <b style={{ color: ok ? T.green : T.red }}>{check.difference == null ? '-' : fmt(check.difference)}</b></span>
@@ -467,12 +467,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   {td(l.line_type === 'transfer' ? <span style={{ color: T.blue }}>{fmt(l.net_amount)} paid</span> : fmt(l.net_amount), { right: true, color: l.net_amount < 0 ? T.amber : T.text, label: 'Net' })}
                   <td data-label={decisions ? 'Result' : 'Status'} style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22` }}>
                     {pill(d ? DECISION_LABEL[rs] : (REVIEW_LABEL[rs] || rs), colour)}
-                    {d?.note && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3 }}>{d.note}</div>}
-                    {!d && l.error_reason && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
+                    {d?.note && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3 }}>{d.note}</div>}
+                    {!d && l.error_reason && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3, maxWidth: 260, whiteSpace: 'normal' }}>{l.error_reason}</div>}
                   </td>
                   <td data-label="Flags" style={{ padding: '6px 8px', borderBottom: `1px solid ${T.border}22`, maxWidth: 220, whiteSpace: 'normal' }}>
                     {flags.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>{[...new Set(flags)].map(f => FLAG_LABEL[f] || f.replace(/_/g, ' ')).join(', ')}</div>}
-                    {feeNote && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
+                    {feeNote && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: chk.ok ? T.green : T.amber, marginTop: 2 }}>{feeNote}</div>}
                   </td>
                   {editable && (
                     <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap' }}>
@@ -528,19 +528,19 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               {upload.step === 'done' && `Import summary - Statement ${upload.parsed.statementNumber}`}
               {upload.step === 'failed' && 'This statement could not be read'}
             </h2>
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{upload.fileName}</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>{upload.fileName}</div>
           </div>
           {upload.step !== 'saving' && <button onClick={() => setUpload(null)} aria-label="Close" style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: 'pointer' }}>✕</button>}
         </div>
 
         {(upload.step === 'parsing' || upload.step === 'saving') && (
-          <div style={{ textAlign: 'center', padding: 30, fontFamily: MONO, fontSize: 12, color: T.goldText }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
+          <div style={{ textAlign: 'center', padding: 30, fontFamily: SANS, fontSize: FS.sm, color: T.goldText }}>{upload.step === 'parsing' ? 'Extracting text and reading every line…' : 'Writing lines to the register…'}</div>
         )}
 
         {upload.step === 'failed' && (
           <div>
             <div style={{ padding: '10px 12px', borderRadius: 8, background: T.red + '14', border: `1px solid ${T.red}55`, fontFamily: MONO, fontSize: 11, color: T.text }}>{upload.problem}</div>
-            <div style={{ marginTop: 12, fontFamily: MONO, fontSize: 11, color: T.muted }}>Record it anyway so the statement number is not skipped. It will sit on the register as an Import Error until the entries are added by hand or a readable PDF is uploaded.</div>
+            <div style={{ marginTop: 12, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Record it anyway so the statement number is not skipped. It will sit on the register as an Import Error until the entries are added by hand or a readable PDF is uploaded.</div>
             <FailedUploadForm onSave={recordFailedUpload} busy={busy} T={T} />
           </div>
         )}
@@ -563,7 +563,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8 }}>
                   <label style={{ margin: 0 }}>Audit statement number</label>
                   <input aria-label="Audit statement number" type="number" value={parsed.statementNumber ?? ''} onChange={e => { const n = parseInt(e.target.value, 10); setUpload(compareForNumber(upload, statements, lines, Number.isFinite(n) ? n : null)) }} style={{ width: 90, fontSize: 12, padding: '5px 8px' }} />
-                  <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+                  <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
                     This agent prints no sequential number{parsed.agentReference ? ` (agent reference ${parsed.agentReference}` : ''}{parsed.statementPeriodStart ? `${parsed.agentReference ? ', ' : ' ('}period ${fmtDate(parsed.statementPeriodStart)} to ${fmtDate(parsed.statementPeriodEnd)}` : ''}{parsed.agentReference || parsed.statementPeriodStart ? ')' : ''}. The next number in this run is suggested; change it if the statement belongs elsewhere in the sequence.
                   </span>
                 </div>
@@ -583,7 +583,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
 
               {count('correction_required') > 0 && (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: T.amber, marginBottom: 6 }}>Corrections - original vs uploaded. Nothing changes unless you tick it.</div>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: T.amber, marginBottom: 6 }}>Corrections - original vs uploaded. Nothing changes unless you tick it.</div>
                   {dec.map((d, i) => d.decision === 'correction_required' && (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', background: T.bg, borderRadius: 8, marginBottom: 6 }}>
                       <input type="checkbox" style={{ width: 16, marginTop: 2 }} checked={upload.apply.has(i)} onChange={e => { const s = new Set(upload.apply); e.target.checked ? s.add(i) : s.delete(i); setUpload({ ...upload, apply: s }) }} />
@@ -597,14 +597,14 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                 </div>
               )}
               {compare.missingFromUpload.length > 0 && (
-                <div style={{ marginTop: 12, fontFamily: MONO, fontSize: FS.xs, color: T.amber }}>
+                <div style={{ marginTop: 12, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>
                   On the register for this statement but not on the uploaded document (will be flagged, not deleted): {compare.missingFromUpload.map(m => `line ${m.line_no} ${m.property_address || ''} ${fmt(lineAmount(m))}`).join('; ')}
                 </div>
               )}
               {parsed.errors.length > 0 && (
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors - these entries will be listed on the statement for correction; the rest of the statement still imports.</div>
-                  {parsed.errors.map((e, i) => <div key={i} style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, padding: '4px 0' }}>Statement {parsed.statementNumber} · {e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · {e.reason} · "{e.description}"</div>)}
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors - these entries will be listed on the statement for correction; the rest of the statement still imports.</div>
+                  {parsed.errors.map((e, i) => <div key={i} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, padding: '4px 0' }}>Statement {parsed.statementNumber} · {e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · {e.reason} · "{e.description}"</div>)}
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
@@ -638,7 +638,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               <div style={{ display: 'grid', gap: 6 }}>
                 {rowsOut.map(([l, v]) => <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '7px 12px', background: T.bg, borderRadius: 8, fontFamily: MONO, fontSize: 11 }}><span style={{ color: T.muted }}>{l}</span><span style={{ color: T.text, fontWeight: 700, textAlign: 'right' }}>{String(v)}</span></div>)}
               </div>
-              {upload.results?.failed?.length > 0 && <div style={{ marginTop: 10, fontFamily: MONO, fontSize: FS.xs, color: T.red }}>{upload.results.failed.length} row{upload.results.failed.length === 1 ? '' : 's'} were refused by the database and added to the Import Errors list.</div>}
+              {upload.results?.failed?.length > 0 && <div style={{ marginTop: 10, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>{upload.results.failed.length} row{upload.results.failed.length === 1 ? '' : 's'} were refused by the database and added to the Import Errors list.</div>}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
                 <button className="btn btn-gold" onClick={() => setUpload(null)}>Open the statement</button>
               </div>
@@ -653,7 +653,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setEditLine(null) }}>
       <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 10 }}>{editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'}</h3>
-        {editLine.draft.original_values && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
+        {editLine.draft.original_values && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
         {lineForm(editLine.draft, d => setEditLine({ ...editLine, draft: d }))}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
           <button className="btn btn-ghost" onClick={() => setEditLine(null)}>Cancel</button>
@@ -683,8 +683,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
       <div className="card" style={{ padding: '18px 22px', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: T.text }}>Rental Statement Audit</h2>
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 3, maxWidth: 720, lineHeight: 1.5 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: T.text }}>Rental statement audit</h2>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 3, maxWidth: 720, lineHeight: 1.5 }}>
               A separate register for checking the agent's rental statements and matching them to the bank. It stores only what is printed on each statement and does not read or change any property, tenancy or rent record elsewhere in the app.
             </div>
           </div>
@@ -696,12 +696,12 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
             )}
             {currentSeries && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>Audit starts at</span>
+                <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Audit starts at</span>
                 <input type="number" defaultValue={startNumber} key={currentSeries.id + startNumber} onBlur={e => Number(e.target.value) !== startNumber && saveStart(e.target.value)} style={{ width: 70, fontSize: 12, padding: '5px 8px' }} />
                 <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginLeft: 6 }} title="The fee rate agreed with the agent. Every fee line is checked against it; the statement figures are never changed.">Agreed fee</span>
                 <input type="number" step="0.01" placeholder="%" defaultValue={currentSeries.expected_fee_pct ?? ''} key={'fp' + currentSeries.id + currentSeries.expected_fee_pct}
                   onBlur={e => String(e.target.value) !== String(currentSeries.expected_fee_pct ?? '') && saveSeriesTerms({ expected_fee_pct: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: 62, fontSize: 12, padding: '5px 8px' }} />
-                <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>% + VAT</span>
+                <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>% + VAT</span>
                 <input type="number" step="1" defaultValue={currentSeries.expected_fee_vat_pct ?? 0} key={'fv' + currentSeries.id + currentSeries.expected_fee_vat_pct}
                   onBlur={e => Number(e.target.value) !== Number(currentSeries.expected_fee_vat_pct ?? 0) && saveSeriesTerms({ expected_fee_vat_pct: Number(e.target.value) || 0 })} style={{ width: 52, fontSize: 12, padding: '5px 8px' }} />
                 <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>%</span>
@@ -735,9 +735,9 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
               </div>
               {missing.length > 0 ? (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-                  {missing.map(n => <button key={n} className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', color: T.red, borderColor: T.red + '77' }} onClick={() => { const s = statements.find(x => x.statement_number === n); if (s) setSelectedId(s.id) }}>Statement {n}</button>)}
+                  {missing.map(n => <button key={n} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '4px 10px', color: T.red, borderColor: T.red + '77' }} onClick={() => { const s = statements.find(x => x.statement_number === n); if (s) setSelectedId(s.id) }}>Statement {n}</button>)}
                 </div>
-              ) : <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginTop: 8 }}>Every number from {startNumber} to {Math.max(startNumber, ...statements.map(s => s.statement_number))} is on the register. A missing number is never assumed to have had no activity.</div>}
+              ) : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 8 }}>Every number from {startNumber} to {Math.max(startNumber, ...statements.map(s => s.statement_number))} is on the register. A missing number is never assumed to have had no activity.</div>}
             </div>
             {errorRows.length > 0 && (
               <div className="card" style={{ padding: '14px 18px' }}>
@@ -798,7 +798,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                       </tr>
                     )
                   })}
-                  {filteredRows.length === 0 && <tr><td colSpan={13} style={{ padding: 16, fontFamily: MONO, fontSize: 11, color: T.muted, textAlign: 'center' }}>Nothing matches this filter.</td></tr>}
+                  {filteredRows.length === 0 && <tr><td colSpan={13} style={{ padding: 16, fontFamily: SANS, fontSize: FS.sm, color: T.muted, textAlign: 'center' }}>Nothing matches this filter.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -820,9 +820,9 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => reprocessStored(s)}>Re-process from stored text</button>}
-                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => startEditLine(s.id, null)}>Add a line</button>}
-                    {s.status === 'not_uploaded' && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => fileRef.current?.click()}>Upload this statement</button>}
+                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => reprocessStored(s)}>Re-process from stored text</button>}
+                    {s.status !== 'not_uploaded' && <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => startEditLine(s.id, null)}>Add a line</button>}
+                    {s.status === 'not_uploaded' && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => fileRef.current?.click()}>Upload this statement</button>}
                   </div>
                 </div>
 
@@ -842,17 +842,17 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                   <div style={{ gridColumn: 'span 4' }}><label>Notes</label><textarea aria-label="Notes" defaultValue={s.notes || ''} key={'n' + s.id} rows={2} onBlur={e => e.target.value !== (s.notes || '') && patchStatement(s, { notes: e.target.value || null })} style={{ fontSize: 11, padding: '6px 8px', resize: 'vertical' }} /></div>
                 </div>
                 {s.bank_paid_amount != null && s.payment_amount != null && Math.abs(round2(s.bank_paid_amount) - round2(s.payment_amount)) > 0.005 && (
-                  <div style={{ marginTop: 8, fontFamily: MONO, fontSize: FS.xs, color: T.red }}>Bank received {fmt(s.bank_paid_amount)} but the statement shows {fmt(s.payment_amount)} transferred (difference {fmt(round2(s.bank_paid_amount - s.payment_amount))}).</div>
+                  <div style={{ marginTop: 8, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>Bank received {fmt(s.bank_paid_amount)} but the statement shows {fmt(s.payment_amount)} transferred (difference {fmt(round2(s.bank_paid_amount - s.payment_amount))}).</div>
                 )}
 
                 {s.status === 'not_uploaded' ? (
-                  <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: T.red + '14', border: `1px solid ${T.red}55`, fontFamily: MONO, fontSize: 11, color: T.text }}>
+                  <div style={{ marginTop: 14, padding: 12, borderRadius: 8, background: T.red + '14', border: `1px solid ${T.red}55`, fontFamily: SANS, fontSize: FS.sm, color: T.text }}>
                     This statement number has not been uploaded. It is not assumed to have had no activity: obtain the statement from the agent and upload it, or record in the notes why it does not exist.
                   </div>
                 ) : (
                   <>
                     <div style={{ marginTop: 16 }}>{totalsGrid(check)}{balanceBlock(check)}</div>
-                    <div style={{ marginTop: 14, display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+                    <div style={{ marginTop: 14, display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
                       <span>Statement income total: <b style={{ color: T.text }}>{s.stated_income_total == null ? '-' : fmt(s.stated_income_total)}</b></span>
                       <span>Statement expenditure total: <b style={{ color: T.text }}>{s.stated_expenditure_total == null ? '-' : fmt(s.stated_expenditure_total)}</b></span>
                       <span>Previous balance: <b style={{ color: T.text }}>{fmt(s.previous_balance)}</b></span>
@@ -863,7 +863,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
 
                     {errors.length > 0 && (
                       <div style={{ marginTop: 14 }}>
-                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors on this statement ({errors.length}) - the statement cannot be marked complete until these are resolved</div>
+                        <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: T.red, marginBottom: 6 }}>Import errors on this statement ({errors.length}) - the statement cannot be marked complete until these are resolved</div>
                         {errors.map((e, i) => (
                           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 8px', background: T.bg, borderRadius: 6, marginBottom: 4, fontFamily: MONO, fontSize: FS.xs, color: T.text }}>
                             <span style={{ flex: 1 }}>{e.property_address || 'no property'} · {e.tenant_name || 'no tenant'} · {e.amount == null ? 'no amount' : fmt(e.amount)} · <span style={{ color: T.muted }}>{e.reason}</span>{e.description ? <span style={{ color: T.faint }}> · "{e.description}"</span> : ''}</span>
@@ -874,8 +874,8 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     )}
 
                     <div style={{ marginTop: 14 }}>
-                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Transactions ({ls.length}) - every entry carries statement {s.statement_number}{s.statement_date ? ` dated ${fmtDate(s.statement_date)}` : ''}</div>
-                      {ls.length ? lineTable(ls, { editable: true }) : <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted }}>No lines recorded.</div>}
+                      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 6 }}>Transactions ({ls.length}) - every entry carries statement {s.statement_number}{s.statement_date ? ` dated ${fmtDate(s.statement_date)}` : ''}</div>
+                      {ls.length ? lineTable(ls, { editable: true }) : <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>No lines recorded.</div>}
                     </div>
 
                     {summary && (
@@ -890,7 +890,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                     )}
                     {s.raw_text && (
                       <details style={{ marginTop: 8 }}>
-                        <summary style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, cursor: 'pointer' }}>Extracted statement text (kept for re-processing)</summary>
+                        <summary style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, cursor: 'pointer' }}>Extracted statement text (kept for re-processing)</summary>
                         <pre style={{ marginTop: 6, maxHeight: 240, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{s.raw_text}</pre>
                       </details>
                     )}
@@ -915,7 +915,7 @@ function FailedUploadForm({ onSave, busy, T }) {
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 10 }}>
       <div style={{ width: 160 }}><label>Statement number</label><input aria-label="Statement number" type="number" value={n} onChange={e => setN(e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }} /></div>
       <button className="btn btn-gold" disabled={busy || !n} onClick={() => onSave(n)}>Record as Import Error</button>
-      <span style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>or close and try another PDF</span>
+      <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>or close and try another PDF</span>
     </div>
   )
 }

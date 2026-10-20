@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
@@ -52,12 +52,12 @@ export default function CompanyModal({ onClose, onSave }) {
     <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
     <div className="modal" style={{maxWidth:480}} role="dialog" aria-modal="true" aria-labelledby="company-modal-title">
       <div style={{padding:'24px 28px 0'}}>
-        <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add Company</h2>
-        <p style={{fontFamily:MONO,color:T.muted,fontSize:11,marginBottom:20}}>Create a new company to group properties under.</p>
+        <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add company</h2>
+        <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:20}}>Create a new company to group properties under.</p>
       </div>
       <form onSubmit={e=>{e.preventDefault(); handleSave()}} style={{padding:'0 28px 28px',display:'flex',flexDirection:'column',gap:12}}>
         <div>
-          <label htmlFor="cm-name">Company Name *</label>
+          <label htmlFor="cm-name">Company name *</label>
           <input id="cm-name" value={form.name} onChange={e=>s('name',e.target.value)} placeholder="e.g. Vale Property Group" style={triedSave && !form.name ? {borderColor:T.red} : undefined} aria-invalid={triedSave && !form.name ? 'true' : undefined} aria-describedby={triedSave && !form.name ? 'cm-name-err' : undefined}/>
           {triedSave && !form.name && <span id="cm-name-err" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,display:'block',marginTop:4}}>Required</span>}
         </div>
@@ -65,20 +65,20 @@ export default function CompanyModal({ onClose, onSave }) {
         {/* Similar-companies warning */}
         {similarCompanies.length > 0 && (
           <div style={{ background:T.amber+'11', border:`1px solid ${T.amber}55`, borderRadius:10, padding:'12px 14px' }}>
-            <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber, marginBottom:6 }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, color:T.amber, marginBottom:6 }}>
               A company with a similar name already exists
             </div>
-            <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, marginBottom:10, lineHeight:1.5 }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:10, lineHeight:1.5 }}>
               {similarCompanies.length === 1 ? 'Did you mean to join this one?' : 'Did you mean to join one of these?'} If yes, ask the owner for a shareable invite link instead of creating a duplicate.
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
               {similarCompanies.map(co => (
-                <div key={co.id} style={{ fontFamily:MONO, fontSize:11, color:T.text, padding:'6px 10px', background:T.bg, borderRadius:6 }}>
+                <div key={co.id} style={{ fontFamily:SANS, fontSize:FS.sm, color:T.text, padding:'6px 10px', background:T.bg, borderRadius:6 }}>
                   <strong>{co.name}</strong>
                 </div>
               ))}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.faint, fontStyle:'italic', marginTop:8 }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.faint, fontStyle:'italic', marginTop:8 }}>
               Or continue below to create a separate "{form.name.trim()}" company.
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function CompanyModal({ onClose, onSave }) {
             {[['operating','Operating','Owns properties directly'],['holding','Holding company','Owns other companies — no properties, shows a group view instead']].map(([v,l,d])=>(
               <button key={v} type="button" onClick={()=>s('companyType',v)}
                 title={d}
-                style={{flex:1,fontFamily:MONO,fontSize:11,padding:'9px 10px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                style={{flex:1,fontFamily:SANS,fontSize:FS.sm,padding:'9px 10px',borderRadius:8,cursor:'pointer',textAlign:'left',
                   border:`1px solid ${form.companyType===v?T.gold:T.border}`,
                   background:form.companyType===v?T.gold+'18':'transparent',
                   color:form.companyType===v?T.goldText:T.muted}}>
@@ -119,7 +119,7 @@ export default function CompanyModal({ onClose, onSave }) {
         <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:4}}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn-gold">
-            {similarCompanies.length > 0 ? 'Create anyway' : 'Add Company'}
+            {similarCompanies.length > 0 ? 'Create anyway' : 'Add company'}
           </button>
         </div>
       </form>

@@ -1,5 +1,5 @@
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import CalcExplain from '../CalcExplain'
 import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
@@ -12,8 +12,8 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
     return (
       <div style={{padding:40, textAlign:'center'}}>
         <div style={{display:'flex',justifyContent:'center',marginBottom:12}}><Icon name="lock" size={40} color={T.muted}/></div>
-        <div style={{fontFamily:MONO, fontSize:12, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
-        <div style={{fontFamily:MONO, fontSize:11, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
+        <div style={{fontFamily:SANS, fontSize:FS.base, color:T.muted, marginBottom:8}}>Financial data is hidden</div>
+        <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.faint, maxWidth:420, margin:'0 auto', lineHeight:1.6}}>
           You don't have permission to view financial information for this property. Ask the company owner to grant you the "View financial data" permission.
         </div>
       </div>
@@ -38,7 +38,7 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
   const usingCurrentValue = !!selected.current_value && selected.current_value !== selected.est_value
 
   const sections = [
-    {title:'Purchase & Costs', items:[
+    {title:'Purchase & costs', items:[
       {l:'Purchase Price',    v:fmt(selected.purchase_price)},
       {l:'Deposit',          v:fmt(selected.deposit)},
       {l:'Refurb Cost',      v:fmt(selected.refurb_cost)},

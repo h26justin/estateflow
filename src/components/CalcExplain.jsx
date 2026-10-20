@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 
 /**
@@ -50,10 +50,10 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
         style={{
           width: 14, height: 14, borderRadius: '50%',
           border: `1px solid ${T.border}`, background: T.bg,
-          color: T.muted, fontSize: FS.xs, lineHeight: '12px',
+          color: T.muted, fontSize: FS.sm, lineHeight: '12px',
           cursor: 'pointer', padding: 0, display: 'inline-flex',
           alignItems: 'center', justifyContent: 'center',
-          fontFamily: mono, fontWeight: 700,
+          fontFamily: SANS, fontWeight: 700,
         }}>
         i
       </button>
@@ -94,7 +94,7 @@ export default function CalcExplain({ title, formula, inputs = [], result, note 
             </div>
           )}
           {note && (
-            <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10, lineHeight: 1.5 }}>
               {note}
             </div>
           )}

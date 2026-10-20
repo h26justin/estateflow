@@ -9,7 +9,7 @@
 //
 // URL: #/loans | #/loans/new | #/loans/<id>
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { MONO, card as cardStyle, inp, monoLabel, statusPill, FS } from '../lib/styles'
+import { MONO, SANS, card as cardStyle, inp, monoLabel, fieldLabel, helpText, statusPill, FS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
@@ -62,7 +62,7 @@ const tdStyle = T => ({ fontFamily: mono, fontSize: 12, color: T.text, padding: 
 function CoChip({ company, T }) {
   if (!company) return null
   const col = company.color || T.gold
-  return <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
+  return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: col + '22', color: col, whiteSpace: 'nowrap' }}>{company.abbr || company.name}</span>
 }
 
 // Status pills use the redesign's semantic palette (always with a label).
@@ -77,15 +77,15 @@ function Stat({ label, value, color, sub, T, isMobile }) {
   return <div style={{ ...card(T), padding: isMobile ? '12px 14px' : '16px 18px', borderTop: color ? `3px solid ${color}` : undefined }}>
     <div style={{ ...monoLabel(T), marginBottom: 6 }}>{label}</div>
     <div style={{ fontFamily: mono, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: color || T.text, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-    {sub && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{sub}</div>}
+    {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 4 }}>{sub}</div>}
   </div>
 }
 
 function Field({ label, hint, children, T }) {
   return <label style={{ display: 'block' }}>
-    <span style={monoLabel(T)}>{label}</span>
+    <span style={fieldLabel(T)}>{label}</span>
     {children}
-    {hint && <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, marginTop: 4 }}>{hint}</div>}
+    {hint && <div style={{ ...helpText(T), color: T.faint, marginTop: 4 }}>{hint}</div>}
   </label>
 }
 
@@ -175,7 +175,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
                 return <button key={c.value} type="button" role="radio" aria-checked={on} onClick={() => set('repayment_type', c.value)}
                   style={{ textAlign: 'left', padding: '10px 12px', borderRadius: 8, cursor: 'pointer', background: on ? T.gold + '1f' : T.bg, border: `1.5px solid ${on ? T.gold : T.border}`, color: T.text }}>
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{c.title}</div>
-                  <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>{c.sub}</div>
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2 }}>{c.sub}</div>
                   {c.value !== 'rolled_up' && <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: on ? T.goldText : T.muted, marginTop: 6 }}>{pay > 0 ? `${fmtP(pay)} a month` : '—'}</div>}
                 </button>
               })}
@@ -195,7 +195,7 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
       <Field label="Notes" T={T}>
         <textarea style={{ ...ist, minHeight: 60, resize: 'vertical' }} value={f.notes || ''} onChange={e => set('notes', e.target.value)} />
       </Field>
-      {error && <div style={{ fontFamily: mono, fontSize: 11, color: T.red }}>{error}</div>}
+      {error && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button style={btn(T)} onClick={onCancel}>Cancel</button>
         <button style={{ ...btn(T, 'gold'), padding: '8px 16px' }} onClick={submit} disabled={saving}>{saving ? 'Saving…' : initial?.id ? 'Save changes' : 'Add loan'}</button>
@@ -293,12 +293,12 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
             <StatusChip status={s.status} T={T} />
             <CoChip company={company} T={T} />
           </div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 6 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>
             {lenderTypeLabel(loan.lender_type)} · {fmt(loan.principal)} received {fmtDate(loan.received_date)} · {Number(loan.annual_rate) || 0}% · {termLabel(loan.term_months)} · {typeLabel(loan.repayment_type)}
             {loan.reference && ` · Ref ${loan.reference}`}
           </div>
           {property && <div style={{ fontFamily: mono, fontSize: 11, marginTop: 4 }}>
-            Property: <button onClick={() => openDetail?.(property)} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, cursor: 'pointer', fontFamily: mono, fontSize: 11 }}>{property.name || property.address}</button>
+            Property: <button onClick={() => openDetail?.(property)} style={{ background: 'none', border: 'none', padding: 0, color: T.goldText, cursor: 'pointer', fontFamily: SANS, fontSize: FS.sm }}>{property.name || property.address}</button>
           </div>}
           {loan.purpose && <div style={{ fontSize: 13, marginTop: 6 }}>{loan.purpose}</div>}
           {loan.notes && <div style={{ fontSize: 12, color: T.muted, marginTop: 4, whiteSpace: 'pre-wrap' }}>{loan.notes}</div>}
@@ -327,7 +327,7 @@ function LoanDetail({ loan, company, property, canEdit, onDownload, pdfBusy, onB
     <div style={{ ...card(T), padding: 0, overflowX: 'auto' }}>
       <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 700 }}>Payment schedule</div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{canEdit ? 'Tick a payment once it has been made' : 'View only'}</div>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>{canEdit ? 'Tick a payment once it has been made' : 'View only'}</div>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr>
@@ -465,8 +465,8 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
 
   const pageHead = <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
     <div>
-      <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>External Loans</h1>
-      <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.6 }}>
+      <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 4 }}>External loans</h1>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.6 }}>
         {summary.active} running · {fmt(summary.outstanding)} capital outstanding · {fmt(summary.monthlyOutgoing)} a month
       </div>
     </div>
@@ -475,7 +475,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
         style={{ ...btn(T), padding: '8px 14px' }}>
         <Icon name="download" size={13} /> {pdfBusy === 'all' ? 'Preparing PDF…' : 'Download PDF'}
       </button>}
-      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: 12, padding: '8px 16px' }}>
+      {editableCompanies.length > 0 && <button onClick={() => setMode('new')} className="btn btn-gold" style={{ ...btn(T, 'gold'), fontSize: FS.sm, padding: '8px 16px' }}>
         <Icon name="plus" size={13} /> New loan
       </button>}
     </div>}
@@ -486,7 +486,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
   </div>
 
   if ((mode === 'view' || mode === 'edit') && selectedId && !selected) {
-    return <div className="fade">{pageHead}<div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: mono, fontSize: 12 }}>
+    return <div className="fade">{pageHead}<div style={{ ...card(T), textAlign: 'center', color: T.muted, fontFamily: SANS, fontSize: FS.sm }}>
       {loading ? <Skeleton w="40%" h={14} style={{ margin: '0 auto' }}/> : <>That loan was not found. <button style={btn(T)} onClick={() => { setSelectedId(null); setMode('list') }}>All loans</button></>}
     </div></div>
   }
@@ -511,7 +511,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
       <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 4 }}>Filter:</span>
       {[{ id: 'all', abbr: 'All', color: T.goldText }, ...companies].map(c => (
         <button key={c.id} onClick={() => setCoFilter(c.id)}
-          style={{ fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.goldText) : T.muted }}>
+          style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${coFilter === c.id ? (c.color || T.gold) : T.border}`, background: coFilter === c.id ? (c.color || T.gold) + '22' : 'transparent', color: coFilter === c.id ? (c.color || T.goldText) : T.muted }}>
           {c.abbr || c.name}
         </button>
       ))}
@@ -568,7 +568,7 @@ export default function ExternalLoansPage({ companies = [], companySettings = {}
 
       <div style={card(T)}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Coming up</div>
-        {upcoming.length === 0 && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>Nothing left to pay.</div>}
+        {upcoming.length === 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>Nothing left to pay.</div>}
         {upcoming.map(({ loan, row }) => {
           const canEdit = canEditFor(loan.company_id)
           return <div key={loan.id + ':' + row.period} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: `1px solid ${T.border}` }}>

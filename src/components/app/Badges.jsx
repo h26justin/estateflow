@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import * as api from '../../lib/api'
-import { MONO, FS, R } from '../../lib/styles'
+import { MONO, FS, R, SANS } from '../../lib/styles'
 import { normalizeHex, readableOr } from '../../lib/contrast'
 
 // Property-status hues. Five statuses map straight onto redesign theme
@@ -46,7 +46,7 @@ export const Badge = memo(({status}) => {
   const key = cfg[status] ? status : 'purchased'
   const c = cfg[key]
   const fg = textFor(key, c, T, darkMode)
-  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:R.pill,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:fg,fontSize:FS.xs,fontFamily:MONO,fontWeight:600}}>
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:R.pill,background:c.fg+'22',border:`1px solid ${c.fg}44`,color:fg,fontSize:FS.sm,fontFamily:SANS,fontWeight:600}}>
     <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
   </span>
 })

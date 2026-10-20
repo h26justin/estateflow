@@ -1,4 +1,4 @@
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 // BulkAddPropertyModal — wizard for adding many flats in a building at once.
 //
 // Three step flow:
@@ -237,7 +237,7 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
           <h2 id="bulk-add-property-modal-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4, color: T.text }}>
             Add a block of flats
           </h2>
-          <p style={{ fontFamily: mono, color: T.muted, fontSize: 11, marginBottom: 14 }}>
+          <p style={{ fontFamily: SANS, color: T.muted, fontSize: FS.sm, marginBottom: 14 }}>
             {step === 1 && `Step 1 of 3 — Set up the building and how many units.`}
             {step === 2 && `Step 2 of 3 — Fields shared across all units.`}
             {step === 3 && `Step 3 of 3 — Review and tweak each unit.`}
@@ -420,7 +420,7 @@ function Step1({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 120, overflowY: 'auto' }}>
           {units.slice(0, 8).map((u, i) => (
-            <div key={i} style={{ fontFamily: mono, fontSize: 11, color: T.text }}>
+            <div key={i} style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>
               <span style={{ fontWeight: 700 }}>{u.name}</span>
               {u.address && <span style={{ color: T.muted }}> · {u.address}</span>}
             </div>
@@ -473,7 +473,7 @@ function Step2({
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <button onClick={() => setPricingMode('total')}
-            style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
+            style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'total' ? T.gold : T.border}`,
               background: pricingMode === 'total' ? T.gold + '22' : 'transparent',
               color: pricingMode === 'total' ? T.goldText : T.muted,
@@ -481,7 +481,7 @@ function Step2({
             Total for whole building (split evenly)
           </button>
           <button onClick={() => setPricingMode('per_unit')}
-            style={{ flex: 1, fontFamily: mono, fontSize: 11, padding: '8px', borderRadius: 6, cursor: 'pointer',
+            style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '8px', borderRadius: 6, cursor: 'pointer',
               border: `1px solid ${pricingMode === 'per_unit' ? T.gold : T.border}`,
               background: pricingMode === 'per_unit' ? T.gold + '22' : 'transparent',
               color: pricingMode === 'per_unit' ? T.goldText : T.muted,
@@ -521,7 +521,7 @@ function Step2({
           </>
         )}
         {pricingMode === 'per_unit' && (
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, fontStyle: 'italic' }}>
             Enter each unit's purchase price and mortgage on the next step.
           </div>
         )}
@@ -635,7 +635,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
           </tbody>
         </table>
       </div>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, fontStyle: 'italic' }}>
         Tip: change a value in the first row, then click "Fill down" in the column header to copy it to all rows.
       </div>
     </>
@@ -645,7 +645,7 @@ function Step3({ units, setRow, resetRow, fillDown, pricingMode, T }) {
 function FillDownLink({ onClick, T }) {
   return (
     <button onClick={onClick} title="Fill this column with the first row's value"
-      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: FS.xs, fontFamily: mono, marginLeft: 6, textDecoration: 'underline' }}>
+      style={{ background: 'transparent', border: 'none', color: T.goldText, cursor: 'pointer', fontSize: FS.sm, fontFamily: SANS, marginLeft: 6, textDecoration: 'underline' }}>
       ↓ Fill
     </button>
   )

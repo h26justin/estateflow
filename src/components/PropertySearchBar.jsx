@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useId } from 'react'
 import { Icon } from '../lib/icons'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { rankProperties } from '../lib/propertySearch'
 import { PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 
@@ -113,7 +113,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           style={{
-            flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.text, fontFamily: MONO, fontSize: 12, padding: 0, height: '100%',
+            flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: T.text, fontFamily: SANS, fontSize: FS.base, padding: 0, height: '100%',
           }}/>
         {q
           ? <button onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Clear search"
@@ -128,7 +128,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
           boxShadow: '0 12px 36px rgba(0,0,0,0.22)', overflow: 'hidden', maxHeight: 340, overflowY: 'auto',
         }}>
           {results.length === 0 ? (
-            <div style={{ padding: '16px 14px', fontFamily: MONO, fontSize: 11, color: T.muted }}>
+            <div style={{ padding: '16px 14px', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
               No property matches "{q.trim()}"
             </div>
           ) : results.map((p, i) => {
@@ -151,7 +151,7 @@ export default function PropertySearchBar({ properties = [], onOpen, placeholder
                     {p.name || p.address || 'Untitled property'}
                   </div>
                   {p.address && p.address !== p.name && (
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.address}
                     </div>
                   )}

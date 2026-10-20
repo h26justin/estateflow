@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
@@ -160,7 +160,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
 
   const tabBtn = (k, label, count) => (
     <button onClick={() => { setView(k); setExpanded(null) }}
-      style={{ fontFamily:mono, fontSize:11, padding:'6px 16px', borderRadius:20, cursor:'pointer',
+      style={{ fontFamily:SANS, fontSize:FS.sm, padding:'6px 16px', borderRadius:20, cursor:'pointer',
         border:`1px solid ${view===k ? T.gold : T.border}`,
         background: view===k ? T.gold+'22' : 'transparent',
         color: view===k ? T.goldText : T.muted }}>
@@ -201,7 +201,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       {view === 'inbox' && hasAnything && (
         <div style={{ display:'grid', gap:10 }}>
           {unreadMessages === 0 && openJobs === 0 && (
-            <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'24px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.green }}>
+            <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'24px', textAlign:'center', fontFamily:SANS, fontSize:FS.base, color:T.green }}>
               All caught up — no new messages or open repairs.
             </div>
           )}
@@ -239,7 +239,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
           </div>
           {archivedJobs.length > 0 && (
             <button onClick={() => setShowArchived(v => !v)}
-              style={{ fontFamily:mono, fontSize:11, marginTop:14, background:'none', border:`1px solid ${T.border}`, color:T.muted, borderRadius:8, padding:'6px 16px', cursor:'pointer' }}>
+              style={{ fontFamily:SANS, fontSize:FS.sm, marginTop:14, background:'none', border:`1px solid ${T.border}`, color:T.muted, borderRadius:8, padding:'6px 16px', cursor:'pointer' }}>
               {showArchived ? '▲ Hide archived' : `▼ Show ${archivedJobs.length} archived (complete)`}
             </button>
           )}
@@ -250,7 +250,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       {view === 'messages' && (
         <div style={{ display:'grid', gap:10 }}>
           {convos.length === 0 && (
-            <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'24px', textAlign:'center', fontFamily:mono, fontSize:12, color:T.muted }}>
+            <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:12, padding:'24px', textAlign:'center', fontFamily:SANS, fontSize:FS.base, color:T.muted }}>
               No tenant messages yet.
             </div>
           )}
@@ -286,9 +286,9 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                 <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:T.red+'22', color:T.red }}>Repair request</span>
-                <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
+                <span style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'2px 8px', borderRadius:10, background:sc.bg, color:sc.color }}>{sc.label}</span>
                 {job.priority && job.priority !== 'normal' && (
-                  <span style={{ fontFamily:mono, fontSize:FS.xs, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
+                  <span style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'2px 8px', borderRadius:10, background:pc.color+'22', color:pc.color, display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="flag" size={10}/>{pc.label}</span>
                 )}
               </div>
               <span style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, flexShrink:0 }}>
@@ -296,7 +296,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               </span>
             </div>
             <div style={{ fontSize:13, fontWeight:600, color:T.text, marginBottom:3 }}>{job.title || 'Repair request'}</div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{job.property?.address||job.property?.name||'—'}</div>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{job.property?.address||job.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -306,7 +306,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
         <div style={{ background:T.surface, border:`1px solid ${T.gold}44`, borderTop:'none', borderRadius:'0 0 12px 12px', padding:'20px 18px' }}>
           {/* Description */}
           {job.description && (
-            <div style={{ fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.7, marginBottom:14, padding:'10px 14px', background:T.bg, borderRadius:8 }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.text, lineHeight:1.7, marginBottom:14, padding:'10px 14px', background:T.bg, borderRadius:8 }}>
               {job.description}
             </div>
           )}
@@ -328,7 +328,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {['open','in-progress','complete'].map(s => (
                 <button key={s} onClick={() => onStatusChange(job.id, s)}
-                  style={{ fontFamily:mono, fontSize:11, padding:'5px 14px', borderRadius:20, cursor:'pointer',
+                  style={{ fontFamily:SANS, fontSize:FS.sm, padding:'5px 14px', borderRadius:20, cursor:'pointer',
                     border:`1px solid ${STATUS_CFG[s]?.color}44`,
                     background: job.status===s ? STATUS_CFG[s]?.color+'33' : 'transparent',
                     color: STATUS_CFG[s]?.color, fontWeight: job.status===s ? 700 : 400 }}>
@@ -337,7 +337,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
               ))}
             </div>
             {job.status === 'complete' && (
-              <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.green, marginTop:8 }}>
+              <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.green, marginTop:8 }}>
                 Marked complete — this repair will move to the archive
               </div>
             )}
@@ -378,7 +378,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
             <div style={{ fontSize:13, fontWeight: hasUnread ? 700 : 400, color:T.text, marginBottom:3 }}>
               {lastMsg.message?.substring(0,80)}{lastMsg.message?.length>80?'…':''}
             </div>
-            <div style={{ fontFamily:mono, fontSize:11, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}</div>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>
@@ -414,7 +414,7 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
                 </div>
                 <div style={{ background:isLandlord?T.gold+'22':T.bg, border:`1px solid ${isLandlord?T.gold+'44':T.border}`,
                   borderRadius:isLandlord?'14px 14px 4px 14px':'14px 14px 14px 4px',
-                  padding:'10px 14px', fontFamily:mono, fontSize:12, color:T.text, lineHeight:1.7 }}>
+                  padding:'10px 14px', fontFamily:SANS, fontSize:FS.sm, color:T.text, lineHeight:1.7 }}>
                   {m.message}
                 </div>
               </div>
@@ -427,7 +427,7 @@ function MessageThread({ thread, loading, replyText, setReplyText, replying, onR
         <input value={replyText} onChange={e=>setReplyText(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),onReply())}
           placeholder="Reply to tenant…"
-          style={{ flex:1, fontFamily:mono, fontSize:12, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px' }}/>
+          style={{ flex:1, fontFamily:SANS, fontSize:FS.sm, background:T.bg, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'9px 14px' }}/>
         <Button onClick={onReply} disabled={replying||!replyText.trim()} style={{ flexShrink:0 }}>
           {replying?'…':'Send'}
         </Button>

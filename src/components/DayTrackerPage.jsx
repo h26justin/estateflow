@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { Button } from './ui'
 import * as api from '../lib/api'
@@ -362,12 +362,12 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12, marginBottom:24 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
           <button onClick={onBack}
-            style={{ fontFamily:mono, fontSize:11, padding:'6px 12px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>
+            style={{ fontFamily:SANS, fontSize:FS.sm, padding:'6px 12px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.muted, cursor:'pointer' }}>
             ← Back
           </button>
           <div>
-            <h1 style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.03em', marginBottom:4 }}>Day Tracker</h1>
-            <p style={{ fontFamily:mono, color:T.muted, fontSize:12 }}>Daily rent coverage across all properties · {anyEditable ? 'click any day to update' : 'read-only'}</p>
+            <h1 style={{ fontSize:26, fontWeight:700, letterSpacing:'-0.03em', marginBottom:4 }}>Day tracker</h1>
+            <p style={{ fontFamily:SANS, color:T.muted, fontSize:FS.base }}>Daily rent coverage across all properties · {anyEditable ? 'click any day to update' : 'read-only'}</p>
           </div>
         </div>
 
@@ -396,7 +396,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
           ].map(opt => (
             <button key={opt.v} onClick={() => setOverdueMode(opt.v)}
               style={{
-                fontFamily:mono, fontSize:11, padding:'5px 12px', borderRadius:20, cursor:'pointer',
+                fontFamily:SANS, fontSize:FS.sm, padding:'5px 12px', borderRadius:20, cursor:'pointer',
                 border: `1px solid ${overdueMode === opt.v ? T.gold : T.border}`,
                 background: overdueMode === opt.v ? T.gold + '22' : 'transparent',
                 color: overdueMode === opt.v ? T.goldText : T.muted,
@@ -412,7 +412,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
           )}
         </div>
         <button onClick={exportCsv} disabled={exporting}
-          style={{ fontFamily:mono, fontSize:11, padding:'6px 14px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.text, cursor:exporting ? 'not-allowed' : 'pointer', opacity:exporting ? 0.6 : 1 }}>
+          style={{ fontFamily:SANS, fontSize:FS.sm, padding:'6px 14px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.text, cursor:exporting ? 'not-allowed' : 'pointer', opacity:exporting ? 0.6 : 1 }}>
           {exporting ? 'Exporting…' : '↓ Export CSV (last 12 months)'}
         </button>
       </div>
@@ -489,7 +489,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                       }}>
                         {/* Property name */}
                         <td style={{
-                          fontFamily:mono, fontSize:11, color:T.text, padding:'6px 12px 6px 0',
+                          fontFamily:SANS, fontSize:FS.sm, color:T.text, padding:'6px 12px 6px 0',
                           whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
                           maxWidth:160, position:'sticky', left:0, background:pi%2===0?T.card:T.surface, zIndex:1
                         }}>
@@ -579,17 +579,17 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
               background:T.card, border:`1px solid ${T.border}`, borderRadius:10,
               padding:'12px 14px', boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
             }}>
-            <div style={{ fontFamily:mono, fontSize:11, fontWeight:700, color:T.text, marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, color:T.text, marginBottom:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {editPopover.propName}
             </div>
-            <div style={{ fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:10 }}>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:10 }}>
               {editPopover.segmentId ? 'Edit rent period' : 'New rent period'}
             </div>
 
             {/* Date range */}
             <div style={{ display:'flex', gap:8, marginBottom:8 }}>
               {[['start','From'],['end','To']].map(([k,label]) => (
-                <label key={k} style={{ flex:1, minWidth:0, fontFamily:mono, fontSize:FS.xs, color:T.muted }}>
+                <label key={k} style={{ flex:1, minWidth:0, fontFamily:SANS, fontSize:FS.sm, color:T.muted }}>
                   {label}
                   <input type="date" value={form[k]} disabled={savingPayment}
                     onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
@@ -600,7 +600,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             </div>
 
             {/* Amount paid */}
-            <label style={{ display:'block', fontFamily:mono, fontSize:FS.xs, color:T.muted, marginBottom:8 }}>
+            <label style={{ display:'block', fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:8 }}>
               Amount paid (£)
               <input type="number" min="0" step="0.01" value={form.amount} disabled={savingPayment}
                 onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
@@ -615,7 +615,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                 return (
                   <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))} disabled={savingPayment}
                     style={{
-                      fontFamily:mono, fontSize:11, fontWeight:700, padding:'7px 0', borderRadius:6,
+                      fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'7px 0', borderRadius:6,
                       border:`1px solid ${isSel ? STATUS_COLOR[s] : T.border}`,
                       background: isSel ? STATUS_COLOR[s] + '22' : 'transparent',
                       color: STATUS_COLOR[s],
@@ -635,7 +635,7 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
               </Button>
               {editPopover.segmentId && (
                 <button onClick={deleteSegment} disabled={savingPayment} title="Remove this period"
-                  style={{ fontFamily:mono, fontSize:11, fontWeight:700, padding:'8px 10px', borderRadius:6,
+                  style={{ fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'8px 10px', borderRadius:6,
                     border:`1px solid ${STATUS_COLOR.overdue}`, background:'transparent', color:STATUS_COLOR.overdue,
                     cursor: savingPayment?'not-allowed':'pointer', opacity: savingPayment?0.6:1 }}>
                   Delete

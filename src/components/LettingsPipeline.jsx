@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
@@ -193,7 +193,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   const totalVacantDays = lettings.filter(l => l.stage === 'vacant').reduce((s, l) => s + (daysSince(l.created_at) || 0), 0)
 
   const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 7, padding: '8px 10px', outline: 'none', width: '100%', boxSizing: 'border-box' }
-  const lbl = { fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }
+  const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
     <div>
@@ -215,12 +215,12 @@ export default function LettingsPipeline({ user, companies = [], properties = []
       {/* ── STAGE FILTER PILLS ── */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         <button onClick={() => setActiveStage('all')}
-          style={{ fontFamily: mono, fontSize: 11, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === 'all' ? T.gold : T.border}`, background: activeStage === 'all' ? T.gold + '22' : 'transparent', color: activeStage === 'all' ? T.goldText : T.muted, cursor: 'pointer' }}>
+          style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === 'all' ? T.gold : T.border}`, background: activeStage === 'all' ? T.gold + '22' : 'transparent', color: activeStage === 'all' ? T.goldText : T.muted, cursor: 'pointer' }}>
           All ({lettings.length})
         </button>
         {STAGES.map(s => (
           <button key={s.key} onClick={() => setActiveStage(s.key)}
-            style={{ fontFamily: mono, fontSize: 11, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === s.key ? s.color : T.border}`, background: activeStage === s.key ? s.color + '22' : 'transparent', color: activeStage === s.key ? s.color : T.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 14px', borderRadius: 20, border: `1px solid ${activeStage === s.key ? s.color : T.border}`, background: activeStage === s.key ? s.color + '22' : 'transparent', color: activeStage === s.key ? s.color : T.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, display: 'inline-block' }} />
             {s.label} {stageCounts[s.key] > 0 ? `(${stageCounts[s.key]})` : ''}
           </button>
@@ -367,7 +367,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <div style={{ display: 'flex', gap: 4, marginBottom: 14, borderBottom: `1px solid ${T.border}`, paddingBottom: 10 }}>
                     {['details', 'applicant', 'checklist', 'notes'].map(tab => (
                       <button key={tab} onClick={() => setDetailTab(tab)}
-                        style={{ fontFamily: mono, fontSize: 11, padding: '5px 10px', borderRadius: 6, border: `1px solid ${detailTab === tab ? T.gold : T.border}`, background: detailTab === tab ? T.gold + '18' : 'transparent', color: detailTab === tab ? T.goldText : T.muted, cursor: 'pointer', textTransform: 'capitalize' }}>
+                        style={{ fontFamily: SANS, fontSize: FS.sm, padding: '5px 10px', borderRadius: 6, border: `1px solid ${detailTab === tab ? T.gold : T.border}`, background: detailTab === tab ? T.gold + '18' : 'transparent', color: detailTab === tab ? T.goldText : T.muted, cursor: 'pointer', textTransform: 'capitalize' }}>
                         {tab}
                       </button>
                     ))}
@@ -383,7 +383,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         ['Days active', daysSince(selected.created_at) + ' days'],
                       ].map(([label, value]) => (
                         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
-                          <span style={{ fontFamily: mono, color: T.muted }}>{label}</span>
+                          <span style={{ fontFamily: SANS, color: T.muted }}>{label}</span>
                           <span style={{ fontFamily: mono, color: T.text, fontWeight: 600 }}>{value}</span>
                         </div>
                       ))}
@@ -454,7 +454,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                           }}>
                             {checklist[item.key] ? '✓' : ''}
                           </div>
-                          <span style={{ fontFamily: mono, fontSize: 12, color: checklist[item.key] ? T.muted : T.text, textDecoration: checklist[item.key] ? 'line-through' : 'none' }}>
+                          <span style={{ fontFamily: SANS, fontSize: FS.sm, color: checklist[item.key] ? T.muted : T.text, textDecoration: checklist[item.key] ? 'line-through' : 'none' }}>
                             {item.label}
                           </span>
                         </div>
@@ -480,13 +480,13 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {nextStage && (
                       <button onClick={() => moveStage(selected.id, nextStageKey)}
-                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: nextStage.color, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: nextStage.color, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
                         Move to <StageTag stage={nextStage} size={12}/> →
                       </button>
                     )}
                     {selected.stage === 'movein' && (
                       <button onClick={() => moveStage(selected.id, null)}
-                        style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: T.green, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
+                        style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '9px 14px', borderRadius: 8, border: 'none', background: T.green, color: T.bg, cursor: 'pointer', textAlign: 'left' }}>
                         Mark as let agreed — archive
                       </button>
                     )}
@@ -500,7 +500,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                       <option value="withdrawn">↩ Mark as withdrawn</option>
                     </select>
                     <button onClick={() => deleteLetting(selected.id)}
-                      style={{ fontFamily: mono, fontSize: 11, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                      style={{ fontFamily: SANS, fontSize: FS.sm, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
                       Delete letting
                     </button>
                   </div>

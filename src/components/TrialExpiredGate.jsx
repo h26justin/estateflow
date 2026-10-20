@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/ThemeContext'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { ChromeLogo } from './Logo'
 import { Button } from './ui'
@@ -104,7 +104,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
         {/* Brand strip */}
         <div style={{ textAlign:'center', marginBottom:32 }}>
           <ChromeLogo height={30} style={{ display:'inline-block' }}/>
-          <div style={{ fontFamily:MONO, fontSize:11, color:T.muted, marginTop:4 }}>Account access paused</div>
+          <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginTop:4 }}>Account access paused</div>
         </div>
 
         {/* Headline card */}
@@ -115,7 +115,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           <div style={{ fontSize:18, fontWeight:700, color:T.text, marginBottom:8 }}>
             Your free trial has ended
           </div>
-          <div style={{ fontFamily:MONO, fontSize:12, color:T.text, lineHeight:1.7 }}>
+          <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.text, lineHeight:1.7 }}>
             To keep using Properly, please add a payment method. Just <strong>£2 per
             property per month</strong> — no setup fees, cancel any time. Your data is
             safe; nothing is deleted while access is paused.
@@ -127,7 +127,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           <div style={{
             background:T.red+'11', border:`1px solid ${T.red}66`,
             borderRadius:10, padding:'12px 14px', marginBottom:14,
-            fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.6,
+            fontFamily:SANS, fontSize:FS.sm, color:T.red, lineHeight:1.6,
           }}>
             <strong>Couldn't open Stripe checkout:</strong><br/>{error}
             <div style={{ marginTop:8, color:T.muted, fontSize:FS.xs }}>
@@ -179,7 +179,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
 
         {/* Footer — sign out + support */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginTop:24 }}>
-          <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, lineHeight:1.6 }}>
+          <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, lineHeight:1.6 }}>
             Need help? Email <a href="mailto:hello@ownproperly.com" style={{ color:T.goldText }}>hello@ownproperly.com</a>
           </div>
           <Button variant="secondary" size="sm" onClick={onSignOut}>

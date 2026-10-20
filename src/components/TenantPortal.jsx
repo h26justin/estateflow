@@ -35,7 +35,7 @@ const SUBHEADER_BG = '#24323D'
 const SUBHEADER_TEXT = '#B6C0C8'
 
 // Responsive rules the inline styles can't express. At 390px the header
-// keeps one row: the company name ellipsises, "Tenant Portal" drops out and
+// keeps one row: the company name ellipsises, "Tenant portal" drops out and
 // the two header buttons collapse to icons (they carry aria-labels). The tab
 // strip scrolls sideways with snap rather than running off-screen.
 const PORTAL_CSS = `
@@ -199,7 +199,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
   // sans face explicitly — this tree renders outside the app shell's global
   // CSS, so the h2 used to fall back to the browser serif.
   if (loading) return (
-    <div role="status" style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,color:T.muted}}>
+    <div role="status" style={{minHeight:'100vh',background:T.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:SANS,fontSize:FS.base,color:T.muted}}>
       Loading your portal…
     </div>
   )
@@ -209,12 +209,12 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
       <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'40px 32px',maxWidth:400,textAlign:'center',boxShadow:'0 4px 24px rgba(0,0,0,0.08)'}}>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} aria-hidden="true"><Icon name={error ? 'alert-triangle' : 'home'} size={38} color={error ? T.red : T.muted}/></div>
         <h1 style={{fontFamily:SANS,fontSize:18,fontWeight:700,color:T.text,marginBottom:8}}>{error ? "We couldn't load your portal" : 'Not set up yet'}</h1>
-        <p style={{fontFamily:mono,fontSize:12,color:T.muted,lineHeight:1.8,marginBottom:24}}>
+        <p style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.8,marginBottom:24}}>
           {error||"Your landlord hasn't linked your account to a property yet."}
         </p>
         <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-          {error && <button onClick={()=>{ setError(null); loadAll() }} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 20px',borderRadius:8,border:'none',background:T.gold,color:textOn(T.gold),cursor:'pointer'}}>Try again</button>}
-          <button onClick={onSignOut} style={{fontFamily:mono,fontSize:12,padding:'10px 20px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.text,cursor:'pointer'}}>Sign out</button>
+          {error && <button onClick={()=>{ setError(null); loadAll() }} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'10px 20px',borderRadius:8,border:'none',background:T.gold,color:textOn(T.gold),cursor:'pointer'}}>Try again</button>}
+          <button onClick={onSignOut} style={{fontFamily:SANS,fontSize:FS.sm,padding:'10px 20px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.text,cursor:'pointer'}}>Sign out</button>
         </div>
       </div>
     </div>
@@ -298,7 +298,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
                   </>)
               }
               <div className="tp-hide-sm" style={{width:1,height:20,background:HEADER_LINE,flexShrink:0}}/>
-              <span className="tp-hide-sm" style={{fontFamily:MONO,fontSize:FS.xs,color:HEADER_MUTED,letterSpacing:'0.1em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Tenant Portal</span>
+              <span className="tp-hide-sm" style={{fontFamily:MONO,fontSize:FS.xs,color:HEADER_MUTED,letterSpacing:'0.1em',textTransform:'uppercase',whiteSpace:'nowrap'}}>Tenant portal</span>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
               {onSwitchToLandlord && (
@@ -328,14 +328,14 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
           showed an arbitrary one with no way to reach the others). */}
       <div style={{background:SUBHEADER_BG,padding:'10px 0'}}>
         <div className="tp-wrap" style={{maxWidth:860,margin:'0 auto',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-          <div style={{fontFamily:MONO,fontSize:FS.xs,color:SUBHEADER_TEXT,flex:'1 1 auto',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:SUBHEADER_TEXT,flex:'1 1 auto',minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {property?.address||property?.name||'Your property'}
           </div>
           {tenancies.length > 1 && (
-            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:MONO,fontSize:FS.xs,color:SUBHEADER_TEXT,maxWidth:'100%'}}>
+            <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:SANS,fontSize:FS.sm,color:SUBHEADER_TEXT,maxWidth:'100%'}}>
               <span style={{textTransform:'uppercase',letterSpacing:'0.08em'}}>Property</span>
               <select value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
-                style={{fontFamily:MONO,fontSize:FS.xs,background:HEADER_BG,color:HEADER_TEXT,border:`1px solid ${HEADER_LINE}`,borderRadius:R.sm,padding:'5px 8px',maxWidth:260,minWidth:0}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,background:HEADER_BG,color:HEADER_TEXT,border:`1px solid ${HEADER_LINE}`,borderRadius:R.sm,padding:'5px 8px',maxWidth:260,minWidth:0}}>
                 {tenancies.map(t=>(
                   <option key={t.id} value={t.id}>
                     {(t.address||t.name||'Property')}{t.company_name?` · ${t.company_name}`:''}
@@ -374,7 +374,7 @@ function SectionLabel({ children }) {
 }
 function StatusPill({ status, cfg }) {
   const sc = cfg[status] || { bg:S('void').bg, color:S('void').text, label: status }
-  return <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 10px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
+  return <span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'3px 10px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span>
 }
 
 // ── HOME TAB ──────────────────────────────────────────────────────────────────
@@ -399,21 +399,21 @@ function TenantHome({ property, company, user, contactInfo, brand, bankDetails }
   return (
     <div>
       <h1 style={{fontFamily:SANS,fontSize:26,fontWeight:700,color:P.text,marginBottom:4,letterSpacing:'-0.02em'}}>Welcome home</h1>
-      <p style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,marginBottom:24}}>{property?.address||property?.name}</p>
+      <p style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginBottom:24}}>{property?.address||property?.name}</p>
 
       {/* Alert banners */}
       {arrears > 0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('bad').text}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:SANS,fontSize:FS.base,color:S('bad').text}}>
           <Icon name="alert-triangle" size={15} style={{flexShrink:0}}/><span>You have outstanding arrears of <strong>{fmt(arrears)}</strong> — please make payment as soon as possible.</span>
         </div>
       )}
       {openJobs > 0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:brand.color+'18',border:`1px solid ${brand.color}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:brand.text}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:brand.color+'18',border:`1px solid ${brand.color}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:SANS,fontSize:FS.base,color:brand.text}}>
           <Icon name="wrench" size={15} style={{flexShrink:0}}/><span>You have {openJobs} repair request{openJobs!==1?'s':''} in progress.</span>
         </div>
       )}
       {endDays!=null && endDays<=90 && endDays>0 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:S('warn').bg,border:`1px solid ${S('warn').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:mono,fontSize:12,color:S('warn').text}}>
+        <div style={{display:'flex',alignItems:'center',gap:9,background:S('warn').bg,border:`1px solid ${S('warn').text}44`,borderRadius:12,padding:'12px 16px',marginBottom:12,fontFamily:SANS,fontSize:FS.base,color:S('warn').text}}>
           <Icon name="calendar" size={15} style={{flexShrink:0}}/><span>Your tenancy expires in {endDays} days. Please contact your landlord about renewal.</span>
         </div>
       )}
@@ -423,12 +423,12 @@ function TenantHome({ property, company, user, contactInfo, brand, bankDetails }
         <Card style={{borderLeft:`3px solid ${brand.color}`}}>
           <SectionLabel>Monthly rent</SectionLabel>
           <div style={{fontFamily:mono,fontSize:'clamp(22px, 6vw, 28px)',fontWeight:500,letterSpacing:'-0.02em',color:P.text,whiteSpace:'nowrap'}}>{fmt(property?.rent_pcm)}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>per calendar month</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginTop:4}}>per calendar month</div>
         </Card>
         <Card style={{borderLeft:`3px solid ${arrears>0?S('bad').text:S('ok').text}`}}>
           <SectionLabel>Current balance</SectionLabel>
           <div style={{fontFamily:arrears>0?mono:SANS,fontSize:'clamp(22px, 6vw, 28px)',fontWeight:arrears>0?500:700,letterSpacing:'-0.02em',color:arrears>0?S('bad').text:S('ok').text,whiteSpace:'nowrap'}}>{arrears>0?`-${fmt(arrears)}`:'All clear'}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginTop:4}}>{arrears>0?'Arrears outstanding':'No arrears'}</div>
         </Card>
       </div>
 
@@ -467,7 +467,7 @@ function TenantHome({ property, company, user, contactInfo, brand, bankDetails }
               <span style={{fontFamily:mono,fontSize:12,color:P.text,fontWeight:700}}>{v}</span>
             </div>
           ))}
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,marginTop:10,lineHeight:1.6}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginTop:10,lineHeight:1.6}}>
             Please always use your reference when making payment so we can allocate it correctly.
           </div>
         </Card>
@@ -484,7 +484,7 @@ function TenantHome({ property, company, user, contactInfo, brand, bankDetails }
             {contactInfo.email&&<div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,display:'flex',alignItems:'center',gap:6}}><Icon name="mail" size={13} color={TENANT_MUTED}/><a href={`mailto:${contactInfo.email}`} style={{color:S('info').text,textDecoration:'none'}}>{contactInfo.email}</a></div>}
           </>
         ) : (
-          <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,lineHeight:1.7}}>Use the Messages tab to contact your landlord, or the Repairs tab to report a maintenance issue.</div>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED,lineHeight:1.7}}>Use the Messages tab to contact your landlord, or the Repairs tab to report a maintenance issue.</div>
         )}
       </Card>
     </div>
@@ -538,7 +538,7 @@ function TenantRent({ property, user, bankDetails }) {
       {totalArrears > 0 && (
         <div style={{background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:12,padding:'14px 18px',marginBottom:20}}>
           <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:S('bad').text,marginBottom:4}}>Outstanding arrears: {fmt(totalArrears)}</div>
-          <div style={{fontFamily:mono,fontSize:11,color:S('bad').text,lineHeight:1.6}}>Please make payment as soon as possible. See bank details below.</div>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:S('bad').text,lineHeight:1.6}}>Please make payment as soon as possible. See bank details below.</div>
         </div>
       )}
 
@@ -564,8 +564,8 @@ function TenantRent({ property, user, bankDetails }) {
             const sc = statusConfig[m.status]||statusConfig.unknown
             return (
               <div key={i} style={{textAlign:'center'}}>
-                <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginBottom:6}}>{m.label}</div>
-                <div style={{width:'100%',aspectRatio:'1',borderRadius:8,background:sc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:16,color:sc.color,fontWeight:700,border:`1px solid ${sc.color}33`}}>
+                <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_FAINT,marginBottom:6}}>{m.label}</div>
+                <div style={{width:'100%',aspectRatio:'1',borderRadius:8,background:sc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:SANS,fontSize:FS.lead,color:sc.color,fontWeight:700,border:`1px solid ${sc.color}33`}}>
                   {sc.label}
                 </div>
                 {!m.isFuture&&m.status!=='unknown'&&<div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginTop:4}}>{fmt(m.amount)}</div>}
@@ -601,7 +601,7 @@ function TenantRent({ property, user, bankDetails }) {
               </div>
             ))}
           </div>
-          <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:P.card,borderRadius:8}}>
+          <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginTop:10,padding:'10px 12px',background:P.card,borderRadius:8}}>
             Always use your reference exactly as shown so we can match your payment.
           </div>
         </Card>
@@ -610,8 +610,8 @@ function TenantRent({ property, user, bankDetails }) {
       {/* Full payment history */}
       <Card>
         <SectionLabel>Full payment history</SectionLabel>
-        {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,padding:24,textAlign:'center'}}>Loading…</div>
-        : payments.length===0 ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:24}}>No payment records yet.</div>
+        {loading ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,padding:24,textAlign:'center'}}>Loading…</div>
+        : payments.length===0 ? <div style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED,textAlign:'center',padding:24}}>No payment records yet.</div>
         // Horizontal-scroll wrapper: the 4 fixed-ish columns need ~470px, which
         // clips on a 375px phone without it. Inner minWidth keeps rows aligned.
         : <div style={{overflowX:'auto'}}>
@@ -626,7 +626,7 @@ function TenantRent({ property, user, bankDetails }) {
                   <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED}}>{p.period_start?new Date(p.period_start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—'}</div>
                   <div style={{fontFamily:mono,fontSize:11,color:P.text}}>{p.month_label||(p.year&&p.month?`${MONTHS[Number(p.month)-1]} ${p.year}`:'—')}</div>
                   <div style={{fontFamily:mono,fontSize:12,fontWeight:700,color:P.text}}>{fmt(p.amount||property?.rent_pcm)}</div>
-                  <div><span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'3px 9px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></div>
+                  <div><span style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'3px 9px',borderRadius:20,background:sc.bg,color:sc.color}}>{sc.label}</span></div>
                 </div>
               )
             })}
@@ -723,13 +723,13 @@ function TenantMaintenance({ property, user, brand }) {
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
         <h2 style={{fontFamily:SANS,fontSize:20,fontWeight:700,color:P.text,margin:0}}>Repairs & maintenance</h2>
-        <button onClick={()=>setShowForm(true)} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 18px',borderRadius:8,border:'none',background:brand.color,color:brand.on,cursor:'pointer'}}>
+        <button onClick={()=>setShowForm(true)} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'9px 18px',borderRadius:8,border:'none',background:brand.color,color:brand.on,cursor:'pointer'}}>
           + Report repair
         </button>
       </div>
 
       {success && (
-        <div style={{background:S('ok').bg,border:`1px solid ${S('ok').text}44`,borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:mono,fontSize:12,color:S('ok').text}}>
+        <div style={{background:S('ok').bg,border:`1px solid ${S('ok').text}44`,borderRadius:10,padding:'12px 16px',marginBottom:16,fontFamily:SANS,fontSize:FS.base,color:S('ok').text}}>
           Repair request submitted — your landlord has been notified.
         </div>
       )}
@@ -739,21 +739,21 @@ function TenantMaintenance({ property, user, brand }) {
           <div style={{fontFamily:mono,fontSize:FS.xs,color:brand.text,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:16}}>Report a repair</div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
+            <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
             <input aria-label="What needs fixing?" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
           </div>
 
           <div style={{marginBottom:12}}>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
+            <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
             <textarea aria-label="Details (optional)" value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
           </div>
 
           <div style={{marginBottom:14}}>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
+            <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:8}}>How urgent is this?</label>
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               {/* AA text hues (info/warn/bad) — the old raw hues failed 4.5:1 at 11px */}
               {[['normal','Normal',S('info').text],['high','High priority',S('warn').text],['urgent','Urgent — safety risk',S('bad').text]].map(([k,l,c])=>(
-                <button key={k} onClick={()=>setPriority(k)} style={{fontFamily:mono,fontSize:11,padding:'6px 14px',borderRadius:20,cursor:'pointer',
+                <button key={k} onClick={()=>setPriority(k)} style={{fontFamily:SANS,fontSize:FS.sm,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                   border:`1px solid ${priority===k?c:HAIRLINE}`,
                   background:priority===k?c+'22':'transparent',color:priority===k?c:TENANT_MUTED}}>
                   {l}
@@ -764,9 +764,9 @@ function TenantMaintenance({ property, user, brand }) {
 
           {/* Photo upload */}
           <div style={{marginBottom:16}}>
-            <label style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
+            <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:8}}>Add photos (optional, up to 5)</label>
             <label style={{display:'inline-block',cursor:'pointer'}}>
-              <span style={{fontFamily:mono,fontSize:11,padding:'7px 14px',borderRadius:8,border:`1px solid ${HAIRLINE}`,background:P.card,color:TENANT_MUTED}}>
+              <span style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',borderRadius:8,border:`1px solid ${HAIRLINE}`,background:P.card,color:TENANT_MUTED}}>
                 {uploading?'Uploading…':'Add photos'}
               </span>
               <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={handlePhotoUpload} disabled={uploading||photos.length>=5}/>
@@ -791,26 +791,26 @@ function TenantMaintenance({ property, user, brand }) {
           </div>
 
           <div style={{display:'flex',gap:10}}>
-            <button onClick={submit} disabled={submitting||!title.trim()} style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:submitting||!title.trim()?HAIRLINE:brand.color,color:submitting||!title.trim()?TENANT_MUTED:brand.on,cursor:'pointer'}}>
+            <button onClick={submit} disabled={submitting||!title.trim()} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'10px 22px',borderRadius:8,border:'none',background:submitting||!title.trim()?HAIRLINE:brand.color,color:submitting||!title.trim()?TENANT_MUTED:brand.on,cursor:'pointer'}}>
               {submitting?'Submitting…':'Submit request'}
             </button>
-            <button onClick={()=>{setShowForm(false);setPhotos([]);setSubmitErr('')}} style={{fontFamily:mono,fontSize:12,padding:'10px 16px',borderRadius:8,border:`1px solid ${HAIRLINE}`,background:'transparent',color:TENANT_MUTED,cursor:'pointer'}}>
+            <button onClick={()=>{setShowForm(false);setPhotos([]);setSubmitErr('')}} style={{fontFamily:SANS,fontSize:FS.sm,padding:'10px 16px',borderRadius:8,border:`1px solid ${HAIRLINE}`,background:'transparent',color:TENANT_MUTED,cursor:'pointer'}}>
               Cancel
             </button>
           </div>
           {submitErr && (
             <div role="alert" aria-live="assertive"
-              style={{marginTop:12,fontFamily:mono,fontSize:12,color:S('bad').text,background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:8,padding:'10px 14px'}}>
+              style={{marginTop:12,fontFamily:SANS,fontSize:FS.sm,color:S('bad').text,background:S('bad').bg,border:`1px solid ${S('bad').text}44`,borderRadius:8,padding:'10px 14px'}}>
               {submitErr}
             </div>
           )}
         </Card>
       )}
 
-      {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
+      {loading ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : jobs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="wrench" size={30} color={TENANT_GHOST}/></div>
-          <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No repair requests yet. Report any issues above.</div>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED}}>No repair requests yet. Report any issues above.</div>
         </Card>
       : <div style={{display:'grid',gap:12}}>
           {jobs.map(job=>{
@@ -822,7 +822,7 @@ function TenantMaintenance({ property, user, brand }) {
                   <div style={{fontSize:14,fontWeight:700,color:P.text,flex:1}}>{job.title||'Repair request'}</div>
                   <StatusPill status={job.status} cfg={JOB_STATUS}/>
                 </div>
-                {job.description && <div style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:10,lineHeight:1.6}}>{job.description}</div>}
+                {job.description && <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginBottom:10,lineHeight:1.6}}>{job.description}</div>}
                 {jobPhotos.length>0 && (
                   <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
                     {jobPhotos.map((p,i)=>(
@@ -868,11 +868,11 @@ function TenantDocuments({ property, user, brand }) {
   return (
     <div>
       <h2 style={{fontFamily:SANS,fontSize:20,fontWeight:700,color:P.text,marginBottom:8}}>Documents</h2>
-      <p style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:20}}>Documents shared by your landlord — download anytime.</p>
-      {loading ? <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
+      <p style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED,marginBottom:20}}>Documents shared by your landlord — download anytime.</p>
+      {loading ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>
       : docs.length===0 ? <Card style={{textAlign:'center',padding:40}}>
           <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="file-text" size={30} color={TENANT_GHOST}/></div>
-          <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No documents shared yet. Your landlord can share certificates, agreements and more.</div>
+          <div style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED}}>No documents shared yet. Your landlord can share certificates, agreements and more.</div>
         </Card>
       : <div style={{display:'grid',gap:10}}>
           {docs.map(doc=>(
@@ -885,7 +885,7 @@ function TenantDocuments({ property, user, brand }) {
                 </div>
               </div>
               <button onClick={()=>openDoc(doc)} disabled={openingId===doc.id}
-                style={{fontFamily:mono,fontSize:11,fontWeight:700,padding:'7px 16px',borderRadius:8,border:'none',background:brand.color+'22',color:brand.text,cursor:'pointer',flexShrink:0}}>
+                style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'7px 16px',borderRadius:8,border:'none',background:brand.color+'22',color:brand.text,cursor:'pointer',flexShrink:0}}>
                 {openingId===doc.id?'Opening…':'Download'}
               </button>
             </Card>
@@ -925,17 +925,17 @@ function TenantMessages({ property, user, contactInfo, brand }) {
   return (
     <div>
       <h2 style={{fontFamily:SANS,fontSize:20,fontWeight:700,color:P.text,marginBottom:4}}>Messages</h2>
-      <p style={{fontFamily:mono,fontSize:11,color:TENANT_MUTED,marginBottom:20}}>
+      <p style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,marginBottom:20}}>
         {contactInfo ? `Message your ${contactInfo.label}` : 'Message your landlord — they\'ll reply as soon as possible.'}
       </p>
 
       <Card>
         <div style={{height:450,overflowY:'auto',marginBottom:0,padding:'4px'}}>
-          {loading && <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>}
+          {loading && <div style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,textAlign:'center',padding:40}}>Loading…</div>}
           {!loading && messages.length===0 && (
             <div style={{textAlign:'center',padding:48}}>
               <div style={{display:"flex",justifyContent:"center",marginBottom:12}}><Icon name="mail" size={30} color={TENANT_GHOST}/></div>
-              <div style={{fontFamily:mono,fontSize:12,color:TENANT_MUTED}}>No messages yet.<br/>Send a message below.</div>
+              <div style={{fontFamily:SANS,fontSize:FS.base,color:TENANT_MUTED}}>No messages yet.<br/>Send a message below.</div>
             </div>
           )}
           {messages.map(m=>{
@@ -946,7 +946,7 @@ function TenantMessages({ property, user, contactInfo, brand }) {
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:TENANT_FAINT,marginBottom:4,textAlign:isMe?'right':'left'}}>
                     {isMe?'You':'Landlord'} · {new Date(m.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} {new Date(m.created_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}
                   </div>
-                  <div style={{background:isMe?brand.color+'22':P.card,border:`1px solid ${isMe?brand.color+'44':HAIRLINE}`,borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px',padding:'10px 14px',fontFamily:mono,fontSize:12,color:P.text,lineHeight:1.7}}>
+                  <div style={{background:isMe?brand.color+'22':P.card,border:`1px solid ${isMe?brand.color+'44':HAIRLINE}`,borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px',padding:'10px 14px',fontFamily:SANS,fontSize:FS.sm,color:P.text,lineHeight:1.7}}>
                     {m.message}
                   </div>
                 </div>
@@ -959,9 +959,9 @@ function TenantMessages({ property, user, contactInfo, brand }) {
           <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),send())}
             placeholder="Type a message…"
-            style={{flex:1,fontFamily:mono,fontSize:12,background:P.card,border:`1px solid ${HAIRLINE}`,color:P.text,borderRadius:8,padding:'9px 14px'}}/>
+            style={{flex:1,fontFamily:SANS,fontSize:FS.sm,background:P.card,border:`1px solid ${HAIRLINE}`,color:P.text,borderRadius:8,padding:'9px 14px'}}/>
           <button onClick={send} disabled={sending||!newMsg.trim()}
-            style={{fontFamily:mono,fontSize:12,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',
+            style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',
               background:sending||!newMsg.trim()?HAIRLINE:brand.color,color:sending||!newMsg.trim()?TENANT_MUTED:brand.on,cursor:'pointer',flexShrink:0}}>
             {sending?'…':'Send'}
           </button>
@@ -1007,7 +1007,7 @@ function TenantProfile({ property, user, company }) {
         </Card>
       )}
       <div style={{background:S('info').bg,border:`1px solid ${S('info').text}44`,borderRadius:12,padding:'14px 16px'}}>
-        <div style={{fontFamily:mono,fontSize:FS.xs,color:S('info').text,lineHeight:1.7}}>
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:S('info').text,lineHeight:1.7}}>
           To update your details or give notice to vacate, please contact your landlord via the Messages tab.
         </div>
       </div>

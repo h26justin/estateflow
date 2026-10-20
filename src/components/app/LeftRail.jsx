@@ -34,7 +34,7 @@ export function LeftRail({
               style={{display:'flex',alignItems:'center',gap:11,padding:railCollapsed?'10px 0':'10px 11px',justifyContent:railCollapsed?'center':'flex-start',
                 borderRadius:10,border:'none',cursor:'pointer',width:'100%',textAlign:'left',
                 background:active?T.card:'transparent',color:active?T.text:T.muted,
-                fontFamily:SANS,fontSize:14,fontWeight:active?700:500,transition:'background 0.15s,color 0.15s'}}
+                fontFamily:SANS,fontSize:FS.body,fontWeight:active?700:500,transition:'background 0.15s,color 0.15s'}}
               onMouseEnter={e=>{if(!active)e.currentTarget.style.color=T.text}}
               onMouseLeave={e=>{if(!active)e.currentTarget.style.color=T.muted}}>
               <span style={{display:'flex',flexShrink:0,color:active?T.goldText:'inherit'}}>{ICON_NAMES.includes(n.icon)?<Icon name={n.icon} size={20}/>:n.icon}</span>
@@ -47,7 +47,7 @@ export function LeftRail({
       {/* Collapse toggle */}
       <button onClick={()=>setRailCollapsed(c=>!c)} aria-label={railCollapsed?'Expand sidebar':'Collapse sidebar'}
         style={{display:'flex',alignItems:'center',gap:10,padding:railCollapsed?'12px 0':'12px 16px',justifyContent:railCollapsed?'center':'flex-start',
-          background:'none',border:'none',borderTop:`1px solid ${T.border}`,cursor:'pointer',color:T.muted,fontFamily:MONO,fontSize:11,flexShrink:0}}>
+          background:'none',border:'none',borderTop:`1px solid ${T.border}`,cursor:'pointer',color:T.muted,fontFamily:SANS,fontSize:FS.base,flexShrink:0}}>
         <Icon name={railCollapsed?'chevron-right':'chevron-left'} size={18}/>
         {!railCollapsed && <span>Collapse</span>}
       </button>

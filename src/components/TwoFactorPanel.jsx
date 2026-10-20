@@ -1,4 +1,4 @@
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 // Two-factor authentication enrol / disable panel.
 //
 // Rendered inside Settings → Security & Data. Uses Supabase Auth's
@@ -220,13 +220,13 @@ export default function TwoFactorPanel({ T }) {
           <span style={{ fontSize: 18, color: T.green }} aria-hidden="true">✓</span>
           <span style={{ fontFamily: mono, fontSize: 13, color: T.text, fontWeight: 600 }}>2FA is enabled</span>
         </div>
-        <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16, lineHeight: 1.6 }}>
           You'll be prompted for a 6-digit code from your authenticator app every time you sign in.
         </div>
         {factors.map(f => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, marginBottom: 10 }}>
             <div>
-              <div style={{ fontFamily: mono, fontSize: 12, color: T.text, fontWeight: 600 }}>{f.friendly_name || 'Authenticator'}</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, fontWeight: 600 }}>{f.friendly_name || 'Authenticator'}</div>
               <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
                 Added {f.created_at ? new Date(f.created_at).toLocaleDateString('en-GB') : 'recently'}
               </div>
@@ -235,7 +235,7 @@ export default function TwoFactorPanel({ T }) {
               onClick={() => disable(f.id)}
               disabled={busy === `unenroll-${f.id}`}
               style={{
-                fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8,
+                fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 8,
                 border: `1px solid ${T.red}66`, background: T.red + '11', color: T.red,
                 cursor: busy ? 'not-allowed' : 'pointer',
               }}>
@@ -255,7 +255,7 @@ export default function TwoFactorPanel({ T }) {
                 onClick={revokeAllDevices}
                 disabled={deviceBusy === 'revoke-all'}
                 style={{
-                  fontFamily: mono, fontSize: 11, padding: '5px 12px', borderRadius: 8,
+                  fontFamily: SANS, fontSize: FS.sm, padding: '5px 12px', borderRadius: 8,
                   border: `1px solid ${T.red}66`, background: T.red + '11', color: T.red,
                   cursor: deviceBusy ? 'not-allowed' : 'pointer',
                 }}>
@@ -263,11 +263,11 @@ export default function TwoFactorPanel({ T }) {
               </button>
             )}
           </div>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14, lineHeight: 1.6 }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 14, lineHeight: 1.6 }}>
             Devices where you ticked “remember this device for 30 days” skip the code at sign-in until they expire.
           </div>
           {devices.length === 0 ? (
-            <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>No remembered devices.</div>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>No remembered devices.</div>
           ) : devices.map(d => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, marginBottom: 10 }}>
               <div style={{ minWidth: 0 }}>
@@ -286,7 +286,7 @@ export default function TwoFactorPanel({ T }) {
                 onClick={() => revokeDevice(d.id)}
                 disabled={deviceBusy === `revoke-${d.id}`}
                 style={{
-                  fontFamily: mono, fontSize: 11, padding: '6px 14px', borderRadius: 8,
+                  fontFamily: SANS, fontSize: FS.sm, padding: '6px 14px', borderRadius: 8,
                   border: `1px solid ${T.border}`, background: 'transparent', color: T.muted,
                   cursor: deviceBusy ? 'not-allowed' : 'pointer', flexShrink: 0, marginLeft: 12,
                 }}>
@@ -325,7 +325,7 @@ export default function TwoFactorPanel({ T }) {
         </details>
 
         <div style={{ marginBottom: 14 }}>
-          <label htmlFor="tfa-code" style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          <label htmlFor="tfa-code" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 6, }}>
             3. Enter the 6-digit code from your app to confirm
           </label>
           <input
@@ -353,7 +353,7 @@ export default function TwoFactorPanel({ T }) {
             onClick={verify}
             disabled={verifying || code.length !== 6}
             style={{
-              flex: 1, fontFamily: mono, fontSize: 12, fontWeight: 700,
+              flex: 1, fontFamily: SANS, fontSize: FS.sm, fontWeight: 700,
               padding: '11px', borderRadius: 8,
               border: 'none', background: verifying || code.length !== 6 ? T.border : T.gold,
               color: '#1A2530', cursor: verifying || code.length !== 6 ? 'not-allowed' : 'pointer',
@@ -363,7 +363,7 @@ export default function TwoFactorPanel({ T }) {
           <button
             onClick={cancelEnroll}
             style={{
-              fontFamily: mono, fontSize: 12, padding: '11px 18px', borderRadius: 8,
+              fontFamily: SANS, fontSize: FS.sm, padding: '11px 18px', borderRadius: 8,
               border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer',
             }}>
             Cancel
@@ -377,7 +377,7 @@ export default function TwoFactorPanel({ T }) {
   return (
     <div style={sectionStyle}>
       <div style={headerStyle}>Two-Factor Authentication</div>
-      <div style={{ fontFamily: mono, fontSize: 12, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
+      <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, marginBottom: 14, lineHeight: 1.7 }}>
         Add a second step at sign-in. Even if someone learns your password they still can't
         access your account without your phone.
       </div>
@@ -390,7 +390,7 @@ export default function TwoFactorPanel({ T }) {
         Enable two-factor authentication
       </Button>
       {unverified.length > 0 && (
-        <div style={{ marginTop: 14, fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
+        <div style={{ marginTop: 14, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
           ({unverified.length} half-completed setup{unverified.length > 1 ? 's' : ''} pending — will be cleaned up when you start a new one.)
         </div>
       )}

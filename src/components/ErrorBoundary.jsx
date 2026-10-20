@@ -92,7 +92,7 @@ export class ErrorBoundary extends Component {
             <button className="btn btn-ghost" onClick={chunk ? () => window.location.reload() : this.reset}>
               {chunk ? 'Refresh' : 'Try again'}
             </button>
-            <button className="btn btn-gold" onClick={this.goHome}>Go to Dashboard</button>
+            <button className="btn btn-gold" onClick={this.goHome}>Go to dashboard</button>
           </div>
         </div>
       )
@@ -134,7 +134,7 @@ export class ErrorBoundary extends Component {
                 background: `color-mix(in srgb, ${CV.red} 9%, ${CV.surface})`,
                 border: `1px solid color-mix(in srgb, ${CV.red} 25%, transparent)`, borderRadius: 8,
                 padding: '10px 14px', textAlign: 'left',
-                marginBottom: 20, fontFamily: MONO,
+                marginBottom: 20, fontFamily: SANS,
                 wordBreak: 'break-word',
               }}>
                 {msg}
@@ -149,7 +149,7 @@ export class ErrorBoundary extends Component {
               <button
                 onClick={this.goHome}
                 style={{ ...btn, background: CV.text, color: CV.surface, border: 'none', padding: '12px 28px' }}>
-                Go to Dashboard
+                Go to dashboard
               </button>
             </div>
             <button

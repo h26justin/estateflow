@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import MoneyInput from '../../lib/MoneyInput'
@@ -93,7 +93,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
 
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div style={{fontFamily:MONO,fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Expense Log</div>
-        {canEdit && <button className="btn btn-gold" style={{fontSize:11}} onClick={()=>setShowForm(v=>!v)}>+ Add Expense</button>}
+        {canEdit && <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={()=>setShowForm(v=>!v)}>+ Add expense</button>}
       </div>
 
       {showForm&&<div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -119,8 +119,8 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)}/></div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-gold" style={{fontSize:11}} onClick={handleSave}>Save Expense</button>
-          <button className="btn btn-ghost" style={{fontSize:11}} onClick={()=>setShowForm(false)}>Cancel</button>
+          <button className="btn btn-gold" style={{fontSize:FS.sm}} onClick={handleSave}>Save expense</button>
+          <button className="btn btn-ghost" style={{fontSize:FS.sm}} onClick={()=>setShowForm(false)}>Cancel</button>
         </div>
       </div>}
 
@@ -139,7 +139,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
                   </div>
                 </div>
                 <div style={{fontFamily:MONO,fontSize:15,fontWeight:700,color:T.red}}>{fmt(exp.amount)}</div>
-                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:MONO,fontSize:FS.xs,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
+                {canEdit && <button onClick={()=>handleDelete(exp.id)} style={{fontFamily:SANS,fontSize:FS.sm,background:'#2B1010',color:T.red,border:'1px solid #3D1A1A',borderRadius:6,padding:'3px 10px',cursor:'pointer'}}>Remove</button>}
               </div>
             )
           })}

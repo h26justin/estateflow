@@ -1,4 +1,4 @@
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 // AI Maintenance Triage button + result card.
 //
 // Drops into a maintenance job view. Shows an "AI triage" button; on click it
@@ -90,11 +90,11 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
       {triage && (
         <div className="card" style={{ padding: '12px 14px', marginTop: 8, borderLeft: `3px solid ${sevColor(triage.severity)}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, color: sevColor(triage.severity), letterSpacing: '0.08em' }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: sevColor(triage.severity), }}>
               {SEVERITY_LABEL[triage.severity] || triage.severity?.toUpperCase()}
             </span>
             <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
-            <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.goldText }}>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText }}>
               {TRADE_LABEL[triage.suggested_trade] || triage.suggested_trade}
             </span>
             <span style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>·</span>
@@ -147,7 +147,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
             )}
           </div>
 
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.faint, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, fontStyle: 'italic' }}>
             {triage.disclaimer || 'AI-generated triage — review before acting.'}
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -156,9 +156,9 @@ export function AdminSettingsPanel({ user, T, showToast }) {
               <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                 <input value={search} onChange={e => setSearch(e.target.value)}
                   placeholder="Search by company or email…"
-                  style={{ flex: 1, minWidth: 200, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}/>
+                  style={{ flex: 1, minWidth: 200, fontFamily: SANS, fontSize: FS.sm, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}/>
                 <select value={filter} onChange={e => setFilter(e.target.value)}
-                  style={{ fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}>
+                  style={{ fontFamily: SANS, fontSize: FS.sm, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px' }}>
                   <option value="all">All statuses</option>
                   <option value="active">Active</option>
                   <option value="trialing">Trialing</option>
@@ -175,7 +175,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                   ))}
                 </div>
                 {filtered.length === 0 && (
-                  <div style={{ padding: 32, textAlign: 'center', fontFamily: mono, fontSize: 12, color: T.muted }}>No accounts match your search</div>
+                  <div style={{ padding: 32, textAlign: 'center', fontFamily: SANS, fontSize: FS.base, color: T.muted }}>No accounts match your search</div>
                 )}
                 {filtered.map(co => {
                   const status = co.is_free_tier ? 'free_tier' : (co.subscriptions?.[0]?.status || 'trialing')
@@ -192,12 +192,12 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>{co.owner_email || '—'}</div>
                       </div>
                       <div>
-                        <span style={{ fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.color + '22', color: sc.color }}>{sc.label}</span>
+                        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: sc.color + '22', color: sc.color }}>{sc.label}</span>
                       </div>
                       <div style={{ fontFamily: mono, fontSize: 12, color: T.text }}>{propCount}</div>
                       <div style={{ fontFamily: mono, fontSize: 12, color: monthlyRev > 0 ? T.green : T.muted }}>{monthlyRev > 0 ? fmt(monthlyRev) : '—'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: mono, fontSize: FS.xs, color: co.is_free_tier ? T.goldText : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
+                        <span style={{ fontFamily: SANS, fontSize: FS.sm, color: co.is_free_tier ? T.goldText : T.muted }}>{co.is_free_tier ? 'Free' : 'Paid'}</span>
                         <button role="switch" aria-checked={!!co.is_free_tier} aria-label={`Free tier for ${co.name}`} disabled={saving === co.id} onClick={() => saving !== co.id && toggleFreeTier(co.id, co.is_free_tier)}
                           style={{ border:'none', padding:0, width: 38, height: 22, borderRadius: 11, background: co.is_free_tier ? T.gold : T.border, cursor: saving === co.id ? 'wait' : 'pointer', position: 'relative', transition: 'background 0.2s', opacity: saving === co.id ? 0.5 : 1, flexShrink: 0 }}>
                           <div style={{ position: 'absolute', top: 3, left: co.is_free_tier ? 19 : 3, width: 16, height: 16, borderRadius: 8, background: 'white', transition: 'left 0.2s' }}/>
@@ -207,7 +207,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                   )
                 })}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
                 {filtered.length} of {companies.length} accounts · Toggle free tier to exempt from billing
               </div>
             </>
@@ -218,7 +218,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
             <>
               <input value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search by email…"
-                style={{ width: '100%', maxWidth: 340, fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}/>
+                style={{ width: '100%', maxWidth: 340, fontFamily: SANS, fontSize: FS.sm, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}/>
               <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 100px 80px', gap: 8, padding: '10px 20px', background: T.bg, borderBottom: `1px solid ${T.border}` }}>
                   {['Email', 'Companies', 'Signed up', ''].map(h => (
@@ -252,7 +252,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                           <button
                             onClick={() => { setDeleteTarget({ id: u.id, email: u.email }); setDeletePassword(''); setDeleteError('') }}
                             title="Delete user"
-                            style={{ fontFamily: mono, fontSize: FS.xs, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}44`, background: 'transparent', color: T.red }}>
+                            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.red}44`, background: 'transparent', color: T.red }}>
                             Delete
                           </button>
                         )}
@@ -261,7 +261,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                   )
                 })}
               </div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginTop: 10 }}>{users.length} total users · Your own account cannot be deleted</div>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>{users.length} total users · Your own account cannot be deleted</div>
             </>
           )}
 
@@ -281,15 +281,15 @@ export function AdminSettingsPanel({ user, T, showToast }) {
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon name="alert-triangle" size={36} color={T.red}/></div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: T.red, marginBottom: 8 }}>Delete user account</h2>
-              <p style={{ fontFamily: mono, fontSize: 12, color: T.muted, lineHeight: 1.7 }}>
+              <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, lineHeight: 1.7 }}>
                 This will permanently delete <strong style={{ color: T.text }}>{deleteTarget.email}</strong> and all their data including companies, properties, deals and documents.
               </p>
-              <p style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8, fontWeight: 700 }}>This cannot be undone.</p>
+              <p style={{ fontFamily: SANS, fontSize: FS.base, color: T.red, marginTop: 8, fontWeight: 700 }}>This cannot be undone.</p>
             </div>
 
             {/* Password confirmation */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 8 }}>
+              <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display: 'block', marginBottom: 8 }}>
                 Enter your admin password to confirm
               </label>
               <input aria-label="Enter your admin password to confirm"
@@ -299,7 +299,7 @@ export function AdminSettingsPanel({ user, T, showToast }) {
                 onKeyDown={e => e.key === 'Enter' && handleDeleteUser()}
                 placeholder="Your password"
                 autoFocus
-                style={{ width: '100%', fontFamily: mono, fontSize: 13, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px' }}
+                style={{ width: '100%', fontFamily: SANS, fontSize: FS.base, background: T.bg, border: `1.5px solid ${deleteError ? T.red : T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px' }}
               />
               {deleteError && (
                 <div style={{ fontFamily: mono, fontSize: 11, color: T.red, marginTop: 8 }}>{deleteError}</div>
@@ -309,13 +309,13 @@ export function AdminSettingsPanel({ user, T, showToast }) {
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError('') }}
-                style={{ flex: 1, fontFamily: mono, fontSize: 12, padding: '11px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+                style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm, padding: '11px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
                 Cancel
               </button>
               <button
                 onClick={handleDeleteUser}
                 disabled={deleting || !deletePassword}
-                style={{ flex: 2, fontFamily: mono, fontSize: 12, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+                style={{ flex: 2, fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '11px 20px', borderRadius: 10, border: 'none', background: deleting || !deletePassword ? T.border : T.red, color: 'white', cursor: deleting || !deletePassword ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
                 {deleting ? 'Verifying & deleting…' : 'Permanently delete user'}
               </button>
             </div>

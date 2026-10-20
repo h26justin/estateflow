@@ -6,7 +6,7 @@
 // Shared by the Compliance surfaces — lives in its own file so the lazy
 // CompliancePage chunk and the main-bundle FeatureComponents don't drag
 // each other in.
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import { EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty, meesTargetLabel } from '../lib/complianceCatalogue'
 import { fmtDate } from '../lib/format'
 
@@ -20,13 +20,13 @@ export default function EpcBadge({ property, T }) {
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
       <span style={{ width: 18, height: 18, borderRadius: 5, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 11, fontWeight: 700 }}>{band}</span>
       {breach ? (
-        <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: T.red }}>
+        <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: T.red }}>
           {isLetProperty(property) ? 'below min E — cannot legally let' : 'below legal minimum E'}
         </span>
       ) : needsWork ? (() => {
         const label = meesTargetLabel()
         const overdue = label.startsWith('below')
-        return <span style={{ fontFamily: MONO, fontSize: FS.xs, fontWeight: 700, color: overdue ? T.red : T.amber }}>{label}</span>
+        return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color: overdue ? T.red : T.amber }}>{label}</span>
       })() : null}
     </span>
   )

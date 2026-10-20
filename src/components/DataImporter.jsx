@@ -11,7 +11,7 @@
 // api/dataImport.js. This file is only the review surface.
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -270,7 +270,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   const cell = { fontFamily: MONO, fontSize: 11, padding: '6px 8px', borderBottom: `1px solid ${T.border}`, verticalAlign: 'top' }
   const chip = (colour, text) => (
     <span style={{
-      fontFamily: MONO, fontSize: FS.xs, padding: '2px 6px', borderRadius: 4,
+      fontFamily: SANS, fontSize: FS.sm, padding: '2px 6px', borderRadius: 4,
       background: (T[colour] || T.muted) + '22', color: T[colour] || T.muted, whiteSpace: 'nowrap',
     }}>{text}</span>
   )
@@ -307,7 +307,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
             </div>
 
             {kind === 'rent' && !canEditAnyRent && (
-              <div style={{ marginBottom: 18, padding: '10px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8, fontFamily: MONO, fontSize: 11, color: T.muted }}>
+              <div style={{ marginBottom: 18, padding: '10px 12px', background: T.amber + '14', border: `1px solid ${T.amber}55`, borderRadius: 8, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
                 You have read-only access to rent in every company you can see, so a rent CSV can be reviewed here but not imported. Ask an admin for the Rent Tracker Editor role.
               </div>
             )}
@@ -321,7 +321,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               <div style={{ fontSize: 13, color: T.text, marginBottom: 4 }}>
                 {busy ? 'Reading…' : `Choose a ${kind} CSV`}
               </div>
-              <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
                 Columns are detected automatically. You confirm the mapping next.
               </div>
               <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
@@ -333,7 +333,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg2 || 'transparent',
               border: `1px solid ${T.border}`, borderRadius: 8, padding: 12, overflowX: 'auto', marginBottom: 18,
             }}>{TEMPLATES[kind]}</pre>
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, lineHeight: 1.7, marginBottom: 18 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, lineHeight: 1.7, marginBottom: 18 }}>
               Record rent <strong>gross</strong>, with agent fees as separate expenses. A row marked paid with no
               amount is rejected: reports treat a paid month with no figure as zero income, which quietly removes it
               from your P&amp;L. Dates may be YYYY-MM-DD or DD/MM/YYYY (read as day first), and a whole month may be
@@ -369,7 +369,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
         {/* ── STEP 2: column mapping ─────────────────────────────────── */}
         {step === 'map' && parsed && (
           <>
-            <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
               Detected mapping below. Anything left as "not used" is ignored.
             </div>
             <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
@@ -379,7 +379,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               ).map(field => (
                 <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ ...label, width: 110, flexShrink: 0 }}>{field.replace(/_/g, ' ')}</div>
-                  <select value={columns[field] || ''} style={{ flex: 1, fontFamily: MONO, fontSize: 11 }}
+                  <select value={columns[field] || ''} style={{ flex: 1, fontFamily: SANS, fontSize: FS.sm }}
                     onChange={e => setColumns(c => ({ ...c, [field]: e.target.value || undefined }))}>
                     <option value="">— not used —</option>
                     {parsed.headers.map(h => <option key={h} value={h}>{h}</option>)}
@@ -434,7 +434,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
 
             {s.error > 0 && (
               <div style={{ background: T.red + '14', border: `1px solid ${T.red}`, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ fontFamily: MONO, fontSize: 11, color: T.red, marginBottom: 8 }}>
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginBottom: 8 }}>
                   {s.error} row{s.error === 1 ? '' : 's'} cannot be imported. Nothing will be written while any row is
                   blocked. Assign a property where one is missing, or leave the row out and import the rest.
                 </div>
@@ -449,7 +449,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
               </div>
             )}
             {excluded.size > 0 && (
-              <div style={{ fontFamily: MONO, fontSize: 11, color: T.muted, marginBottom: 16 }}>
+              <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
                 {excluded.size} row{excluded.size === 1 ? '' : 's'} left out by hand and will not be imported.{' '}
                 <button className="btn btn-ghost" style={{ fontSize: FS.xs }} onClick={() => setExcluded(new Set())}>
                   Put them all back
@@ -492,7 +492,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                                 title={out ? 'Put this row back into the import' : 'Leave this row out of the import'}
                                 style={{
                                   background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                                  fontFamily: MONO, fontSize: FS.xs, textDecoration: 'underline',
+                                  fontFamily: SANS, fontSize: FS.sm, textDecoration: 'underline',
                                   color: out ? T.blue : T.muted,
                                 }}>
                                 {out ? 'put back' : 'leave out'}
@@ -503,7 +503,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                             <div>{r.propertyName || <span style={{ color: T.red }}>unmatched</span>}</div>
                             <div style={{ color: T.muted, fontSize: FS.xs }}>{r.label}</div>
                             {!r.propertyId && (
-                              <select value={overrides[r.line] || ''} style={{ fontFamily: MONO, fontSize: FS.xs, marginTop: 4, maxWidth: 200 }}
+                              <select value={overrides[r.line] || ''} style={{ fontFamily: SANS, fontSize: FS.sm, marginTop: 4, maxWidth: 200 }}
                                 onChange={e => setOverrides(o => ({ ...o, [r.line]: e.target.value || undefined }))}>
                                 <option value="">— pick a property —</option>
                                 {sortedProps.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -556,10 +556,10 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                 ))}
               </div>
             )}
-            <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 16 }}>
+            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 16 }}>
               This import can be reverted in one action from the first screen.
             </div>
-            <button className="btn btn-gold" style={{ fontSize: 12 }} onClick={onClose}>Close &amp; refresh</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={onClose}>Close &amp; refresh</button>
           </div>
         )}
       </div>
@@ -568,7 +568,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
       {step === 'map' && (
         <div style={{ padding: '16px 24px', borderTop: `1px solid ${T.border}`, flexShrink: 0, display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('upload')}>← Back</button>
+          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setStep('upload')}>← Back</button>
           <button className="btn btn-gold" onClick={goToPreview} disabled={missing.length > 0 || busy}
             style={{ fontSize: 11, ...((missing.length > 0 || busy) ? { opacity: 0.4, cursor: 'not-allowed' } : null) }}>
             {busy ? 'Loading…' : 'Review the plan →'}
@@ -588,7 +588,7 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
                   </span>
                 : s.error > 0 ? `${s.error} blocked row(s) must be fixed first` : 'Nothing to import'}
           </div>
-          <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setStep('map')}>← Back</button>
+          <button className="btn btn-ghost" style={{ fontSize: FS.sm }} onClick={() => setStep('map')}>← Back</button>
           {commitButton()}
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
@@ -95,17 +95,17 @@ export function AuditLogPanel({ user, companies, T }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.text, margin: 0, marginBottom: 4 }}>Activity audit log</h3>
-          <div style={{ fontFamily: mono, fontSize: 11, color: T.muted }}>A record of all significant actions taken in your account</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>A record of all significant actions taken in your account</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {companies.length > 1 && (
             <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}
-              style={{ fontFamily: mono, fontSize: 12, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '7px 12px' }}>
+              style={{ fontFamily: SANS, fontSize: FS.sm, background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '7px 12px' }}>
               <option value="">All companies</option>
               {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
-          <button onClick={exportAuditCSV} style={{ fontFamily: mono, fontSize: 11, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
+          <button onClick={exportAuditCSV} style={{ fontFamily: SANS, fontSize: FS.sm, padding: '7px 14px', borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, cursor: 'pointer' }}>
             ↓ Export
           </button>
         </div>
@@ -135,12 +135,12 @@ export function AuditLogPanel({ user, companies, T }) {
                 <div style={{ minWidth: 0 }}>
                   {/* inline-block + max-width so long labels truncate inside their column
                       instead of overlapping into the entity column */}
-                  <span style={{ display: 'inline-block', maxWidth: '100%', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }}
+                  <span style={{ display: 'inline-block', maxWidth: '100%', fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.color + '22', color: cfg.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', boxSizing: 'border-box' }}
                     title={log.action}>
                     {cfg.label}
                   </span>
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
+                <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
                   title={log.entity_name || log.entity_type || ''}>
                   {log.entity_name || log.entity_type || '—'}
                 </div>

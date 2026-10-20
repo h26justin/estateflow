@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../../lib/styles'
+import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { SkeletonRows } from '../../lib/Skeleton'
 
@@ -49,7 +49,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
       {/* GDPR Data Export */}
       <div style={sectionCard}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Your data</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
           Under GDPR you have the right to data portability and to request deletion of your account. Download your complete data at any time from the Backups tab, or request account deletion here.
         </div>
         <div style={{ background: T.bg, borderRadius: 10, padding: '14px 18px', marginBottom: 16, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.8 }}>
@@ -60,11 +60,11 @@ export function SecurityDataPanel({ user, T, showToast }) {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={() => window.open('mailto:hello@ownproperly.com?subject=Data deletion request', '_blank')}
-            style={{ fontFamily: mono, fontSize: 12, padding: '10px 22px', borderRadius: 8, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>
+            style={{ fontFamily: SANS, fontSize: FS.sm, padding: '10px 22px', borderRadius: 8, border: `1px solid ${T.red}44`, background: 'transparent', color: T.red, cursor: 'pointer' }}>
             Request account deletion
           </button>
         </div>
-        <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 12, lineHeight: 1.7 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 12, lineHeight: 1.7 }}>
           For account deletion requests, we'll respond within 30 days. Note: financial records may be retained for 7 years to comply with HMRC requirements.
         </div>
       </div>
@@ -72,13 +72,13 @@ export function SecurityDataPanel({ user, T, showToast }) {
       {/* Deleted properties trash */}
       <div style={sectionCard}>
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Recently deleted properties</div>
-        <div style={{ fontFamily: mono, fontSize: 12, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.text, lineHeight: 1.8, marginBottom: 16 }}>
           Deleted properties are kept here for 30 days before permanent removal. You can restore any property within that window.
         </div>
         {loadingTrash ? (
           <SkeletonRows rows={2} height={28}/>
         ) : deletedProps.length === 0 ? (
-          <div style={{ fontFamily: mono, fontSize: 12, color: T.muted, padding: '16px 0' }}>No deleted properties — your trash is empty.</div>
+          <div style={{ fontFamily: SANS, fontSize: FS.base, color: T.muted, padding: '16px 0' }}>No deleted properties — your trash is empty.</div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {deletedProps.map(p => (
@@ -91,7 +91,7 @@ export function SecurityDataPanel({ user, T, showToast }) {
                   </div>
                 </div>
                 <button onClick={() => handleRestore(p)} disabled={restoring === p.id}
-                  style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: T.green + '22', color: T.green, cursor: 'pointer' }}>
+                  style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: T.green + '22', color: T.green, cursor: 'pointer' }}>
                   {restoring === p.id ? '…' : '↩ Restore'}
                 </button>
               </div>
@@ -105,10 +105,10 @@ export function SecurityDataPanel({ user, T, showToast }) {
         <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Legal</div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <button onClick={() => window.dispatchEvent(new CustomEvent('ownproperly:show-privacy'))}
-            style={{ fontFamily: mono, fontSize: 12, color: T.goldText, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-            Privacy Policy →
+            style={{ fontFamily: SANS, fontSize: FS.sm, color: T.goldText, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            Privacy policy →
           </button>
-          <a href="mailto:hello@ownproperly.com" style={{ fontFamily: mono, fontSize: 12, color: T.muted, textDecoration: 'none' }}>
+          <a href="mailto:hello@ownproperly.com" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, textDecoration: 'none' }}>
             hello@ownproperly.com
           </a>
         </div>

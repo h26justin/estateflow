@@ -4,7 +4,7 @@
 //   2. historic / legacy arrears (opening balances less receipts allocated to arrears)
 //   3. payment-plan progress
 import { useState, useEffect } from 'react'
-import { MONO, FS } from '../lib/styles'
+import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
@@ -74,7 +74,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
     <div style={{ background: T.bg, borderRadius: 10, padding: '12px 14px' }}>
       <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{l}</div>
       <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color: c }}>{v}</div>
-      {sub && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 
@@ -82,7 +82,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
     <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Arrears and payment plan</div>
-        {canEdit && !form && !plan && <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={() => startPlan()}>+ Payment plan</button>}
+        {canEdit && !form && !plan && <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={() => startPlan()}>+ Payment plan</button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
         {tile(`Current rent outstanding · ${year}`, money(cs.outstanding), cs.outstanding > 0 ? T.red : T.green, `${money(cs.overdue)} overdue · ${money(cs.inWindow + cs.dueToday)} in payment window${cs.pendingReview > 0 ? ` · ${money(cs.pendingReview)} pending review` : ''}`)}
@@ -90,7 +90,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
         {prog ? tile('Payment plan', PLAN_STATUS_LABEL[prog.status], statusColor[prog.status], `${prog.instalmentsPaid} of ${prog.instalmentsTotal} instalments · ${money(prog.balance)} left`) : tile('Payment plan', 'None', T.muted, ar.balance > 0 ? 'arrears not on a plan' : '')}
       </div>
       {Number(property.arrears) > 0 && !ar.opening && (
-        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginBottom: 10 }}>
+        <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginBottom: 10 }}>
           The property card carries {money(property.arrears)} of arrears typed by hand. Record it as the opening arrears on the tenancy so it is tracked here.
         </div>
       )}
@@ -98,7 +98,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
       {prog && plan && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, padding: '2px 8px', borderRadius: 20, background: statusColor[prog.status] + '22', color: statusColor[prog.status], border: `1px solid ${statusColor[prog.status]}44` }}>{PLAN_STATUS_LABEL[prog.status]}</span>
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, padding: '2px 8px', borderRadius: 20, background: statusColor[prog.status] + '22', color: statusColor[prog.status], border: `1px solid ${statusColor[prog.status]}44` }}>{PLAN_STATUS_LABEL[prog.status]}</span>
             <span style={{ fontSize: 12, color: T.text }}>{money(plan.instalment_amount)} {PLAN_FREQUENCIES.find(f => f.v === plan.frequency)?.l.toLowerCase()} from {fmtDate(plan.start_date)}{plan.due_day ? `, due on the ${plan.due_day}` : ''}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
               {canEdit && <button className="btn" style={{ fontSize: FS.xs }} onClick={() => startPlan(plan)}>Edit</button>}
@@ -111,12 +111,12 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
           <div style={{ height: 8, background: T.bg, borderRadius: 4, overflow: 'hidden', marginBottom: 6 }}>
             <div style={{ width: `${prog.percent}%`, height: '100%', background: statusColor[prog.status] }} />
           </div>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
             <span>Opening {money(prog.opening)}</span><span>Paid to plan {money(prog.paid)}</span><span>Balance {money(prog.balance)}</span>
             <span>Expected by now {money(prog.expectedToDate)}</span>{prog.shortfall > 0 && <span style={{ color: T.red }}>Shortfall {money(prog.shortfall)}</span>}
             <span>Next due {fmtDate(prog.nextDue)}</span>
           </div>
-          {(plan.notes || plan.document_url) && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.goldText }}>agreement</a></>}</div>}
+          {(plan.notes || plan.document_url) && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 6 }}>{plan.notes}{plan.document_url && <> · <a href={plan.document_url} target="_blank" rel="noreferrer" style={{ color: T.goldText }}>agreement</a></>}</div>}
         </div>
       )}
 
@@ -132,13 +132,13 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
           </div>
           <div style={{ marginBottom: 10 }}><label>Notes</label><input aria-label="Notes" value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-gold" style={{ fontSize: 11 }} onClick={savePlan} disabled={saving}>{saving ? 'Saving…' : 'Save plan'}</button>
-            <button className="btn" style={{ fontSize: 11 }} onClick={() => setForm(null)}>Cancel</button>
+            <button className="btn btn-gold" style={{ fontSize: FS.sm }} onClick={savePlan} disabled={saving}>{saving ? 'Saving…' : 'Save plan'}</button>
+            <button className="btn" style={{ fontSize: FS.sm }} onClick={() => setForm(null)}>Cancel</button>
           </div>
         </div>
       )}
       {plans === null && <SkeletonList count={2} height={56}/>}
-      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.faint }}>Receipts allocated to "Historic arrears" reduce the balance and count towards the plan. Current rent is judged on its own.</div>
+      <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>Receipts allocated to "Historic arrears" reduce the balance and count towards the plan. Current rent is judged on its own.</div>
     </div>
   )
 }
