@@ -4,8 +4,8 @@ import { MONO, FS, SANS } from '../../lib/styles'
 import { healthBand } from '../../lib/dashboardKpis'
 
 // Portfolio health ring (redesign Dashboard hero). `score` is 0-100 (see
-// portfolioHealth in lib/dashboardKpis, which caps it when legal compliance
-// or arrears are outstanding); `reasons` are the short drivers shown under
+// portfolioHealth in lib/dashboardKpis, which caps it when compliance items
+// are expired, legal items are missing, or arrears are outstanding); `reasons` are the short drivers shown under
 // the label so the ring never reads "Good" without saying why not.
 export const HealthRing = memo(({ score, reasons = [] }) => {
   const { T } = useTheme()
