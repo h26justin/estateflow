@@ -3,8 +3,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
-import { EmptyState } from './ui'
+import { EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // Bank Inbox — review and match incoming transactions to rent payments.
@@ -109,9 +108,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const propertyForId = id => properties.find(p => p.id === id)
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 760 }} role="dialog" aria-modal="true" aria-labelledby="bank-inbox-title">
+    <Modal onClose={onClose} size="lg" labelledBy="bank-inbox-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div>
             <h2 id="bank-inbox-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
@@ -251,8 +248,6 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
             <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

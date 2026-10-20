@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { MONO, SANS, FS } from '../../lib/styles'
+import { SANS, FS, R } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import FocusTrap from '../../lib/FocusTrap'
-import { Icon } from '../../lib/icons'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
   const { T } = useTheme()
@@ -20,31 +18,19 @@ export default function DeleteConfirmModal({ propName, onClose, onConfirm }) {
   }
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{maxWidth:420}} role="dialog" aria-modal="true" aria-labelledby="delete-confirm-modal-title">
-        <div style={{padding:'28px 28px'}}>
-          <div aria-hidden="true" style={{display:'flex',justifyContent:'center',marginBottom:12,color:T.red}}><Icon name="alert-triangle" size={32}/></div>
-          <h2 id="delete-confirm-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text,textAlign:'center'}}>Delete Property?</h2>
-          <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:6,textAlign:'center'}}>You are about to permanently delete:</p>
-          <p style={{fontFamily:SANS,color:T.red,fontSize:FS.base,fontWeight:700,marginBottom:20,textAlign:'center'}}>{propName}</p>
-          <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:16,textAlign:'center'}}>This will delete all associated rent history, refurb data and notes. This cannot be undone.<br/><br/>Enter your password to confirm.</p>
-          <div style={{marginBottom:16}}>
-            <label>Your password</label>
-            <input aria-label="Your Password" type="password" value={password} onChange={e=>setPassword(e.target.value)}
-              onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
-              placeholder="••••••••" autoFocus/>
-          </div>
-          {error&&<div style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,background:T.red+'11',border:`1px solid ${T.red}44`,borderRadius:8,padding:'10px 14px',marginBottom:16}}>{error}</div>}
-          <div style={{display:'flex',gap:10}}>
-            <Button variant="ghost" style={{flex:1}} onClick={onClose}>Cancel</Button>
-            <Button variant="danger" style={{flex:1}} disabled={loading} onClick={handleConfirm}>
-              {loading?'Verifying…':'Delete Permanently'}
-            </Button>
-          </div>
-        </div>
-      </div>
-      </FocusTrap>
-    </div>
+    <Modal onClose={onClose} size="sm" title="Delete property?"
+      description={<>You are about to permanently delete <strong style={{color:T.text}}>{propName}</strong>, with all its rent history, refurb data and notes. This cannot be undone.</>}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="danger" disabled={loading} onClick={handleConfirm}>
+          {loading?'Verifying…':'Delete permanently'}
+        </Button>
+      </>}>
+      <label htmlFor="delete-confirm-password">Enter your password to confirm</label>
+      <input id="delete-confirm-password" type="password" value={password} onChange={e=>setPassword(e.target.value)}
+        onKeyDown={e=>e.key==='Enter'&&handleConfirm()}
+        placeholder="••••••••" autoFocus/>
+      {error&&<div role="alert" style={{fontFamily:SANS,fontSize:FS.sm,color:T.red,background:T.red+'11',border:`1px solid ${T.red}44`,borderRadius:R.sm,padding:'10px 14px',marginTop:12}}>{error}</div>}
+    </Modal>
   )
 }

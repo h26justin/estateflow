@@ -4,9 +4,9 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
-import FocusTrap from '../lib/FocusTrap'
-import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { isFormDirty } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
+import { Modal } from './ui'
 
 // ── BUILDING MORTGAGE EDITOR ─────────────────────────────────────────
 // Lets a user attach (or edit) ONE mortgage that covers ALL the units
@@ -175,9 +175,7 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
   }).format(n || 0)
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="building-mortgage-title">
+    <Modal onClose={onClose} size="lg" labelledBy="building-mortgage-title" isDirty={isDirty} confirmFn={confirmDiscard}>
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="building-mortgage-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             Building Mortgage
@@ -326,8 +324,6 @@ export default function BuildingMortgageModal({ properties, setProperties, onClo
             </>
           )}
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

@@ -3,9 +3,8 @@ import { useTheme } from '../lib/ThemeContext'
 import { MONO, SANS, FS } from '../lib/styles'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
-import FocusTrap from '../lib/FocusTrap'
-import { Button } from './ui'
-import { isFormDirty, safeOverlayClose } from '../lib/modalUtils'
+import { Button, Modal } from './ui'
+import { isFormDirty } from '../lib/modalUtils'
 import { useConfirm } from '../lib/ConfirmContext'
 import {
   GROUNDS, groundById, groundLabel, periodLabel, JURISDICTION_NOTE,
@@ -113,8 +112,6 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
 
   const [initialForm] = useState(form)
   const isDirty = step !== 'disclaimer' && (Object.keys(checklist).length > 0 || isFormDirty(initialForm, form))
-  const overlayClose = safeOverlayClose(isDirty, onClose, confirmDiscard)
-  const escapeClose  = () => overlayClose({ target: null, currentTarget: null })
 
   function update(patch) { setForm(f => ({ ...f, ...patch })) }
   function toggleGround(id) {
@@ -186,9 +183,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   // ─── DISCLAIMER STEP ─────────────────────────────────────────────────
   if (step === 'disclaimer') {
     return (
-      <div className="overlay" onClick={overlayClose}>
-        <FocusTrap onEscape={escapeClose}>
-        <div className="modal" style={{ maxWidth: 580 }} role="dialog" aria-modal="true" aria-labelledby="notice-disclaimer-title">
+      <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="md" labelledBy="notice-disclaimer-title">
           <div style={{ padding: '24px 28px 0' }}>
             <h2 id="notice-disclaimer-title" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, color: T.text }}>
               {meta.label} ({meta.form}): read before continuing
@@ -230,9 +225,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
               </button>
             </div>
           </div>
-        </div>
-        </FocusTrap>
-      </div>
+        </Modal>
     )
   }
 
@@ -243,9 +236,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     const hasNotApplicable = items.some(it => checklist[it.id] === 'na')
 
     return (
-      <div className="overlay" onClick={overlayClose}>
-        <FocusTrap onEscape={escapeClose}>
-        <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="notice-checklist-title">
+      <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="md" labelledBy="notice-checklist-title">
           <div style={{ padding: '22px 26px 0' }}>
             <h2 id="notice-checklist-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 6, color: T.text }}>
               Pre-flight checklist
@@ -305,9 +296,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
               </Button>
             </div>
           </div>
-        </div>
-        </FocusTrap>
-      </div>
+        </Modal>
     )
   }
 
@@ -323,9 +312,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   const g8 = ground8Threshold({ rentAmount: form.rent_amount, frequency: form.rent_frequency })
 
   return (
-    <div className="overlay" onClick={overlayClose}>
-      <FocusTrap onEscape={escapeClose}>
-      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="notice-form-title">
+    <Modal onClose={onClose} isDirty={isDirty} confirmFn={confirmDiscard} size="lg" labelledBy="notice-form-title">
         <div style={{ padding: '20px 26px 0' }}>
           <h2 id="notice-form-title" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
             {meta.label}: {meta.form} content
@@ -487,9 +474,7 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
             </div>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

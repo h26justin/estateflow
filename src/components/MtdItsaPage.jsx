@@ -7,11 +7,11 @@ import { fmt, fmtMoney2dp, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
-import FocusTrap from '../lib/FocusTrap'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
   buildQuarterlySummary, quarterStatusLabel,
 } from '../lib/mtdItsa'
+import { Modal } from './ui'
 
 // ── MTD ITSA PAGE ──────────────────────────────────────────────────
 // HMRC Making Tax Digital for Income Tax Self Assessment.
@@ -550,9 +550,7 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 function PreviewModal({ T, q, data, busy, onSave, onClose }) {
   const { summary, payments, expenses } = data
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 640 }} role="dialog" aria-modal="true" aria-labelledby="mtd-preview-title">
+    <Modal onClose={onClose} size="md" labelledBy="mtd-preview-title">
         <div style={{ padding: '22px 26px 0' }}>
           <h2 id="mtd-preview-title" style={{ fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 4 }}>
             Quarter {q.quarter} preview
@@ -597,9 +595,7 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
             </button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }
 

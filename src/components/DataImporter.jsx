@@ -15,14 +15,13 @@ import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
-import { safeOverlayClose } from '../lib/modalUtils'
-import FocusTrap from '../lib/FocusTrap'
 import { naturalCompare } from '../lib/addressUtils'
 import {
   parseCsv, detectColumns, buildRentPlan, buildExpensePlan, aliasesToLearn, summarise,
 } from '../lib/csvImport'
 import { pressable } from '../lib/pressable'
 import { Icon } from '../lib/icons'
+import { Modal } from './ui'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(n || 0)
 
@@ -606,13 +605,8 @@ export function DataImporter({ properties, companies, showToast, onClose, asPage
   )
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(dirty, onClose, confirm)}>
-      <FocusTrap onEscape={() => safeOverlayClose(dirty, onClose, confirm)({ target: null, currentTarget: null })}>
-        <div className="modal" style={{ maxWidth: 960, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-          role="dialog" aria-modal="true" aria-labelledby="data-importer-title">
+    <Modal onClose={onClose} size="xl" labelledBy="data-importer-title" isDirty={dirty} confirmFn={confirm} style={{maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
           {inner}
-        </div>
-      </FocusTrap>
-    </div>
+        </Modal>
   )
 }

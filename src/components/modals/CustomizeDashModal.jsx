@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
-import FocusTrap from '../../lib/FocusTrap'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 // ── CUSTOMIZE DASHBOARD WIDGETS MODAL ────────────────────────────────────
 // Combined dashboard customization modal. Two tabs: Sections (top-level
@@ -87,12 +86,7 @@ export default function CustomizeDashModal({
   const enabledCount = list.filter(w => w.enabled).length
 
   return (
-    <div className="overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
-      <FocusTrap onEscape={onClose}>
-      {/* Uses the stylesheet's .overlay/.modal (the previous inline override
-          fought the class with its own z-index/padding and disabled the
-          mobile bottom-sheet behaviour). */}
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="customize-dash-modal-title" style={{maxWidth:680,padding:24}}>
+    <Modal onClose={onClose} size="lg" labelledBy="customize-dash-modal-title" style={{padding:24}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <h2 id="customize-dash-modal-title" style={{fontSize:18,fontWeight:700,color:T.text,marginBottom:4}}>Customise dashboard</h2>
@@ -180,8 +174,6 @@ export default function CustomizeDashModal({
             </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

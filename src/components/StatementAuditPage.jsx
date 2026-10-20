@@ -11,7 +11,7 @@ import {
   NON_COUNTING_REVIEW, round2, lineAmountOf, feeCheck, applyFeeExpectations, describeFeeCheck,
 } from '../lib/statementAudit'
 import { pressable } from '../lib/pressable'
-import { EmptyState, Button } from './ui'
+import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
@@ -517,8 +517,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
 
   // ── Screens ──────────────────────────────────────────────────────────────
   const uploadOverlay = upload && (
-    <div className="overlay" style={{ alignItems: 'flex-start', paddingTop: 30 }} onClick={e => { if (e.target === e.currentTarget && ['done', 'failed'].includes(upload.step)) setUpload(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 1180, width: '96%', maxHeight: '92vh', overflow: 'auto', padding: 20 }}>
+    <Modal onClose={() => { if (['done', 'failed'].includes(upload.step)) setUpload(null) }} size={1180} ariaLabel="Upload statement" style={{ width: '96%', maxHeight: '92vh', padding: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <h2 style={{ fontSize: 17, fontWeight: 700, color: T.text }}>
@@ -645,13 +644,11 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
             </div>
           )
         })()}
-      </div>
-    </div>
+      </Modal>
   )
 
   const editOverlay = editLine && (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setEditLine(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
+    <Modal onClose={() => setEditLine(null)} size={820} ariaLabel={editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'} style={{ width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 10 }}>{editLine.id ? `Edit line ${editLine.draft.line_no}` : 'Add a line the parser missed'}</h3>
         {editLine.draft.original_values && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>Original values from the statement are kept: {Object.entries(editLine.draft.original_values).filter(([, v]) => v != null && v !== 0 && v !== '').map(([k, v]) => `${k} ${v}`).join(', ')}</div>}
         {lineForm(editLine.draft, d => setEditLine({ ...editLine, draft: d }))}
@@ -659,13 +656,11 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           <button className="btn btn-ghost" onClick={() => setEditLine(null)}>Cancel</button>
           <button className="btn btn-gold" onClick={saveEditLine} disabled={busy}>{editLine.id ? 'Review & save' : 'Add line'}</button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 
   const fixOverlay = fixError && (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) setFixError(null) }}>
-      <div className="modal card" role="dialog" aria-modal="true" style={{ maxWidth: 820, width: '96%', padding: 20 }}>
+    <Modal onClose={() => setFixError(null)} size={820} ariaLabel="Correct and re-process this entry" style={{ width: '96%', padding: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 6 }}>Correct and re-process this entry</h3>
         <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 10, whiteSpace: 'pre-wrap' }}>Reason: {fixError.reason}{fixError.raw ? `\nText on statement: ${fixError.raw}` : ''}</div>
         {lineForm(fixError.draft, d => setFixError({ ...fixError, draft: d }))}
@@ -673,8 +668,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           <button className="btn btn-ghost" onClick={() => setFixError(null)}>Cancel</button>
           <button className="btn btn-gold" onClick={saveErrorFix} disabled={busy}>Add to register &amp; clear error</button>
         </div>
-      </div>
-    </div>
+      </Modal>
   )
 
   return (

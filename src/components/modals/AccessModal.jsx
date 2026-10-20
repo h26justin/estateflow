@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { supabase } from '../../lib/supabase'
 import * as api from '../../lib/api'
-import FocusTrap from '../../lib/FocusTrap'
-import { EmptyState } from '../ui'
+import { EmptyState, Modal } from '../ui'
 import { SkeletonRows } from '../../lib/Skeleton'
 
 export default function AccessModal({ companies, userId, onClose, showToast }) {
@@ -94,9 +92,7 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(newEmail.trim().length > 0, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth:580}} role="dialog" aria-modal="true" aria-labelledby="access-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="access-modal-title" isDirty={newEmail.trim().length > 0} confirmFn={confirmDiscard}>
         <div style={{padding:'24px 28px 0'}}>
           <h2 id="access-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Company access control</h2>
           <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:20}}>Control which users can see which companies. Admins (like you) always see everything.</p>
@@ -153,8 +149,6 @@ export default function AccessModal({ companies, userId, onClose, showToast }) {
 
           <button className="btn btn-ghost" style={{width:'100%',marginTop:8,fontSize:FS.sm}} onClick={onClose}>Close</button>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

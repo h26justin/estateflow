@@ -4,8 +4,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
-import FocusTrap from '../lib/FocusTrap'
-import { EmptyState } from './ui'
+import { EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
 // Open Banking — live integration via Plaid UK.
@@ -141,9 +140,7 @@ export default function BankConnectionsModal({ onClose }) {
   const hasActive = rows.some(r => r.status === 'active')
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 680 }} role="dialog" aria-modal="true" aria-labelledby="bank-connections-title">
+    <Modal onClose={onClose} size="lg" labelledBy="bank-connections-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <h2 id="bank-connections-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
@@ -292,8 +289,6 @@ export default function BankConnectionsModal({ onClose }) {
             <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

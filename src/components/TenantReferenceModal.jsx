@@ -5,9 +5,8 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { fmt } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
-import FocusTrap from '../lib/FocusTrap'
 import { SkeletonList } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { EmptyState, Modal } from './ui'
 
 // Tenant referencing modal.
 //
@@ -111,9 +110,7 @@ export default function TenantReferenceModal({ property, onClose }) {
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <FocusTrap onEscape={onClose}>
-      <div className="modal" style={{ maxWidth: 620 }} role="dialog" aria-modal="true" aria-labelledby="tenant-reference-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="tenant-reference-modal-title">
         <div style={{ padding: '22px 26px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <h2 id="tenant-reference-modal-title" style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.02em', color: T.text }}>
@@ -245,8 +242,6 @@ export default function TenantReferenceModal({ property, onClose }) {
             <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: FS.sm, padding: '9px 18px' }}>Close</button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

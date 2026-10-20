@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
-import FocusTrap from '../../lib/FocusTrap'
 import { Icon } from '../../lib/icons'
 import { Skeleton } from '../../lib/Skeleton'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 function PreviewRow({ label, value, T, mono }) {
   const dim = !value
@@ -58,9 +56,7 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{ maxWidth: 480 }} role="dialog" aria-modal="true" aria-labelledby="delete-company-modal-title">
+    <Modal onClose={onClose} size="md" labelledBy="delete-company-modal-title" isDirty={isDirty} confirmFn={confirmDiscard}>
         <div style={{ padding: '24px 28px 0' }}>
           <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: T.red }}><Icon name="trash" size={32}/></div>
           <h2 id="delete-company-modal-title" style={{ fontSize: 18, fontWeight: 700, textAlign: 'center', marginBottom: 6, color: T.text }}>
@@ -109,8 +105,6 @@ export default function DeleteCompanyModal({ company, userId, onClose, onDeleted
             </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

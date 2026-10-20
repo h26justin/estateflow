@@ -2,11 +2,9 @@ import { useState } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
-import { safeOverlayClose } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { fmt } from '../../lib/format'
-import FocusTrap from '../../lib/FocusTrap'
-import { Button } from '../ui'
+import { Button, Modal } from '../ui'
 
 export default function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const confirmDiscard = useConfirm()
@@ -29,9 +27,7 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
   }
 
   return (
-    <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-      <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-      <div className="modal" style={{maxWidth:460}} role="dialog" aria-modal="true" aria-labelledby="sell-property-modal-title">
+    <Modal onClose={onClose} size="sm" labelledBy="sell-property-modal-title" isDirty={isDirty} confirmFn={confirmDiscard}>
         <div style={{padding:'28px 28px'}}>
           <h2 id="sell-property-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:8,color:T.text}}>Mark as sold</h2>
           <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm,marginBottom:20}}>{property?.name}</p>
@@ -75,8 +71,6 @@ export default function SellPropertyModal({ property, onClose, onConfirm, busy }
             </Button>
           </div>
         </div>
-      </div>
-      </FocusTrap>
-    </div>
+      </Modal>
   )
 }

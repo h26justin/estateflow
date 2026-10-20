@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { useTheme } from '../../lib/ThemeContext'
-import { isFormDirty, safeOverlayClose } from '../../lib/modalUtils'
+import { isFormDirty } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
-import FocusTrap from '../../lib/FocusTrap'
 import { pressable } from '../../lib/pressable'
 import { LegalOwnerChoice } from '../CompanyLegalOwner'
 import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
+import { Modal } from '../ui'
 
 export default function CompanyModal({ onClose, onSave }) {
   const confirmDiscard = useConfirm()
@@ -48,9 +48,7 @@ export default function CompanyModal({ onClose, onSave }) {
     return () => { cancelled = true; clearTimeout(handle) }
   }, [form.name])
 
-  return <div className="overlay" onClick={safeOverlayClose(isDirty, onClose, confirmDiscard)}>
-    <FocusTrap onEscape={() => safeOverlayClose(isDirty, onClose, confirmDiscard)({ target: null, currentTarget: null })}>
-    <div className="modal" style={{maxWidth:480}} role="dialog" aria-modal="true" aria-labelledby="company-modal-title">
+  return <Modal onClose={onClose} size="md" labelledBy="company-modal-title" isDirty={isDirty} confirmFn={confirmDiscard}>
       <div style={{padding:'24px 28px 0'}}>
         <h2 id="company-modal-title" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',marginBottom:4,color:T.text}}>Add company</h2>
         <p style={{fontFamily:SANS,color:T.muted,fontSize:FS.base,marginBottom:20}}>Create a new company to group properties under.</p>
@@ -123,7 +121,5 @@ export default function CompanyModal({ onClose, onSave }) {
           </button>
         </div>
       </form>
-    </div>
-    </FocusTrap>
-  </div>
+    </Modal>
 }
