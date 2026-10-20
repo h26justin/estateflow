@@ -251,7 +251,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:mono,fontSize:11,color:T.text}}>{u.email}</span>
                   <div style={{display:'flex',gap:4}}>
                     <Button variant="secondary" size="sm" style={{color:T.green,borderColor:T.green}} onClick={()=>addUserOverride(u.id, true)}>Force ON</Button>
-                    <Button variant="secondary" size="sm" style={{color:T.red,borderColor:T.red}} onClick={()=>addUserOverride(u.id, false)}>Force OFF</Button>
+                    <Button variant="secondary" size="sm" destructive onClick={()=>addUserOverride(u.id, false)}>Force OFF</Button>
                   </div>
                 </div>
               ))}
@@ -260,7 +260,7 @@ function FlagOverridesModal({ flag, users, companies, onClose, T, showToast }) {
                   <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text}}>{c.name}</span>
                   <div style={{display:'flex',gap:4}}>
                     <Button variant="secondary" size="sm" style={{color:T.green,borderColor:T.green}} onClick={()=>addCompanyOverride(c.id, true)}>Force ON</Button>
-                    <Button variant="secondary" size="sm" style={{color:T.red,borderColor:T.red}} onClick={()=>addCompanyOverride(c.id, false)}>Force OFF</Button>
+                    <Button variant="secondary" size="sm" destructive onClick={()=>addCompanyOverride(c.id, false)}>Force OFF</Button>
                   </div>
                 </div>
               ))}

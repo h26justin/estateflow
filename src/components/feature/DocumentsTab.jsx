@@ -326,43 +326,27 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                       {/* Actions */}
                       <div style={{display:'flex',gap:6,flexShrink:0,flexWrap:'wrap'}}>
                         {ocrEligible && isAdmin && status !== 'processing' && (
-                          <button onClick={runOcr} disabled={ocrRunning === doc.id}
-                            style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 10px',
-                              background: status === 'completed' ? T.surface : T.gold+'22',
-                              color: status === 'completed' ? T.muted : T.goldText,
-                              border: `1px solid ${T.gold}44`,
-                              borderRadius:8,cursor: ocrRunning === doc.id ? 'wait' : 'pointer',opacity: ocrRunning === doc.id ? 0.6 : 1}}>
+                          <Button variant="secondary" size="sm" onClick={runOcr} disabled={ocrRunning === doc.id} style={{opacity: ocrRunning === doc.id ? 0.6 : 1}}>
                             {ocrRunning === doc.id ? 'Extracting…' : status === 'completed' ? 'Re-extract' : 'Extract'}
-                          </button>
+                          </Button>
                         )}
                         {status === 'completed' && (
-                          <button onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}
-                            style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 10px',
-                              background:T.surface,color:T.text,border:`1px solid ${T.border}`,
-                              borderRadius:8,cursor:'pointer'}}>
+                          <Button variant="secondary" size="sm" onClick={()=>setExpandedOcrId(isExpanded ? null : doc.id)}>
                             {isExpanded ? '▲ Hide' : '▼ View fields'}
-                          </button>
+                          </Button>
                         )}
-                        <button onClick={async()=>{
+                        <Button variant="secondary" size="sm" onClick={async()=>{
                           try {
                             const url = await api.getDocumentSignedUrl(doc.file_path)
                             if (url) window.open(url, '_blank', 'noopener,noreferrer')
                             else showToast('Could not generate view link', 'error')
                           } catch(e) { showToast('Could not view: ' + (e.message||'unknown'), 'error') }
-                        }}
-                          style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',
-                            background:T.surface,color:T.goldText,border:`1px solid ${T.gold}44`,
-                            borderRadius:8,cursor:'pointer'}}>
+                        }}>
                           View
-                        </button>
-                        {isAdmin&&<button onClick={()=>handleDelete(doc)}
-                          style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 10px',
-                            background:T.surface,color:T.muted,border:`1px solid ${T.border}`,
-                            borderRadius:8,cursor:'pointer',transition:'color 0.15s, border-color 0.15s'}}
-                          onMouseEnter={e=>{e.currentTarget.style.color=T.red;e.currentTarget.style.borderColor=T.red+'66'}}
-                          onMouseLeave={e=>{e.currentTarget.style.color=T.muted;e.currentTarget.style.borderColor=T.border}}>
+                        </Button>
+                        {isAdmin&&<Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(doc)}>
                           Delete
-                        </button>}
+                        </Button>}
                       </div>
                     </div>
 

@@ -1160,7 +1160,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           {form.status === 'completed' && (
             <Button variant="primary" size="sm" onClick={()=>onConvert&&onConvert(form)}>Convert to property →</Button>
           )}
-          <Button variant="secondary" size="sm" onClick={onDelete} style={{color:T.red, borderColor:T.red+'44'}}>Delete</Button>
+          <Button variant="secondary" size="sm" onClick={onDelete} destructive>Delete</Button>
         </div>
       </div>
 
@@ -2038,7 +2038,7 @@ function ContactsTab({ dealId, userId, showToast }) {
                 </div>
                 <div style={{display:'flex',gap:8}}>
                   <Button variant="secondary" size="sm" onClick={()=>startEdit(c)}>Edit</Button>
-                  <Button variant="secondary" size="sm" onClick={()=>remove(c.id)} style={{border:`1px solid ${T.red}44`, color:T.red}}>Remove</Button>
+                  <Button variant="secondary" size="sm" onClick={()=>remove(c.id)} destructive>Remove</Button>
                 </div>
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
@@ -2363,7 +2363,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
                     </button>
                     <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:2}}>{meta(doc)}</div>
                   </div>
-                  <Button variant="secondary" size="sm" onClick={() => remove(doc)} style={{borderColor:T.red+'44', color:T.red}}>Remove</Button>
+                  <Button variant="secondary" size="sm" onClick={() => remove(doc)} destructive>Remove</Button>
                 </div>
               ))}
             </div>
@@ -2381,7 +2381,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
             </div>
             <div style={{display:'flex', gap:8, alignItems:'center', flexShrink:0}}>
               <Button variant="secondary" size="sm" onClick={() => openOriginal(current)}>Open full size</Button>
-              <Button variant="secondary" size="sm" onClick={() => remove(current)} style={{borderColor:T.red+'44', color:T.red}}>Remove</Button>
+              <Button variant="secondary" size="sm" onClick={() => remove(current)} destructive>Remove</Button>
               <Button variant="ghost" size="sm" icon="x" onClick={() => setLightbox(null)} aria-label="Close photo viewer" />
             </div>
           </div>

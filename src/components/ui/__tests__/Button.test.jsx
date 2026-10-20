@@ -67,4 +67,11 @@ describe('Button', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
+
+  it('destructive adds the red modifier to quiet variants only', () => {
+    const { rerender } = render(<Button variant="secondary" destructive>Delete</Button>)
+    expect(screen.getByRole('button')).toHaveClass('ui-btn--secondary', 'ui-btn--destructive')
+    rerender(<Button variant="danger" destructive>Delete</Button>)
+    expect(screen.getByRole('button')).not.toHaveClass('ui-btn--destructive')
+  })
 })

@@ -263,6 +263,9 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 .ui-btn--ghost:hover:not(:disabled) { background: var(--card); color: var(--text); }
 .ui-btn--danger, .btn-danger { background: var(--red); color: var(--on-danger); border-color: var(--red); }
 .ui-btn--danger:hover:not(:disabled), .btn-danger:hover:not(:disabled) { filter: brightness(0.92); }
+.ui-btn--destructive { color: var(--red); }
+.ui-btn--secondary.ui-btn--destructive { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+.ui-btn--destructive:hover:not(:disabled) { color: var(--red); border-color: var(--red); background: color-mix(in srgb, var(--red) 8%, transparent); }
 .ui-spin { display: inline-block; width: 1em; height: 1em; flex-shrink: 0; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
 .ui-field { display: flex; flex-direction: column; min-width: 0; }

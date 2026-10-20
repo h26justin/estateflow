@@ -73,7 +73,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   {canEdit && !isEditing && <Button size="sm" onClick={() => startEdit(r)}>Allocate</Button>}
                   {canEdit && !isEditing && <Button variant="secondary" size="sm" onClick={() => markOk(r)}>Looks right</Button>}
-                  {canEdit && !isEditing && /duplicate/i.test(r.review_reason || '') && <Button variant="secondary" size="sm" style={{ color: T.red }} onClick={() => remove(r)}>Delete duplicate</Button>}
+                  {canEdit && !isEditing && /duplicate/i.test(r.review_reason || '') && <Button variant="secondary" size="sm" destructive onClick={() => remove(r)}>Delete duplicate</Button>}
                 </div>
               </div>
               <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.amber, marginTop: 4 }}>{r.review_reason || 'Needs review'}</div>
@@ -88,7 +88,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
                         ? <select value={a.rent_payment_id || ''} onChange={e => setAlloc(i, 'rent_payment_id', e.target.value)}><option value="">Choose…</option>{periodsFor(p).map(x => <option key={x.id} value={x.id}>{x.month_label} · {fmtDate(x.period_start)} → {fmtDate(x.period_end)} · {x.status}</option>)}</select>
                         : <input value={a.notes || ''} onChange={e => setAlloc(i, 'notes', e.target.value)} placeholder="optional note" />}</div>
                       <div><label>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={a.amount} onChange={v => setAlloc(i, 'amount', v)} /></div>
-                      <Button variant="ghost" size="sm" icon="x" aria-label="Remove split" style={{ color: T.red }} onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1} />
+                      <Button variant="ghost" size="sm" icon="x" aria-label="Remove split" destructive onClick={() => setEditing(e => ({ ...e, allocations: e.allocations.filter((_, j) => j !== i) }))} disabled={editing.allocations.length === 1} />
                     </div>
                   ))}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -8,6 +8,7 @@
 //   <Button variant="secondary" size="sm">Cancel</Button>      outline
 //   <Button variant="ghost" icon="plus">Add row</Button>       text-style
 //   <Button variant="danger" loading={deleting}>Delete</Button>
+//   <Button variant="secondary" size="sm" destructive>Delete</Button>  red outline
 //   <Button variant="ghost" icon="x" aria-label="Close" />     icon-only
 //   <Button type="submit">Save</Button>                        form submit
 //
@@ -19,6 +20,9 @@
 //   icon      Icon name from src/lib/icons.jsx, rendered before the label
 //   iconOnly  bool — square button whose child is a glyph; implied when `icon`
 //             is set and there are no children. Needs an aria-label.
+//   destructive bool — red text/border on secondary or ghost: the quiet
+//             destructive action in a row ("Delete", "Remove"). Use
+//             variant="danger" for the confirming action in a dialog.
 //   fullWidth bool
 //   type      defaults to 'button' (not 'submit') so it never submits a form by
 //             accident — pass type="submit" for a form's submit button.
@@ -36,6 +40,7 @@ export default function Button({
   loading = false,
   icon,
   iconOnly,
+  destructive = false,
   fullWidth = false,
   type = 'button',
   disabled,
@@ -51,7 +56,7 @@ export default function Button({
     // eslint-disable-next-line no-console
     console.warn('[Button] icon-only buttons need an aria-label')
   }
-  const cls = ['ui-btn', `ui-btn--${v}`, `ui-btn--${s}`, square && 'ui-btn--icon', fullWidth && 'ui-btn--full', loading && 'is-loading', className]
+  const cls = ['ui-btn', `ui-btn--${v}`, `ui-btn--${s}`, square && 'ui-btn--icon', destructive && v !== 'danger' && 'ui-btn--destructive', fullWidth && 'ui-btn--full', loading && 'is-loading', className]
     .filter(Boolean).join(' ')
   return (
     <button
