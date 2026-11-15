@@ -45,6 +45,8 @@
   /* Derived */
   --on-gold: #1C2830;          /* text on a gold fill (same in both themes) */
   --on-danger: #FFFFFF;
+  --danger-fill: #B8392D;      /* Danger button fill — white on it 5.7:1 */
+  --input-border: #8A877F;     /* input boundary: 3.6:1 on surface, 3.4 on card, 3.2 on bg (WCAG 1.4.11) */
   --gold-hover: #B8902Fdd;     /* gold fill, hover */
   --gold-border: #B8902F55;    /* gold-tinted hover border */
   --shimmer: #E4E1D999;        /* skeleton sweep */
@@ -70,6 +72,11 @@
   --purple: #B98AD0;
   --on-gold: #1C2830;
   --on-danger: #FFFFFF;
+  /* --red (#E06A5E) is a text colour here; as a fill, white on it is only
+     3.3:1. The Danger button keeps the deep red of the light theme instead
+     (white 5.7:1), like the notification badge. */
+  --danger-fill: #B8392D;
+  --input-border: #66737F;     /* 3.5:1 on surface, 3.2 on card, 3.8 on bg (WCAG 1.4.11) */
   --gold-hover: #CBA64Edd;
   --gold-border: #CBA64E55;
   --shimmer: #28333D99;
@@ -103,10 +110,17 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 :where(.ef-app)::-webkit-scrollbar, :where(.ef-app) ::-webkit-scrollbar { width: 5px; }
 :where(.ef-app)::-webkit-scrollbar-track, :where(.ef-app) ::-webkit-scrollbar-track { background: var(--bg); }
 :where(.ef-app)::-webkit-scrollbar-thumb, :where(.ef-app) ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-:where(.ef-app) input, :where(.ef-app) select, :where(.ef-app) textarea { font-family: var(--font-sans); background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 12px; width: 100%; font-size: 13px; outline: none; transition: border-color 0.2s; }
+/* Checkboxes, radios, ranges and colour pickers keep their native box: the
+   text-field look (full width, padding, border) is only for typed fields. */
+:where(.ef-app) input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"])), :where(.ef-app) select, :where(.ef-app) textarea { font-family: var(--font-sans); background: var(--surface); border: 1px solid var(--input-border); color: var(--text); border-radius: 8px; padding: 8px 12px; width: 100%; font-size: 13px; outline: none; transition: border-color 0.2s; }
 :where(.ef-app) input:is([type="number"], [type="date"], [type="month"], [type="time"], [inputmode="decimal"], [inputmode="numeric"]) { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 :where(.ef-app) input:focus, :where(.ef-app) select:focus, :where(.ef-app) textarea:focus { border-color: var(--gold); }
 :where(.ef-app) :focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
+/* Form fields: many call sites style inputs inline (border, background and,
+   historically, outline: none), and an inline style beats any class rule. The
+   ring is an outline, which an inline border does not paint over; !important
+   is what lets it win over a leftover inline outline: none. */
+:where(.ef-app) :is(input, select, textarea):focus-visible { outline: 2px solid var(--gold-text) !important; outline-offset: 1px !important; }
 :where(.ef-app) select option { background: var(--surface); }
 :where(.ef-app) label { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0; color: var(--muted); display: block; margin-bottom: 5px; }
 
@@ -170,7 +184,7 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
   :where(.ef-app) main { padding: 16px 12px 90px !important; }
   .tab { padding: 6px 10px !important; font-size: 12px !important; }
   .card { border-radius: 10px !important; }
-  :where(.ef-app) input, :where(.ef-app) select, :where(.ef-app) textarea { font-size: 16px !important; }
+  :where(.ef-app) input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"])), :where(.ef-app) select, :where(.ef-app) textarea { font-size: 16px !important; }
 
   /* Modals become a full-width bottom sheet. Tall content grows to (almost)
      full screen and scrolls inside the sheet. Applies to <Modal> (src/lib/
@@ -263,7 +277,7 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 .ui-btn--secondary:hover:not(:disabled), .btn:hover:not(:disabled):not(.btn-gold):not(.btn-danger), .btn-ghost:hover:not(:disabled) { border-color: var(--gold); color: var(--gold-text); }
 .ui-btn--ghost { background: transparent; color: var(--muted); }
 .ui-btn--ghost:hover:not(:disabled) { background: var(--card); color: var(--text); }
-.ui-btn--danger, .btn-danger { background: var(--red); color: var(--on-danger); border-color: var(--red); }
+.ui-btn--danger, .btn-danger { background: var(--danger-fill); color: var(--on-danger); border-color: var(--danger-fill); }
 .ui-btn--danger:hover:not(:disabled), .btn-danger:hover:not(:disabled) { filter: brightness(0.92); }
 .ui-btn--destructive { color: var(--red); }
 .ui-btn--secondary.ui-btn--destructive { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
@@ -289,6 +303,18 @@ html:where(.ef-app), :where(.ef-app) body, :where(.ef-app) #root { width: 100%; 
 .ui-empty__title { font-family: var(--font-sans); font-size: var(--fs-md); font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
 .ui-empty__body { font-family: var(--font-sans); font-size: var(--fs-base); line-height: 1.6; color: var(--muted); max-width: 42ch; }
 .ui-empty__action { margin-top: var(--sp-2); }
+/* <ErrorState>: the EmptyState layout with a red icon. */
+.ui-error .ui-empty__icon { color: var(--red); }
+
+/* <Switch>: 44×24 track, 18px white knob — the size most hand-rolled toggles
+   use. The off track is --faint (not --border) so it stays visible against
+   the surface (WCAG 1.4.11); the knob's position carries the state. */
+.ui-switch { position: relative; flex-shrink: 0; width: 44px; height: 24px; padding: 0; border: none; border-radius: 12px; background: var(--faint); cursor: pointer; transition: background-color 0.2s; }
+.ui-switch.is-on { background: var(--gold); }
+.ui-switch:disabled { cursor: not-allowed; opacity: 0.55; }
+.ui-switch:focus-visible { outline: 2px solid var(--gold-text); outline-offset: 2px; }
+.ui-switch__knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: left 0.2s; }
+.ui-switch.is-on .ui-switch__knob { left: 23px; }
 
 /* Phones: footer actions share the row full-width (primary still last). */
 @media (max-width: 480px) {

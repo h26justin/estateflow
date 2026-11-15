@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { VIEW_LABELS } from '../../lib/nav'
 import { supabase } from '../../lib/supabase'
 import { ChromeLogo } from '../Logo'
@@ -7,6 +8,48 @@ import NotificationCentre from '../NotificationCentre'
 import PropertySearchBar from '../PropertySearchBar'
 import { contentMaxWidth } from '../../lib/layout'
 import { Button } from '../ui'
+
+// Dropdown body for the header's "New" and "⋯" menus, with the keyboard
+// behaviour of ActionMenu: focus moves to the first item on open, Up/Down
+// (and Home/End) move between items, Escape closes and returns focus to the
+// trigger, Tab closes and lets focus move on.
+function HeaderMenu({ label, onClose, triggerRef, style, children }) {
+  const menuRef = useRef(null)
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  useEffect(() => {
+    menuRef.current?.querySelector('[role="menuitem"]')?.focus()
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      onCloseRef.current()
+      triggerRef?.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [triggerRef])
+  function onKeyDown(e) {
+    if (e.key === 'Tab') { onCloseRef.current(); return }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const els = [...(menuRef.current?.querySelectorAll('[role="menuitem"]') || [])]
+    if (!els.length) return
+    const i = els.indexOf(document.activeElement)
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? els.length - 1
+      : e.key === 'ArrowDown' ? (i + 1) % els.length
+      : (i - 1 + els.length) % els.length
+    els[next].focus()
+  }
+  return <div role="menu" aria-label={label} ref={menuRef} onKeyDown={onKeyDown} style={style}>{children}</div>
+}
+
+// Menu item background on hover and keyboard focus alike.
+const highlight = (T) => ({
+  onMouseEnter: e => { e.currentTarget.style.background = T.bg },
+  onMouseLeave: e => { e.currentTarget.style.background = 'none' },
+  onFocus: e => { e.currentTarget.style.background = T.bg },
+  onBlur: e => { e.currentTarget.style.background = 'none' },
+})
 
 // Sticky top bar: logo/breadcrumb, search, notifications, quick-add menu
 // and the account controls. Moved verbatim from App.jsx; every value it
@@ -18,6 +61,8 @@ export function AppHeader({
   setDetailTab, showToast, isPlatformAdmin, setShowAdmin, setShowMoreMenu, showMoreMenu,
   setShowPalette, openSettingsTab, setShowDrawer,
 }) {
+  const newBtnRef = useRef(null)
+  const moreBtnRef = useRef(null)
   return (
     <header role='banner' style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'0 16px',position:'sticky',top:0,zIndex:100,width:'100%'}}>
       <div style={{maxWidth:contentMaxWidth(view),margin:'0 auto',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
@@ -75,7 +120,7 @@ export function AppHeader({
         <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <Button variant="primary" size="sm" icon="plus" aria-haspopup="menu" aria-expanded={showNewMenu} onClick={()=>setShowNewMenu(m=>!m)}>
+              <Button ref={newBtnRef} variant="primary" size="sm" icon="plus" aria-haspopup="menu" aria-expanded={showNewMenu} onClick={()=>setShowNewMenu(m=>!m)}>
                 New
               </Button>
               {showNewMenu&&(
@@ -83,7 +128,8 @@ export function AppHeader({
                   {/* Backdrop to close */}
                   <div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowNewMenu(false)}/>
                   {/* Dropdown */}
-                  <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
+                  <HeaderMenu label="New" onClose={()=>setShowNewMenu(false)} triggerRef={newBtnRef}
+                    style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
                     background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                     padding:'6px',minWidth:210,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                     {[
@@ -112,18 +158,17 @@ export function AppHeader({
                         else { setView('properties'); showToast(activeProperties.length ? 'Pick a property to log a job on' : 'Add a property first', activeProperties.length ? 'success' : 'error') }
                       }},
                     ].map((item,i,arr)=>(
-                      <button key={item.label} onClick={()=>{item.action();setShowNewMenu(false)}}
+                      <button key={item.label} type="button" role="menuitem" onClick={()=>{item.action();setShowNewMenu(false)}}
                         style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',
                           background:'none',border:'none',borderRadius:8,cursor:'pointer',textAlign:'left',
                           borderBottom:i<arr.length-1?`1px solid ${T.border}`:'none',
                           transition:'background 0.15s'}}
-                        onMouseEnter={e=>e.currentTarget.style.background=T.bg}
-                        onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                        {...highlight(T)}>
                         <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={16}/>:<span style={{fontSize:16}}>{item.icon}</span>}</span>
                         <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,fontWeight:500}}>{item.label}</span>
                       </button>
                     ))}
-                  </div>
+                  </HeaderMenu>
                 </>
               )}
             </div>
@@ -176,13 +221,14 @@ export function AppHeader({
               daily-use pages. */}
           {!isMobile&&(
             <div style={{position:'relative'}}>
-              <Button variant="secondary" size="sm" onClick={()=>setShowMoreMenu(m=>!m)} aria-label="More options" aria-expanded={showMoreMenu}>
+              <Button ref={moreBtnRef} variant="secondary" size="sm" onClick={()=>setShowMoreMenu(m=>!m)} aria-label="More options" aria-haspopup="menu" aria-expanded={showMoreMenu}>
                 ⋯
               </Button>
               {showMoreMenu&&(
                 <>
                   <div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowMoreMenu(false)}/>
-                  <div role="menu" style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
+                  <HeaderMenu label="More options" onClose={()=>setShowMoreMenu(false)} triggerRef={moreBtnRef}
+                    style={{position:'absolute',right:0,top:'calc(100% + 6px)',zIndex:200,
                     background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,
                     padding:'6px',minWidth:180,boxShadow:'0 8px 32px rgba(0,0,0,0.18)'}}>
                     {[
@@ -192,21 +238,20 @@ export function AppHeader({
                       {icon:'message',label:'Feedback',  action:()=>{setView('feedback');setSelectedId(null)}},
                       {icon:'log-out', label:'Sign out',  action:()=>supabase.auth.signOut(), divider:true},
                     ].map((item,i,arr)=>(
-                      <button key={item.label} role="menuitem"
+                      <button key={item.label} type="button" role="menuitem"
                         onClick={()=>{item.action();setShowMoreMenu(false)}}
                         style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'10px 14px',
                           background:'none',border:'none',borderRadius:8,cursor:'pointer',textAlign:'left',
                           borderTop:item.divider?`1px solid ${T.border}`:'none',
                           marginTop:item.divider?4:0,paddingTop:item.divider?12:'10px',
                           transition:'background 0.15s'}}
-                        onMouseEnter={e=>e.currentTarget.style.background=T.bg}
-                        onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                        {...highlight(T)}>
                         <span style={{width:22,display:'flex',justifyContent:'center',color:T.muted}}>{ICON_NAMES.includes(item.icon)?<Icon name={item.icon} size={15}/>:<span style={{fontSize:14}}>{item.icon}</span>}</span>
                         <span style={{flex:1,fontFamily:SANS,fontSize:FS.sm,color:T.text,fontWeight:500}}>{item.label}</span>
                         {item.hint && <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 5px'}}>{item.hint}</span>}
                       </button>
                     ))}
-                  </div>
+                  </HeaderMenu>
                 </>
               )}
             </div>

@@ -4,16 +4,19 @@ import { ChromeLogo } from '../Logo'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon, ICON_NAMES } from '../../lib/icons'
 import { Button } from '../ui'
+import FocusTrap from '../../lib/FocusTrap'
 
 // Mobile navigation drawer (opened from the bottom nav's More button).
 // Moved verbatim from App.jsx; every value it reads is passed in explicitly.
+// FocusTrap keeps Tab inside the drawer, focuses its first control (Close),
+// closes it on Escape and hands focus back to whatever opened it.
 export function MobileDrawer({
   setShowDrawer, T, setShowPalette, navItems, view, setView, setSelectedId, setEditProp,
   setShowAddProp, openWorkflow, setShowAddCo, setShowReceiptScan, activeProperties, setDetailTab,
   showToast, openSettingsTab,
 }) {
   return (
-    <div style={{position:'fixed',inset:0,zIndex:300,display:'flex'}}>
+    <FocusTrap onEscape={()=>setShowDrawer(false)} style={{position:'fixed',inset:0,zIndex:300,display:'flex',width:'auto',justifyContent:'normal'}}>
       {/* Backdrop */}
       <div style={{flex:1,background:'var(--scrim)'}} onClick={()=>setShowDrawer(false)}/>
       {/* Drawer panel */}
@@ -94,6 +97,6 @@ export function MobileDrawer({
           </Button>
         </div>
       </div>
-    </div>
+    </FocusTrap>
   )
 }

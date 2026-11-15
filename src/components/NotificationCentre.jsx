@@ -4,7 +4,6 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { Icon } from '../lib/icons'
 import * as api from '../lib/api'
 import { groupNotifications } from '../lib/notificationsGroup'
-import { pressable } from '../lib/pressable'
 import { Skeleton } from '../lib/Skeleton'
 
 const POLL_INTERVAL_MS = 60_000  // poll every minute while open; light-touch
@@ -37,6 +36,7 @@ export default function NotificationCentre() {
   const [unread, setUnread] = useState(0)
   const [loading, setLoading] = useState(false)
   const pollRef = useRef(null)
+  const bellRef = useRef(null)
 
   const refreshUnread = useCallback(async () => {
     try { setUnread(await api.fetchUnreadNotificationCount()) } catch(e) {}
@@ -68,6 +68,18 @@ export default function NotificationCentre() {
   useEffect(() => {
     if (open) loadAll()
   }, [open, loadAll])
+
+  // Escape closes the panel and returns focus to the bell.
+  useEffect(() => {
+    if (!open) return
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      bellRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
 
   async function handleClick(n) {
     // Optimistic: clear read state locally so the dot disappears immediately.
@@ -122,8 +134,9 @@ export default function NotificationCentre() {
 
   return (
     <div style={{ position: 'relative' }}>
-      <button
+      <button ref={bellRef}
         aria-label={unread ? `${unread} unread notifications` : 'Notifications'}
+        aria-haspopup="dialog" aria-expanded={open}
         onClick={() => setOpen(o => !o)}
         style={{
           background: open ? T.bg : 'none',
@@ -209,11 +222,13 @@ export default function NotificationCentre() {
                       </div>
                     )}
                     {g.items.map((n, i) => (
-                  <div key={n.id} {...pressable(() => handleClick(n))}
+                  // The row is a plain container: opening the notification
+                  // is its own button, a sibling of the booking link and the
+                  // snooze / dismiss buttons (no controls nested in a control).
+                  <div key={n.id}
                     style={{
                       padding: '12px 16px',
                       borderBottom: i < g.items.length - 1 ? `1px solid ${T.border}` : 'none',
-                      cursor: n.link ? 'pointer' : 'default',
                       display: 'flex', gap: 12, alignItems: 'flex-start',
                       background: !n.read_at ? T.gold + '0A' : 'transparent',
                       transition: 'background 0.15s',
@@ -221,6 +236,14 @@ export default function NotificationCentre() {
                     }}
                     onMouseEnter={e => { if (n.link) e.currentTarget.style.background = T.bg }}
                     onMouseLeave={e => { e.currentTarget.style.background = !n.read_at ? T.gold + '0A' : 'transparent' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <button type="button" onClick={() => handleClick(n)}
+                      style={{
+                        display: 'flex', gap: 12, alignItems: 'flex-start', width: '100%',
+                        background: 'none', border: 'none', padding: 0, margin: 0,
+                        font: 'inherit', color: 'inherit', textAlign: 'left',
+                        cursor: n.link ? 'pointer' : 'default',
+                      }}>
                     <div style={{
                       width: 30, height: 30, borderRadius: 8,
                       background: T.bg, border: `1px solid ${T.border}`,
@@ -241,11 +264,12 @@ export default function NotificationCentre() {
                           {n.body}
                         </div>
                       )}
+                    </div>
+                    </button>
                       {n.metadata?.booking_url && n.metadata?.booking_label && (
                         <a href={n.metadata.booking_url} target="_blank" rel="noreferrer"
-                          onClick={e => e.stopPropagation()}
                           style={{
-                            display: 'inline-block', marginTop: 6,
+                            display: 'inline-block', marginTop: 6, marginLeft: 42,
                             fontFamily: SANS, fontSize: FS.sm, fontWeight: 600,
                             padding: '4px 9px', borderRadius: 6,
                             background: T.gold + '14', color: T.goldText,

@@ -37,9 +37,18 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
   function handleDrop(e, targetIdx) {
     e.preventDefault()
     if (dragging === null || dragging === targetIdx) return
+    reorder(dragging, targetIdx)
+    setDragging(null)
+    setDragOver(null)
+  }
+
+  // Move the visible item at `fromIdx` to `targetIdx`. Shared by drag-and-
+  // drop and the keyboard / touch move-up / move-down buttons (WCAG 2.5.7).
+  function reorder(fromIdx, targetIdx) {
+    if (fromIdx === targetIdx || targetIdx < 0 || targetIdx >= items.length) return
     // Compute the new ordering of the visible items.
     const newOrder = [...items]
-    const [moved] = newOrder.splice(dragging, 1)
+    const [moved] = newOrder.splice(fromIdx, 1)
     newOrder.splice(targetIdx, 0, moved)
     // Build a quick lookup of the new sort_order per id.
     const sortMap = new Map(newOrder.map((p, i) => [p.id, i]))
@@ -55,8 +64,6 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
         api.updatePropertySortOrder(p.id, i).catch(()=>{})
       }
     })
-    setDragging(null)
-    setDragOver(null)
   }
 
   function handleDragEnd() {
@@ -170,7 +177,20 @@ export function DraggablePropertyList({filtered, fmt, openDetail, calcGrossYield
             borderLeft: inBuilding ? `2px solid ${T.gold}33` : `1px solid ${dragOver===idx && dragging!==idx ? T.gold : T.border}`,
           }}>
             {/* Drag handle - only show in custom sort mode */}
-            {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder">&#x283F;</div>}
+            {isCustomSort&&<div style={{color:T.faint,fontSize:14,cursor:'grab',padding:'0 4px',flexShrink:0,userSelect:'none'}} title="Drag to reorder" aria-hidden="true">&#x283F;</div>}
+            {/* Move up / down — the non-drag way to reorder */}
+            {isCustomSort&&items.length>1&&(
+              <div style={{display:'flex',flexDirection:'column',gap:2,flexShrink:0}}>
+                {[[-1,'up','▲'],[1,'down','▼']].map(([dir,word,glyph])=>{
+                  const off = idx+dir<0 || idx+dir>=items.length
+                  return (
+                    <button key={word} type="button" onClick={()=>reorder(idx, idx+dir)} disabled={off}
+                      aria-label={`Move ${p.name} ${word}`}
+                      style={{fontFamily:MONO,fontSize:FS.xs,lineHeight:1,padding:'2px 6px',borderRadius:4,cursor:off?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:off?T.muted+'55':T.text}}>{glyph}</button>
+                  )
+                })}
+              </div>
+            )}
             {!isCustomSort&&<div style={{width:4,flexShrink:0}}/>}
             {/* Content */}
             <div style={{flex:1,minWidth:180,cursor:'pointer'}} {...pressable(()=>openDetail(p))}>

@@ -7,6 +7,7 @@ import { showAppToast } from '../lib/toast'
 import { Button, Modal } from './ui'
 import { listAutopilotActions, actOnAutopilotAction, dismissAutopilotAction, bulkActOnAutopilotActions, bulkDismissAutopilotActions, snoozeAutopilotAction } from '../lib/api/autopilot'
 import { SkeletonRows } from '../lib/Skeleton'
+import { readableOn } from '../lib/contrast'
 
 const KIND_META = {
   arrears:         { icon: 'pound', label: 'Arrears' },
@@ -79,7 +80,7 @@ export function AutopilotWidget({ companyId = null, companies = [], onOpenFull }
         <h2 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
           Portfolio Autopilot
           {actions.length > 0 && (
-            <span style={{ background: highCount > 0 ? T.red : T.amber, color: 'white', borderRadius: 20, fontSize: 11, fontFamily: MONO, padding: '2px 8px', fontWeight: 700 }}>
+            <span style={{ background: highCount > 0 ? T.red : T.amber, color: readableOn(highCount > 0 ? T.red : T.amber), borderRadius: 20, fontSize: 11, fontFamily: MONO, padding: '2px 8px', fontWeight: 700 }}>
               {actions.length}
             </span>
           )}

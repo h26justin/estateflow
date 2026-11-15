@@ -150,7 +150,8 @@ export default function RolePermissionsModal({ user, company, accessRow, onClose
                           {api.PERMISSION_LABELS[key] || key}
                           {isOverride && <span style={{fontSize:FS.xs,background:T.gold+'22',color:T.goldText,padding:'1px 6px',borderRadius:3,marginLeft:6,fontWeight:700}}>OVERRIDE</span>}
                         </div>
-                        <button onClick={()=>togglePermission(key)}
+                        <button type="button" role="switch" aria-checked={!!on} aria-label={api.PERMISSION_LABELS[key] || key}
+                          onClick={()=>togglePermission(key)}
                           style={{
                             width:40, height:22, borderRadius:11,
                             background: on ? T.green : T.muted+'44',

@@ -143,9 +143,9 @@ export default function CustomizeDashModal({
                 <div title="Drag to reorder" style={{fontFamily:mono,fontSize:14,color:T.muted,padding:'0 4px',userSelect:'none',cursor:'grab',lineHeight:1}}>⋮⋮</div>
                 {/* Up/down arrows for keyboard/accessibility */}
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                  <button onClick={()=>move(i,-1)} disabled={i===0}
+                  <button type="button" onClick={()=>move(i,-1)} disabled={i===0} aria-label={`Move ${def.label} up`}
                     style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,cursor:i===0?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===0?T.muted+'55':T.text}}>▲</button>
-                  <button onClick={()=>move(i,1)} disabled={i===list.length-1}
+                  <button type="button" onClick={()=>move(i,1)} disabled={i===list.length-1} aria-label={`Move ${def.label} down`}
                     style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 6px',borderRadius:4,cursor:i===list.length-1?'default':'pointer',border:`1px solid ${T.border}`,background:T.surface,color:i===list.length-1?T.muted+'55':T.text}}>▼</button>
                 </div>
                 <div style={{fontSize:22,width:24,display:'flex',justifyContent:'center'}}>{ICON_NAMES.includes(def.icon)?<Icon name={def.icon} size={20} color={T.muted}/>:def.icon}</div>

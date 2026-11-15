@@ -45,6 +45,9 @@ const PORTAL_CSS = `
 .tp-tabs::-webkit-scrollbar{display:none}
 .tp-tab{flex:0 0 auto;scroll-snap-align:start}
 .tp-tab:focus-visible,.tp-hbtn:focus-visible{outline:2px solid ${DARK.gold};outline-offset:-2px;border-radius:6px}
+.tp-input:focus-visible{outline:2px solid ${P.goldText} !important;outline-offset:1px}
+.tp-hinput:focus-visible{outline:2px solid ${DARK.gold} !important;outline-offset:1px}
+@media (max-width:768px),(pointer:coarse){.tp-input,.tp-hinput{font-size:16px !important}}
 @media (max-width:600px){
   .tp-wrap{padding-left:16px;padding-right:16px}
   .tp-content{padding-top:20px}
@@ -56,6 +59,11 @@ const PORTAL_CSS = `
   .tp-stats{grid-template-columns:1fr 1fr !important}
 }
 `
+
+// Smooth scrolling only when the user has not asked for reduced motion.
+const scrollBehavior = () => {
+  try { return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth' } catch { return 'smooth' }
+}
 
 // Build a bank-reference string from the tenant's property. Guards against
 // edge cases that previously produced 'RENT-' (empty address + empty name)
@@ -141,7 +149,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
     const el = nav?.querySelector('[aria-current="page"]')
     if (!nav || !el || nav.scrollWidth <= nav.clientWidth) return
     const left = el.offsetLeft - (nav.clientWidth - el.offsetWidth) / 2
-    if (typeof nav.scrollTo === 'function') nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+    if (typeof nav.scrollTo === 'function') nav.scrollTo({ left: Math.max(0, left), behavior: scrollBehavior() })
     else nav.scrollLeft = Math.max(0, left)
   }, [tab, profile])
   const [company, setCompany] = useState(null)
@@ -334,7 +342,7 @@ export default function TenantPortal({ user, onSignOut, onSwitchToLandlord }) {
           {tenancies.length > 1 && (
             <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:SANS,fontSize:FS.sm,color:SUBHEADER_TEXT,maxWidth:'100%'}}>
               <span style={{textTransform:'uppercase',letterSpacing:'0.08em'}}>Property</span>
-              <select value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
+              <select className="tp-hinput" value={property?.id||''} onChange={e=>switchProperty(e.target.value)}
                 style={{fontFamily:SANS,fontSize:FS.sm,background:HEADER_BG,color:HEADER_TEXT,border:`1px solid ${HEADER_LINE}`,borderRadius:R.sm,padding:'5px 8px',maxWidth:260,minWidth:0}}>
                 {tenancies.map(t=>(
                   <option key={t.id} value={t.id}>
@@ -717,7 +725,7 @@ function TenantMaintenance({ property, user, brand }) {
     setSubmitting(false)
   }
 
-  const inp = {fontFamily:mono,fontSize:12,background:P.card,border:`1px solid ${HAIRLINE}`,color:P.text,borderRadius:8,padding:'9px 12px',width:'100%',outline:'none'}
+  const inp = {fontFamily:mono,fontSize:12,background:P.card,border:`1px solid ${HAIRLINE}`,color:P.text,borderRadius:8,padding:'9px 12px',width:'100%'}
 
   return (
     <div>
@@ -740,12 +748,12 @@ function TenantMaintenance({ property, user, brand }) {
 
           <div style={{marginBottom:12}}>
             <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:6}}>What needs fixing? *</label>
-            <input aria-label="What needs fixing?" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" style={inp}/>
+            <input aria-label="What needs fixing?" value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Boiler not working, Leak under sink" className="tp-input" style={inp}/>
           </div>
 
           <div style={{marginBottom:12}}>
             <label style={{fontFamily:SANS,fontSize:FS.sm,color:TENANT_MUTED,display:'block',marginBottom:6}}>Details (optional)</label>
-            <textarea aria-label="Details (optional)" value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" style={{...inp,resize:'vertical'}}/>
+            <textarea aria-label="Details (optional)" value={desc} onChange={e=>setDesc(e.target.value)} rows={3} placeholder="Describe the issue, when it started, how bad it is…" className="tp-input" style={{...inp,resize:'vertical'}}/>
           </div>
 
           <div style={{marginBottom:14}}>
@@ -910,7 +918,7 @@ function TenantMessages({ property, user, contactInfo, brand }) {
     api.markMessagesRead(property.id, user.id).catch(()=>{})
   },[property.id, user.id])
 
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}) },[messages])
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:scrollBehavior()}) },[messages])
 
   async function send() {
     if (!newMsg.trim()) return
@@ -958,7 +966,7 @@ function TenantMessages({ property, user, contactInfo, brand }) {
         <div style={{borderTop:`1px solid ${HAIRLINE}`,marginTop:8,paddingTop:12,display:'flex',gap:10}}>
           <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&(e.preventDefault(),send())}
-            placeholder="Type a message…"
+            placeholder="Type a message…" className="tp-input"
             style={{flex:1,fontFamily:SANS,fontSize:FS.sm,background:P.card,border:`1px solid ${HAIRLINE}`,color:P.text,borderRadius:8,padding:'9px 14px'}}/>
           <button onClick={send} disabled={sending||!newMsg.trim()}
             style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,padding:'9px 20px',borderRadius:8,border:'none',
