@@ -32,6 +32,7 @@
 // property record the purchase has already happened.
 
 import { propertyRefurbSummary } from './refurbs'
+import { stampDuty, depositPercent } from './dealMetrics'
 
 // ── Status grouping ──────────────────────────────────────────────────────
 // We collapse the 8 deal statuses into 3 buckets that match real cashflow
@@ -84,16 +85,18 @@ export function dealCashflow(deal) {
   const num = (v) => Number(v) || 0
   const price       = num(deal.purchase_price)
   const refurb      = num(deal.refurb_cost)
-  const stamp       = num(deal.stamp_duty_override) || num(deal.stamp_duty) || 0
+  // The user's override, else the SDLT calculator (deals have no stamp_duty
+  // column — reading one left SDLT out of every non-overridden deal).
+  const stamp       = stampDuty(deal)
   const legal       = num(deal.legal_fees)
   const survey      = num(deal.survey_cost)
   const auction     = num(deal.auction_fees)
   const broker      = num(deal.broker_fee)
   const otherCosts  = num(deal.other_costs)
-  // Deposit defaults to 25% when not entered — the SAME default must feed the
-  // mortgage-fee LTV, otherwise a blank deposit_percent computes the fee on
-  // 100% of the purchase price instead of the 75% loan.
-  const depositPct  = num(deal.deposit_percent) || 25
+  // Deposit defaults to DEFAULT_DEPOSIT_PERCENT when not entered — the SAME
+  // default must feed the mortgage-fee LTV, otherwise a blank deposit_percent
+  // computes the fee on 100% of the purchase price instead of the 75% loan.
+  const depositPct  = depositPercent(deal)
   const mortgageFee = price * (1 - depositPct / 100)
                     * (num(deal.mortgage_fee_percent) / 100)
   const totalAcq    = price + stamp + legal + survey + auction + broker + otherCosts

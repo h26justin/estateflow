@@ -82,11 +82,13 @@ function Field({ label, hint, children, T }) {
 }
 
 // ── Add / edit form, with the monthly payment worked out as you type ──────
-const EMPTY = { company_id: '', property_id: '', lender_name: '', lender_type: 'private', reference: '', principal: null,
-  received_date: todayISO(), term_months: 12, annual_rate: null, repayment_type: 'repayment', first_payment_date: '', purpose: '', notes: '' }
+// A function, not a constant: "today" must be worked out when the form opens,
+// not once when the module loaded (a tab left open overnight showed yesterday).
+const emptyLoan = () => ({ company_id: '', property_id: '', lender_name: '', lender_type: 'private', reference: '', principal: null,
+  received_date: todayISO(), term_months: 12, annual_rate: null, repayment_type: 'repayment', first_payment_date: '', purpose: '', notes: '' })
 
 function LoanForm({ initial, companies, properties, editableCompanies, onSave, onCancel, T, isMobile }) {
-  const [f, setF] = useState(() => ({ ...EMPTY, company_id: editableCompanies.length === 1 ? editableCompanies[0].id : '', ...(initial || {}) }))
+  const [f, setF] = useState(() => ({ ...emptyLoan(), company_id: editableCompanies.length === 1 ? editableCompanies[0].id : '', ...(initial || {}) }))
   const [termUnit, setTermUnit] = useState(() => (Number(initial?.term_months) || 12) % 12 === 0 ? 'years' : 'months')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -174,7 +176,8 @@ function LoanForm({ initial, companies, properties, editableCompanies, onSave, o
             </div>
           </Field>
         </div>
-        <Field label="First payment due" hint="Defaults to one month after the money came in" T={T}>
+        <Field label={f.repayment_type === 'rolled_up' ? 'Repayment due' : 'First payment due'}
+          hint={f.repayment_type === 'rolled_up' ? 'Defaults to the end of the term' : 'Defaults to one month after the money came in'} T={T}>
           <input type="date" style={ist} value={f.first_payment_date || ''} onChange={e => set('first_payment_date', e.target.value)} />
         </Field>
         <Field label="Reference (optional)" T={T}>

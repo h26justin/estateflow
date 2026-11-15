@@ -9,7 +9,7 @@ function deal(overrides = {}) {
     purchase_price: 200_000,
     deposit_percent: 25,
     refurb_cost: 0,
-    stamp_duty: 0,
+    stamp_duty_override: 0,
     legal_fees: 0,
     survey_cost: 0,
     auction_fees: 0,
@@ -39,7 +39,7 @@ describe('dealCashflow — cash purchase', () => {
     const r = dealCashflow(deal({
       purchase_type: 'cash',
       purchase_price: 100_000,
-      stamp_duty: 5000,
+      stamp_duty_override: 5000,
       legal_fees: 1500,
       refurb_cost: 20_000,
     }))
@@ -55,7 +55,7 @@ describe('dealCashflow — mortgage purchase', () => {
       purchase_type: 'mortgage',
       purchase_price: 200_000,
       deposit_percent: 25,
-      stamp_duty: 7500,
+      stamp_duty_override: 7500,
       legal_fees: 1500,
       refurb_cost: 15_000,
     }))
@@ -85,6 +85,30 @@ describe('dealCashflow — mortgage purchase', () => {
     // Defaulted deposit 50k + fee on the 75% loan 1500 = 51500
     expect(r.cashOut).toBe(51_500)
   })
+
+  it('includes calculated SDLT when no override is set (real rows have no stamp_duty column)', () => {
+    const d = deal({
+      purchase_type: 'mortgage',
+      purchase_price: 250_000,
+      deposit_percent: 25,
+      is_additional_property: true,
+    })
+    delete d.stamp_duty_override
+    const r = dealCashflow(d)
+    // £250k additional property: 2% of 125k-250k (2,500) + 5% surcharge (12,500)
+    expect(r.headline).toBe(250_000 + 15_000)
+    expect(r.cashOut).toBe(62_500 + 15_000)
+  })
+
+  it('treats an override cleared to blank as "use the calculator"', () => {
+    const r = dealCashflow(deal({ purchase_price: 250_000, is_additional_property: true, stamp_duty_override: '' }))
+    expect(r.headline).toBe(265_000)
+  })
+
+  it('defaults a blank deposit to 25% but honours an explicit figure', () => {
+    expect(dealCashflow(deal({ deposit_percent: '' })).cashOut).toBe(50_000)
+    expect(dealCashflow(deal({ deposit_percent: 40 })).cashOut).toBe(80_000)
+  })
 })
 
 describe('dealCashflow — bridge purchase', () => {
@@ -93,7 +117,7 @@ describe('dealCashflow — bridge purchase', () => {
       purchase_type: 'bridge',
       purchase_price: 100_000,
       deposit_percent: 30,
-      stamp_duty: 3000,
+      stamp_duty_override: 3000,
       refurb_cost: 50_000,
     }))
     // Deposit 30k + stamp 3k; refurb funded by bridge
@@ -109,7 +133,7 @@ describe('dealCashflow — committed (exchanged) deals', () => {
       purchase_type: 'mortgage',
       purchase_price: 200_000,
       deposit_percent: 25,
-      stamp_duty: 7500,
+      stamp_duty_override: 7500,
     }))
     // Pre-exchange cashOut = 50k deposit + 7.5k costs = 57.5k
     // After exchange, subtract 50k deposit already paid → 7.5k remaining
@@ -122,7 +146,7 @@ describe('dealCashflow — committed (exchanged) deals', () => {
       status: 'exchanged',
       purchase_type: 'cash',
       purchase_price: 100_000,
-      stamp_duty: 3000,
+      stamp_duty_override: 3000,
     }))
     // Full cash out 103k minus 10% exchange deposit (10k) already paid
     expect(r.cashOut).toBe(93_000)

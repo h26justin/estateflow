@@ -14,11 +14,15 @@
 // Pure: no React, no DB. Fields may arrive as strings (form inputs) or
 // numbers (DB rows); `num` normalises. Missing/blank numeric fields count
 // as 0 except where the editor applies a default (mortgage term 25 years,
-// interest-only mortgage type, agent fee ex-VAT).
+// interest-only mortgage type, agent fee ex-VAT, deposit 25%).
 
-import { calcStampDuty, calcMonthlyRepayment } from './api'
+import { calcStampDuty, calcMonthlyRepayment } from './api/calculators'
 
 export const NIGHTS_PER_MONTH = 30.4
+
+// Deposit assumed when a deal has none entered. Every screen and calculation
+// (metrics, score, cashflow, convert-to-property) uses this one value.
+export const DEFAULT_DEPOSIT_PERCENT = 25
 
 export function num(v) {
   const n = parseFloat(v)
@@ -46,12 +50,18 @@ export function stampDuty(d) {
   return calcStampDuty(num(d.purchase_price), d.is_additional_property, d.is_first_time_buyer)
 }
 
+/** Deposit %: the entered value, or DEFAULT_DEPOSIT_PERCENT when blank. */
+export function depositPercent(d) {
+  const v = d?.deposit_percent
+  return v == null || v === '' ? DEFAULT_DEPOSIT_PERCENT : num(v)
+}
+
 export function computeDealMetrics(d = {}) {
   const price = num(d.purchase_price)
   const isCash = d.purchase_type === 'cash'
   const sd = stampDuty(d)
 
-  const loanAmount = isCash ? 0 : price * (1 - num(d.deposit_percent) / 100)
+  const loanAmount = isCash ? 0 : price * (1 - depositPercent(d) / 100)
   const deposit = price - loanAmount
   const mortgageFee = isCash ? 0 : loanAmount * (num(d.mortgage_fee_percent) / 100)
   const otherAcquisition = num(d.legal_fees) + num(d.survey_cost) + num(d.auction_fees)

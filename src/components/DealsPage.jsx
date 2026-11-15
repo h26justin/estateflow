@@ -11,6 +11,7 @@ const LettingsAssistantPanel = lazy(() => import('./LettingsAssistantPanel'))
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import { useLoadGuard } from '../lib/useLoadGuard'
+import { isoToday } from '../lib/rentEngine'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from '../lib/dealMetrics'
 import { useIsMobile } from '../lib/useWindowSize'
@@ -234,8 +235,11 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   const [yrs, setYrs]       = useState(10)
   const [growth, setGrowth] = useState(3)
 
-  const currentIncome = properties.reduce((s,p) => s + (p.rent_pcm||0)*12, 0)
-  const currentValue  = properties.reduce((s,p) => s + (p.current_value||p.est_value||0), 0)
+  // Only properties still in the portfolio: archived, sold and trashed ones
+  // no longer earn rent or carry value.
+  const held = properties.filter(p => p && !p.deleted_at && !p.archived_at && p.status !== 'sold')
+  const currentIncome = held.reduce((s,p) => s + (p.rent_pcm||0)*12, 0)
+  const currentValue  = held.reduce((s,p) => s + (p.current_value||p.est_value||0), 0)
   const newIncome     = extra * price * (yld/100)
   const totalIncome   = currentIncome + newIncome
   const totalValue    = currentValue + (extra * price)
@@ -277,7 +281,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
       </div>
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10}}>
         {[
-          {label:'Current portfolio', value:f(currentIncome)+'/yr', sub:f(currentValue)+' value · '+properties.length+' properties', color:T.muted},
+          {label:'Current portfolio', value:f(currentIncome)+'/yr', sub:f(currentValue)+' value · '+held.length+' properties', color:T.muted},
           {label:'After buying '+extra+' more', value:f(totalIncome)+'/yr', sub:f(totalValue)+' combined value', color:T.green},
           {label:'Monthly take-home now', value:f(currentIncome/12)+'/mo', sub:'gross, before costs', color:T.text},
           {label:'Monthly take-home after', value:f(totalIncome/12)+'/mo', sub:'gross, before costs', color:T.green},
@@ -415,11 +419,22 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   // Optional callback — DealsPage works fine without it.
   useEffect(() => { onDealsChange && onDealsChange(deals) }, [deals, onDealsChange])
 
-  async function createNewDeal() {
+  // In-flight guard: a double-click on "New deal" used to create two deals.
+  // The ref blocks synchronously; the state disables the button.
+  const creatingDealRef = useRef(false)
+  const [creatingDeal, setCreatingDeal] = useState(false)
+
+  // prefill — optional starting figures (e.g. price and rent from the
+  // listing yield calculator).
+  async function createNewDeal(prefill = {}) {
+    if (creatingDealRef.current) return
+    creatingDealRef.current = true
+    setCreatingDeal(true)
     try {
       const deal = await api.createDeal(user.id, {
         name: 'New Deal',
         company_id: companies?.length === 1 ? companies[0]?.id : null,
+        ...prefill,
       })
       // Load user's master milestone defaults then initialise
       const milestoneConfig = await api.fetchMilestoneDefaults(user.id).catch(()=>({}))
@@ -427,7 +442,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       setDeals(prev => [deal, ...prev])
       setSelectedDeal({ ...deal })
       setView('deal')
-    } catch(e) { showToast(e.message, 'error') }
+      return deal
+    } catch(e) { showToast(e.message, 'error'); return null }
+    finally { creatingDealRef.current = false; setCreatingDeal(false) }
   }
 
   async function saveDealField(field, value) {
@@ -444,8 +461,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     // so the user isn't spammed with "Deal saved" every time they tab
     // out of a field. The 💾 Save button still passes silent:false to
     // give explicit feedback when the user clicks it on purpose.
-    if (!selectedDeal) return
+    // Resolves true on success, false on failure, so callers only show
+    // "Saved ✓" when the write actually landed.
+    if (!selectedDeal) return false
     setSaving(true)
+    let ok = false
     try {
       // target_completion_date is owned by the Purchase Tracker's own input
       // (saved on blur there). Strip it from full-form saves so a Save click
@@ -455,8 +475,10 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       setSelectedDeal(updated)
       setDeals(prev => prev.map(d => d.id === updated.id ? updated : d))
       if (!opts.silent) showToast('Deal saved')
+      ok = true
     } catch(e) { showToast(e.message, 'error') }
     setSaving(false)
+    return ok
   }
 
   async function deleteDeal(id) {
@@ -494,11 +516,18 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     setView('deal')
   }
 
+  // '' is the "Unassigned" chip: unassigned deals have company_id null.
+  const companyMatch = useCallback(d => coFilter === 'all' ? true
+    : coFilter === '' ? !d.company_id
+    : d.company_id === coFilter, [coFilter])
   const filtered = useMemo(() => deals.filter(d => {
     if (statusFilter !== 'all' && d.status !== statusFilter) return false
-    if (coFilter !== 'all' && d.company_id !== coFilter) return false
-    return true
-  }), [deals, statusFilter, coFilter])
+    return companyMatch(d)
+  }), [deals, statusFilter, companyMatch])
+  // The Pipeline board shows every stage as a column, so the List tab's
+  // status filter doesn't apply there (it silently emptied columns and
+  // skewed the tiles). The company filter does, and is shown on both tabs.
+  const pipelineDeals = useMemo(() => deals.filter(companyMatch), [deals, companyMatch])
 
 
   // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
@@ -522,6 +551,23 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
     if (dealView==='lettings') setTriggerNewLetting(true)
     else createNewDeal()
   }
+
+  // Company filter pills — shared by the List and Pipeline tabs.
+  const companyFilterPills = companies.length > 1 && (
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
+      <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
+      {[{id:'all',abbr:'All',color:T.goldText},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
+        <button key={c.id||'unassigned'} onClick={()=>setCoFilter(c.id)}
+          style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',
+            border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,
+            background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',
+            color:coFilter===c.id?(c.color||T.goldText):T.muted,
+            transition:'all 0.18s'}}>
+          {c.abbr || c.name}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div className="fade">
@@ -557,14 +603,15 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             ))}
           </div>
           {/* Action button — fixed width so tab bar never shifts */}
-          <Button variant="primary" icon="plus" onClick={handleNewBtn}>
+          <Button variant="primary" icon="plus" onClick={handleNewBtn} disabled={dealView!=='lettings' && creatingDeal}>
             {newBtnLabel}
           </Button>
         </div>
       </div>
 
       {/* ── PIPELINE VIEW ── */}
-      {dealView==='pipeline' && <DealPipeline deals={filtered} companies={companies} docCounts={docCounts} onOpen={openDeal} onNew={createNewDeal} T={T}/>}
+      {dealView==='pipeline' && companyFilterPills}
+      {dealView==='pipeline' && <DealPipeline deals={pipelineDeals} companies={companies} docCounts={docCounts} onOpen={openDeal} onNew={()=>createNewDeal()} T={T}/>}
 
       {/* ── LETTINGS VIEW ── */}
       {dealView==='lettings' && <>
@@ -579,7 +626,15 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {/* ── TOOLS VIEW ── */}
       {dealView==='tools' && (
         <div style={{display:'grid',gap:16}}>
-          <ListingYieldCalculator T={T} onAutoFill={()=>{ createNewDeal(); showToast('New deal created — fill in the figures from the listing') }}/>
+          <ListingYieldCalculator T={T} onAutoFill={async (l)=>{
+            // Carry the scraped price and the rent typed into the calculator
+            // across, so the user doesn't have to re-enter them.
+            const prefill = {}
+            if (Number(l?.purchase_price) > 0) prefill.purchase_price = Number(l.purchase_price)
+            if (Number(l?.estimated_monthly_rent) > 0) prefill.monthly_rent = Number(l.estimated_monthly_rent)
+            const d = await createNewDeal(prefill)
+            if (d) showToast('New deal created from the listing — check the figures')
+          }}/>
           <PortfolioModellerInDeals properties={properties} T={T}/>
           {activeFlags.has('ai_listing_writer') && <AIListingWriter T={T}/>}
         </div>
@@ -592,21 +647,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           Drives the cashflow panel AND the deals list below so they stay
           in sync. The 'Unassigned' chip catches deals with company_id=null
           (drafts that haven't been assigned to a company yet). */}
-      {companies.length > 1 && (
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
-          <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginRight:4}}>Filter:</span>
-          {[{id:'all',abbr:'All',color:T.goldText},...companies,{id:'',abbr:'Unassigned',color:T.muted}].map(c=>(
-            <button key={c.id||'unassigned'} onClick={()=>setCoFilter(c.id)}
-              style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:20,cursor:'pointer',
-                border:`1px solid ${coFilter===c.id?(c.color||T.gold):T.border}`,
-                background:coFilter===c.id?(c.color||T.gold)+'22':'transparent',
-                color:coFilter===c.id?(c.color||T.goldText):T.muted,
-                transition:'all 0.18s'}}>
-              {c.abbr || c.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {companyFilterPills}
 
       {/* Cashflow panel — aggregate cash commitments across all live deals.
           Hidden when there are no deals; collapsible by the user.
@@ -634,7 +675,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         : filtered.length === 0
           ? <div className="card">
               <EmptyState icon="target" title="No deals yet" body="Add your first deal to analyse."
-                action={<Button icon="plus" onClick={createNewDeal}>Add deal</Button>}/>
+                action={<Button icon="plus" onClick={()=>createNewDeal()} disabled={creatingDeal}>Add deal</Button>}/>
             </div>
           : <div style={{display:'grid',gap:12}}>
               {filtered.map(deal => {
@@ -1018,6 +1059,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
 // ── DEAL DETAIL ────────────────────────────────────────────────────────────────
 function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete, onConvert }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   // The calculator is a two-column layout (inputs | sticky results). On a
   // phone the fixed 320px results column left ~30px for the inputs.
   const isMobile = useIsMobile()
@@ -1079,8 +1121,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     setSaving(true)
     // Read from the ref, not closure — guarantees we save the latest form
     // even if the blur fired before React re-rendered after the change.
-    await onSave(formRef.current)
-    setSavedAt(Date.now())
+    const ok = await onSave(formRef.current)
+    if (ok) setSavedAt(Date.now())
     setSaving(false)
   }
 
@@ -1088,9 +1130,38 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   // visual indicator. Identical save logic otherwise.
   async function autoSave() {
     setSaving(true)
-    await onSave(formRef.current, { silent: true })
-    setSavedAt(Date.now())
+    const ok = await onSave(formRef.current, { silent: true })
+    if (ok) setSavedAt(Date.now())
     setSaving(false)
+  }
+
+  // New deals are seeded with the standard purchase tracker. When the deal
+  // becomes an auction purchase or a BRRR, offer to swap in the matching
+  // checklist — but only while nothing on the tracker has been ticked,
+  // dated or switched, so no progress is ever discarded.
+  async function offerTrackerRebuild(next) {
+    const isAuction = !!next.is_auction
+    const isBRRR = next.deal_type === 'brrr'
+    try {
+      const [ms, config] = await Promise.all([
+        api.fetchDealMilestones(deal.id),
+        api.fetchMilestoneDefaults(user?.id).catch(() => ({})),
+      ])
+      if (!ms.length || api.trackerMatchesType(ms, isAuction, isBRRR)) return
+      if (!api.milestonesUntouched(ms, config)) {
+        showToast('Purchase tracker kept as it is — it already has progress on it')
+        return
+      }
+      const kind = `${isAuction ? 'auction' : 'standard'} purchase${isBRRR ? ' with BRRR refinance steps' : ''}`
+      if (!await confirmDialog({
+        title: 'Update the purchase tracker?',
+        body: `Nothing on this deal's tracker has been ticked or dated yet. Replace its steps with the checklist for a ${kind}?`,
+        confirmLabel: 'Update tracker',
+        cancelLabel: 'Keep current steps',
+      })) return
+      await api.rebuildMilestones(deal.id, isAuction, isBRRR, config)
+      showToast('Purchase tracker updated')
+    } catch (e) { showToast(e.message || 'Could not update the purchase tracker', 'error') }
   }
 
   // Shareable PDF pack: the whole analysis plus contacts, tracker, notes,
@@ -1243,7 +1314,11 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <span style={sect}>Deal type</span>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}}>
                 {DEAL_TYPES.map(t=>(
-                  <button key={t} onClick={()=>{set('deal_type',t); setTimeout(autoSave,0)}}
+                  <button key={t} onClick={()=>{
+                    const changed = (form.deal_type || 'btl') !== t
+                    set('deal_type',t); setTimeout(autoSave,0)
+                    if (changed) offerTrackerRebuild({ ...formRef.current, deal_type: t })
+                  }}
                     style={{fontFamily:SANS,fontSize:FS.sm,padding:'6px 14px',borderRadius:20,cursor:'pointer',
                       border:`1px solid ${form.deal_type===t?T.gold:T.border}`,
                       background:form.deal_type===t?T.gold+'22':'transparent',
@@ -1265,7 +1340,11 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               </div>
               <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
                 <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
-                  <input type="checkbox" checked={!!form.is_auction} onChange={e=>{set('is_auction',e.target.checked); setTimeout(autoSave,0)}} style={{width:'auto',margin:0}}/>
+                  <input type="checkbox" checked={!!form.is_auction} onChange={e=>{
+                    const v = e.target.checked
+                    set('is_auction',v); setTimeout(autoSave,0)
+                    offerTrackerRebuild({ ...formRef.current, is_auction: v })
+                  }} style={{width:'auto',margin:0}}/>
                   Auction purchase
                 </label>
                 <label style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
@@ -1732,13 +1811,21 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <ResultRow label="Monthly take-home (after tax)" value={fmt(profitAfterTax/12)} color={profitAfterTax>0?T.green:T.red} T={T}/>
             </>)
           })() : (() => {
-            const corpTax = Math.max(0, annualProfit * 0.25)
+            // CT is on profit before capital repayment: only the interest
+            // part of a repayment mortgage is deductible. Year-one interest
+            // approximated as loan × rate (as for Section 24 above).
+            const annualInterest = isInterestOnly
+              ? monthlyRepayment * 12
+              : loanAmount * (num('mortgage_rate') / 100)
+            const taxableProfit = annualProfit + monthlyRepayment * 12 - annualInterest
+            const corpTax = Math.max(0, taxableProfit * 0.25)
             const retained = annualProfit - corpTax
             return (<>
               <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:8,lineHeight:1.7}}>
                 Ltd company: full mortgage interest deductible. Corporation tax 25%.
               </div>
               <ResultRow label="Annual profit (before CT)" value={fmt(annualProfit)} T={T}/>
+              {!isInterestOnly && <ResultRow label="Taxable profit (capital repayments added back)" value={fmt(taxableProfit)} T={T}/>}
               <ResultRow label="Corporation tax (25%)" value={fmt(corpTax)} color={T.amber} T={T}/>
               <ResultRow label="Retained profit (after CT)" value={fmt(retained)} color={T.green} big T={T}/>
             </>)
@@ -1769,6 +1856,9 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   const { T } = useTheme()
   const [milestones, setMilestones] = useState([])
   const [loading, setLoading] = useState(true)
+  // Stages whose steps are all switched off render collapsed; these are the
+  // ones the user has expanded to reach the switches.
+  const [openOffStages, setOpenOffStages] = useState([])
 
   // Target-completion date is drafted locally and persisted on blur. Saving
   // on every change event wrote each half-typed keystroke to the DB (native
@@ -1813,7 +1903,9 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
   useEffect(() => { load() }, [load])
 
   async function toggleMilestone(m) {
-    const updated = { completed: !m.completed, completed_date: !m.completed ? new Date().toISOString().split('T')[0] : null }
+    // Local date, not toISOString (UTC): ticking just after midnight BST
+    // otherwise stamps yesterday.
+    const updated = { completed: !m.completed, completed_date: !m.completed ? isoToday() : null }
     try {
       await api.updateMilestone(m.id, updated)
       setMilestones(prev => prev.map(x => x.id === m.id ? { ...x, ...updated } : x))
@@ -1827,14 +1919,20 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
     } catch(e) { showToast(e.message || 'Failed to update milestone', 'error') }
   }
 
-  async function setDate(m, date) {
+  async function setDate(m, value) {
+    // completed_date is a Postgres date: clearing the input gives '', which
+    // the column rejects — send null instead.
+    const date = value || null
     try {
       await api.updateMilestone(m.id, { completed_date: date })
       setMilestones(prev => prev.map(x => x.id === m.id ? { ...x, completed_date: date } : x))
     } catch(e) { showToast(e.message || 'Failed to update milestone', 'error') }
   }
 
-  const stages = [...new Set(milestones.filter(m=>m.is_enabled).map(m=>m.stage))]
+  // Every stage gets a card, including ones whose steps are all switched
+  // off — the switches live inside the card, so hiding it made those steps
+  // impossible to turn back on.
+  const stages = [...new Set(milestones.map(m=>m.stage))]
   const enabled = milestones.filter(m=>m.is_enabled)
   const completed = enabled.filter(m=>m.completed).length
   const progress = enabled.length > 0 ? (completed/enabled.length)*100 : 0
@@ -1881,15 +1979,25 @@ function PurchaseTracker({ deal, onUpdate, showToast }) {
 
       {stages.map(stage => {
         const stageMilestones = milestones.filter(m=>m.stage===stage)
+        const stageOff = !stageMilestones.some(m=>m.is_enabled)
+        const stageOpen = !stageOff || openOffStages.includes(stage)
         return (
-          <div key={stage} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',marginBottom:12}}>
-            <div style={{padding:'12px 20px',background:T.bg,borderBottom:`1px solid ${T.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div key={stage} style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',marginBottom:12,opacity:stageOff&&!stageOpen?0.7:1}}>
+            <div style={{padding:'12px 20px',background:T.bg,borderBottom:stageOpen?`1px solid ${T.border}`:'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
               <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>{STAGE_LABELS[stage]||stage}</span>
-              <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
-                {stageMilestones.filter(m=>m.is_enabled&&m.completed).length}/{stageMilestones.filter(m=>m.is_enabled).length}
-              </span>
+              {stageOff ? (
+                <button type="button" aria-expanded={stageOpen}
+                  onClick={()=>setOpenOffStages(prev => prev.includes(stage) ? prev.filter(s=>s!==stage) : [...prev, stage])}
+                  style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,background:'none',border:'none',cursor:'pointer',padding:0}}>
+                  All steps off · {stageOpen ? 'Hide' : 'Show switches'}
+                </button>
+              ) : (
+                <span style={{fontFamily:mono,fontSize:FS.xs,color:T.muted}}>
+                  {stageMilestones.filter(m=>m.is_enabled&&m.completed).length}/{stageMilestones.filter(m=>m.is_enabled).length}
+                </span>
+              )}
             </div>
-            {stageMilestones.map(m => (
+            {stageOpen && stageMilestones.map(m => (
               <div key={m.id} style={{padding:'12px 20px',borderBottom:`1px solid ${T.border}`,display:'flex',alignItems:'center',gap:12,opacity:m.is_enabled?1:0.4}}>
                 {/* Toggle enabled — all milestones */}
                 <div {...pressable(()=>toggleEnabled(m), { role: 'switch', 'aria-checked': !!m.is_enabled, 'aria-label': `Track ${m.label || 'milestone'}` })}
@@ -1945,7 +2053,9 @@ function ContactsTab({ dealId, userId, showToast }) {
     if (userId) api.fetchAddressBook(userId).then(setAddressBook).catch(()=>{})
   }, [dealId, userId, showToast])
 
-  function startNew() { setForm({ role:'solicitor', name:'', company_name:'', phone:'', email:'', notes:'' }); setEditing('new') }
+  // The editor renders under "This deal", so switch there — pressing New
+  // contact on the Address book tab used to do nothing visible.
+  function startNew() { setForm({ role:'solicitor', name:'', company_name:'', phone:'', email:'', notes:'' }); setEditing('new'); setAbView('deal') }
   function startEdit(c) { setForm({...c}); setEditing(c.id) }
 
   async function save() {

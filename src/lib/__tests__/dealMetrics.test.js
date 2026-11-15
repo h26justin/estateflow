@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeDealMetrics, grossMonthlyRent, stampDuty, num } from '../dealMetrics'
+import { computeDealMetrics, grossMonthlyRent, stampDuty, num, depositPercent, DEFAULT_DEPOSIT_PERCENT } from '../dealMetrics'
 import { calcStampDuty } from '../api'
 
 function deal(overrides = {}) {
@@ -134,6 +134,17 @@ describe('computeDealMetrics', () => {
     expect(m.brrrCapitalReleased).toBe(75_000)
     expect(m.brrrMoneyLeft).toBe(m.cashIn - 75_000)
     expect(m.brrrNewRepayment).toBe(Math.round(225_000 * 0.05 / 12))
+  })
+
+  it('defaults a blank deposit to 25% (same default as the cashflow and score)', () => {
+    for (const blank of [null, undefined, '']) {
+      const m = computeDealMetrics(deal({ deposit_percent: blank }))
+      expect(m.loanAmount).toBe(150_000)
+      expect(m.deposit).toBe(50_000)
+    }
+    expect(depositPercent({ deposit_percent: '' })).toBe(DEFAULT_DEPOSIT_PERCENT)
+    expect(DEFAULT_DEPOSIT_PERCENT).toBe(25)
+    expect(computeDealMetrics(deal({ deposit_percent: 40 })).loanAmount).toBe(120_000)
   })
 
   it('accepts string values straight from form inputs', () => {
