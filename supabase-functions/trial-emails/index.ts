@@ -14,10 +14,18 @@
 // DAY1_GAP_HOURS: they get day 1 on the next run instead.
 //
 // Suppression rules (any one = skip):
-//   - User has a paid subscription (subscriptions.status='active' on any company)
+//   - User has a paid subscription: any Stripe-backed live subscription on a
+//     company they own (active / past_due, or trialing with a Stripe
+//     subscription behind it — the subscription half of company_is_live)
 //   - User opted out (user_profiles.email_unsubscribed=true)
+//   - User is banned
 //   - Already sent this template (trial_email_log row exists)
 //   - User signed up via an invitation (no companies owned)
+//
+// Send-once: the trial_email_log row is claimed (plain insert; a unique
+// violation means another run already has it) BEFORE sending and deleted
+// again if the send fails, so overlapping runs cannot double-send and a
+// failed send is retried next run. Nothing is logged when nothing was sent.
 //
 // Schedule (set up once via Supabase Dashboard → Database → Cron):
 //
@@ -46,6 +54,7 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { secretMatches } from './secrets.ts'
+import { MONTHLY_FLOOR_GBP, PRICE_PER_PROPERTY_GBP } from './billing.ts'
 
 const SUPABASE_URL    = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -133,7 +142,7 @@ The four UK landlord compliance dates that catch people out:
 · EPC — every 10 years (or when re-let if E or below). Up to £5,000 fine.
 · Right to Rent — per tenant, ongoing for time-limited. Up to £20,000 per occupier.
 
-Properly emails you at 90, 60, 30 and 7 days before each one expires, and on the day. So you never have to remember.
+Properly emails you 30 days before each one expires, again 7 days before and on the day, then weekly for a few weeks if it lapses. Want more notice? Set an earlier reminder (say 90 days) on any certificate and you'll get 90- and 60-day reminders too.
 
 → Add your compliance dates: ${appUrl}/#/properties (click any property → Compliance tab)
 
@@ -145,28 +154,30 @@ P.S. Reply if anything's confusing about which certificates apply to your situat
 `,
   }),
   mtd_itsa_pitch: ({ firstName, appUrl }) => ({
-    subject: 'MTD ITSA — your first quarterly is due 5 August 2026',
+    subject: 'Making Tax Digital for landlords: what it means for you',
     text: `Hi ${firstName},
 
-If you've got rental income over £50,000, Making Tax Digital for Income Tax (MTD ITSA) goes live on 6 April 2026. From that day you have to file quarterly digital submissions to HMRC — annual self-assessment is gone.
+A quick one on Making Tax Digital for Income Tax (MTD ITSA), because it now applies to a lot of landlords.
 
-The good news: this is one of the main reasons we built Properly. Most other landlord tools haven't shipped MTD ITSA yet.
+Since 6 April 2026, landlords and sole traders whose qualifying income (rental plus self-employment, before expenses) is over £50,000 have to keep digital records and send HMRC quarterly updates from compatible software. The threshold is due to fall to £30,000 from April 2027.
 
-Timeline:
-· April 2026 — mandatory if your previous-year rental income was above £50,000
-· April 2027 — threshold drops to £30,000
-· Quarterly submissions: four per year, each due one month + 7 days after quarter end
-· First quarter (April–July 2026) is due 5 August 2026
+The quarterly updates are due by:
+· 7 August
+· 7 November
+· 7 February
+· 7 May
 
-In Properly, you can practice the full submission flow today against HMRC's sandbox — no risk, no real data sent. Most landlords run 2-3 practice submissions before they trust the live flow.
+You still finalise the year with HMRC after it ends, as now.
+
+Properly is built for this. You can practise the full submission flow against HMRC's sandbox first: no risk, no real data sent.
 
 → Start MTD ITSA setup: ${appUrl}/#/mtd
 
-It's a 3-minute setup: enter your NINO, click "Connect HMRC", sign in via gov.uk. Then run a practice quarter.
+It's a few minutes: enter your NINO, click "Connect HMRC", sign in via gov.uk. Then run a practice quarter.
+
+If you're not sure whether MTD applies to you yet, check on gov.uk or ask your accountant.
 
 Justin
-
-P.S. Section 24 mortgage interest restriction is baked into the calculations — your quarterly figures automatically include the 20% basic-rate credit so you don't have to remember.
 `,
   }),
   pricing_reminder: ({ firstName, appUrl }) => ({
@@ -176,11 +187,12 @@ P.S. Section 24 mortgage interest restriction is baked into the calculations —
 Your free trial ends in 3 days. No pressure — but a heads-up so it doesn't surprise you.
 
 Quick recap on pricing:
-· £2/property/month — every feature, no minimums, no per-user fees
-· Billed monthly, only for what you have
-· Add/remove properties anytime, billed pro-rata
+· Starter: £${PRICE_PER_PROPERTY_GBP.starter}/property/month
+· Investor: £${PRICE_PER_PROPERTY_GBP.investor}/property/month
+· Minimum £${MONTHLY_FLOOR_GBP}/month, no per-user fees
+· Billed monthly; add or remove properties any time
 
-For most landlords that's £10–£50/month total. Less than the cost of one missed Gas Safety cert.
+Less than the cost of one missed Gas Safety cert.
 
 → Add your card and continue: ${appUrl}/#/settings/billing
 
@@ -218,11 +230,20 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
+// Subscription half of company_is_live (src/lib/subscriptionLive.js): a
+// Stripe-backed live subscription counts as paid, including a card-backed
+// trial and a past_due grace period.
+function subscriptionIsPaid(s: any, now: Date): boolean {
+  if (!s) return false
+  if (s.status === 'active' || s.status === 'past_due') return true
+  if (s.status !== 'trialing') return false
+  if (s.stripe_subscription_id) return true
+  return !!s.current_period_end && new Date(s.current_period_end).getTime() > now.getTime()
+}
+
 async function sendEmail(to: string, subject: string, text: string): Promise<void> {
-  if (!RESEND_API_KEY) {
-    console.warn('[trial-emails] No RESEND_API_KEY — would have sent to', to, ':', subject)
-    return
-  }
+  // Never report a send that did not happen (the caller logs on success).
+  if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set')
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -235,9 +256,10 @@ async function sendEmail(to: string, subject: string, text: string): Promise<voi
       reply_to: FROM_EMAIL.replace(/^.*<|>$/g, '').trim(),
       subject,
       text,
+      // mailto only: List-Unsubscribe-Post (one-click) needs an https URL
+      // that unsubscribes on POST, which we do not have.
       headers: {
         'List-Unsubscribe': `<mailto:unsubscribe@ownproperly.com?subject=unsub-${encodeURIComponent(to)}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
     }),
   })
@@ -252,6 +274,13 @@ serve(async (req) => {
   const cronSecret = req.headers.get('x-cron-secret') || ''
   if (!secretMatches(cronSecret, CRON_SECRET)) {
     return new Response('Forbidden', { status: 403 })
+  }
+
+  // No provider: send nothing and log nothing.
+  if (!RESEND_API_KEY) {
+    return new Response(JSON.stringify({ ok: false, sent: 0, error: 'RESEND_API_KEY is not set' }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
@@ -312,7 +341,7 @@ serve(async (req) => {
       // Has-paid lookup straight off subscriptions.owner_id — checks every
       // subscription row rather than only the first of a joined array (this
       // is also the variant that was live in prod).
-      admin.from('subscriptions').select('owner_id, status').in('owner_id', ids),
+      admin.from('subscriptions').select('owner_id, status, stripe_subscription_id, current_period_end').in('owner_id', ids),
       admin.from('trial_email_log').select('user_id').in('user_id', ids).eq('day_offset', dayOffset),
       admin.from('companies').select('id, owner_id').in('owner_id', ids),
       // Day 1 only: welcomes sent too recently to follow up yet.
@@ -332,7 +361,7 @@ serve(async (req) => {
     const alreadySent = new Set((logRes.data || []).map((r: any) => r.user_id))
     const hasPaidUserIds = new Set<string>()
     for (const s of (subsRes.data || [])) {
-      if ((s as any).status === 'active') hasPaidUserIds.add((s as any).owner_id)
+      if (subscriptionIsPaid(s, now)) hasPaidUserIds.add((s as any).owner_id)
     }
     const ownedCompaniesByUser = new Set<string>()
     for (const co of (companiesRes.data || [])) ownedCompaniesByUser.add((co as any).owner_id)
@@ -345,17 +374,29 @@ serve(async (req) => {
         if (!ownedCompaniesByUser.has(user.id)) continue // tenant/collaborator, not trial customer
         const profile = profileMap[user.id] || {}
         if (profile.email_unsubscribed) continue
+        if (user.banned_until && new Date(user.banned_until).getTime() > now.getTime()) continue
 
         const firstName = profile.first_name || (user.email || '').split('@')[0] || 'there'
         const tpl = tplBuilder({ firstName, appUrl: APP_BASE_URL, calUrl: CAL_URL })
 
-        await sendEmail(user.email!, tpl.subject, tpl.text)
-
-        await admin.from('trial_email_log').upsert({
+        // Claim the template first: a unique violation means another run
+        // already sent (or is sending) it.
+        const { error: claimErr } = await admin.from('trial_email_log').insert({
           user_id: user.id,
           day_offset: dayOffset,
           template: tplKey,
-        }, { onConflict: 'user_id,day_offset' })
+        })
+        if (claimErr) {
+          if ((claimErr as any).code === '23505') continue
+          throw new Error(`log: ${claimErr.message}`)
+        }
+        try {
+          await sendEmail(user.email!, tpl.subject, tpl.text)
+        } catch (e) {
+          // Release the claim so the next run retries.
+          await admin.from('trial_email_log').delete().eq('user_id', user.id).eq('day_offset', dayOffset)
+          throw e
+        }
 
         totalSent++
       } catch (e) {

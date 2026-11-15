@@ -32,14 +32,29 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// Largest calculator payload we keep (JSON characters). The Section 24 form
+// sends six small fields; anything bigger is not ours and is dropped.
+const MAX_PAYLOAD_CHARS = 4000
+// A send in flight blocks a second one for this long (double submits).
+const CLAIM_MS = 10 * 60 * 1000
+const TOUCH_LIMIT = 20
+
+// Keep background work alive after the response is sent. On Supabase,
+// EdgeRuntime.waitUntil holds the worker open until the promise settles.
+function runInBackground(p: Promise<unknown>) {
+  const rt = (globalThis as any).EdgeRuntime
+  if (rt && typeof rt.waitUntil === 'function') rt.waitUntil(p)
+}
+
 function isValidEmail(e: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length < 254
 }
 
-async function sendConfirmation(to: string, source: string): Promise<void> {
+// True only when Resend accepted the message.
+async function sendConfirmation(to: string, source: string): Promise<boolean> {
   if (!RESEND_API_KEY) {
-    console.warn('[lead-capture] No RESEND_API_KEY — would have confirmed', to)
-    return
+    console.warn('[lead-capture] No RESEND_API_KEY — confirmation not sent')
+    return false
   }
   const subject = source === 'section-24-calc'
     ? 'Your Section 24 calculation — and what to do with it'
@@ -58,7 +73,7 @@ The biggest mistake landlords make with Section 24 is treating it as a fixed rea
 2. Incorporation makes sense for higher-rate landlords with leveraged portfolios — but the SDLT 3% surcharge on transfer is brutal. Model it carefully.
 3. Annual rate changes (bank rate movements) hit S24 landlords directly because the bigger the interest, the bigger the gap between 20% credit and 40% marginal rate.
 
-Properly automates Section 24 across every property in your portfolio and handles your quarterly MTD ITSA filings. £2 per property per month, 14-day free trial, no card needed.
+Properly automates Section 24 across every property in your portfolio and handles your quarterly MTD ITSA filings. From £2 per property per month (£10 minimum), 14-day free trial, no card needed.
 
 → Start your free trial: ${APP_BASE_URL}
 
@@ -94,13 +109,18 @@ Founder, Properly
       to: [to],
       reply_to: FROM_EMAIL.replace(/^.*<|>$/g, '').trim(),
       subject, text,
+      // mailto only: List-Unsubscribe-Post (one-click) needs an https URL
+      // that unsubscribes on POST, which we do not have.
       headers: {
         'List-Unsubscribe': `<mailto:unsubscribe@ownproperly.com?subject=unsub-${encodeURIComponent(to)}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
     }),
   })
-  if (!res.ok) console.warn('[lead-capture] send failed:', res.status, await res.text())
+  if (!res.ok) {
+    console.warn('[lead-capture] send failed:', res.status, (await res.text()).slice(0, 200))
+    return false
+  }
+  return true
 }
 
 serve(async (req) => {
@@ -133,7 +153,17 @@ serve(async (req) => {
   const email     = String(body.email || '').toLowerCase().trim()
   const source    = String(body.source || 'unknown').slice(0, 60)
   const honeypot  = String(body.honeypot || '').trim()
-  const payload   = body.payload && typeof body.payload === 'object' ? body.payload : null
+  let payload: Record<string, unknown> | null = body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload) ? body.payload : null
+  if (payload) {
+    let size = Infinity
+    try { size = JSON.stringify(payload).length } catch (_) { /* unserialisable → drop */ }
+    if (size > MAX_PAYLOAD_CHARS) payload = null
+  }
+  if (payload) {
+    // Our own bookkeeping keys are never taken from the request.
+    const { _email_meta: _m, _touches: _t, ...rest } = payload as any
+    payload = rest
+  }
 
   if (honeypot) {
     // Bot. Return 200 so the bot thinks it succeeded and goes away.
@@ -142,15 +172,23 @@ serve(async (req) => {
   if (!isValidEmail(email)) return jsonErr(400, 'Invalid email')
 
   // Per-email send cap: confirm a given address at most once per 24h.
-  // Tracked under payload._email_meta on the lead row (one row per email).
-  const { data: existing } = await admin
+  // Tracked under payload._email_meta on the lead row (one row per email):
+  // last_sent_at is written only after Resend accepts the message;
+  // claimed_at marks a send in flight so a double submit cannot send twice.
+  const { data: existing, error: exErr } = await admin
     .from('marketing_leads')
     .select('id, payload')
     .eq('email', email)
     .maybeSingle()
-  const prevMeta = (existing?.payload as any)?._email_meta || {}
+  if (exErr) {
+    console.error('[lead-capture] lookup failed:', exErr.message)
+    return jsonErr(500, 'Could not save your email — please try again.')
+  }
+  const prevPayload = ((existing?.payload as any) && typeof existing?.payload === 'object') ? existing!.payload as any : {}
+  const prevMeta = prevPayload._email_meta || {}
   const lastSentAt = prevMeta.last_sent_at ? new Date(prevMeta.last_sent_at).getTime() : 0
-  let shouldSend = Date.now() - lastSentAt > 24 * 60 * 60 * 1000
+  const claimedAt = prevMeta.claimed_at ? new Date(prevMeta.claimed_at).getTime() : 0
+  let shouldSend = Date.now() - lastSentAt > 24 * 60 * 60 * 1000 && Date.now() - claimedAt > CLAIM_MS
 
   // Global cap: if more than 50 new leads landed in the last hour someone
   // is hammering the endpoint — keep saving leads, stop sending email
@@ -166,23 +204,44 @@ serve(async (req) => {
     }
   }
 
-  const emailMeta = shouldSend
-    ? { last_sent_at: new Date().toISOString(), sent_count: (prevMeta.sent_count || 0) + 1 }
-    : prevMeta
-
-  // Insert the lead (upsert on email — re-submissions update payload).
-  const { error: insErr } = await admin.from('marketing_leads').upsert({
-    email, source, ip,
-    payload: { ...(payload || {}), _email_meta: emailMeta },
-  }, { onConflict: 'email' })
-  if (insErr) {
-    console.error('[lead-capture] insert failed:', insErr)
-    return jsonErr(500, 'Could not save your email — please try again.')
+  const nowIso = new Date().toISOString()
+  const emailMeta = shouldSend ? { ...prevMeta, claimed_at: nowIso } : prevMeta
+  let leadPayload: Record<string, unknown>
+  if (existing) {
+    // An unauthenticated request never overwrites a known lead's first-seen
+    // source / payload / ip: it only records the touch.
+    leadPayload = { ...prevPayload, _email_meta: emailMeta, _touches: [...(Array.isArray(prevPayload._touches) ? prevPayload._touches : []), nowIso].slice(-TOUCH_LIMIT) }
+    const { error: upErr } = await admin.from('marketing_leads').update({ payload: leadPayload }).eq('id', existing.id)
+    if (upErr) {
+      console.error('[lead-capture] update failed:', upErr.message)
+      return jsonErr(500, 'Could not save your email — please try again.')
+    }
+  } else {
+    leadPayload = { ...(payload || {}), _email_meta: emailMeta, _touches: [nowIso] }
+    const { error: insErr } = await admin.from('marketing_leads').insert({ email, source, ip, payload: leadPayload })
+    if (insErr) {
+      // A concurrent submit for the same address won the insert; it sends.
+      if ((insErr as any).code === '23505') return jsonOk({ ok: true })
+      console.error('[lead-capture] insert failed:', insErr.message)
+      return jsonErr(500, 'Could not save your email — please try again.')
+    }
   }
 
-  // Confirmation email (fire-and-forget — don't block the response on it).
+  // Confirmation email in the background (the response does not wait), held
+  // open with waitUntil. last_sent_at is recorded only after a successful
+  // send; a failed send releases the claim.
   if (shouldSend) {
-    sendConfirmation(email, source).catch(e => console.warn('[lead-capture] confirm send fail:', e))
+    runInBackground((async () => {
+      let ok = false
+      try { ok = await sendConfirmation(email, source) } catch (e) { console.warn('[lead-capture] confirm send fail:', (e as Error).message) }
+      const { claimed_at: _c, ...base } = prevMeta
+      const meta = ok ? { ...base, last_sent_at: new Date().toISOString(), sent_count: (prevMeta.sent_count || 0) + 1 } : base
+      const { data: cur } = await admin.from('marketing_leads').select('id, payload').eq('email', email).maybeSingle()
+      if (cur) {
+        const { error } = await admin.from('marketing_leads').update({ payload: { ...((cur.payload as any) || {}), _email_meta: meta } }).eq('id', cur.id)
+        if (error) console.error('[lead-capture] meta update failed:', error.message)
+      }
+    })())
   }
 
   return jsonOk({ ok: true })

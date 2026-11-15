@@ -284,12 +284,28 @@ async function stripeChecks(admin: any): Promise<Check[]> {
     })
     return { status: res.status, json: res.status === 200 ? await res.json() : null }
   }
+  // Every page of a Stripe list (has_more / starting_after), so a long list
+  // never reads as "unknown to Stripe" past the first 100. Any failed page
+  // returns that page's status and no data, never a partial list.
+  const sgetAll = async (path: string, maxPages = 50) => {
+    const all: any[] = []
+    let after = ''
+    for (let page = 0; page < maxPages; page++) {
+      const r = await sget(path + (after ? `&starting_after=${encodeURIComponent(after)}` : ''))
+      if (r.status !== 200 || !r.json) return { status: r.status, json: null }
+      const data = Array.isArray(r.json.data) ? r.json.data : []
+      all.push(...data)
+      if (!r.json.has_more || data.length === 0) return { status: 200, json: { data: all } }
+      after = data[data.length - 1].id
+    }
+    return { status: 200, json: { data: all, truncated: true } }
+  }
   try {
     const dayAgo = Math.floor(Date.now() / 1000) - 86400
     const [hooks, events, subs, dbSubs] = await Promise.all([
       sget('webhook_endpoints?limit=10'),
-      sget(`events?limit=100&created[gte]=${dayAgo}`),
-      sget('subscriptions?status=all&limit=100'),
+      sgetAll(`events?limit=100&created[gte]=${dayAgo}`),
+      sgetAll('subscriptions?status=all&limit=100'),
       admin.from('subscriptions').select('stripe_subscription_id, status'),
     ])
     if (hooks.status === 401) {
@@ -320,6 +336,11 @@ async function stripeChecks(admin: any): Promise<Check[]> {
     // Stripe says, so it can never match and is not drift (it warned for 8
     // nights in Sept 2026 on a deliberate override). A free-tier company
     // whose Stripe subscription is still live is listed as information.
+    if (!subs.json) {
+      checks.push({ name: 'stripe_drift', group: 'money', label: 'Stripe ↔ DB drift',
+        status: 'warn', detail: `could not list Stripe subscriptions (HTTP ${subs.status}) — drift not checked` })
+      return checks
+    }
     const stripeMap = new Map<string, string>(
       (subs.json?.data || []).map((s: any) => [s.id, s.status]))
     const known = (dbSubs.data || []).filter((r: any) =>

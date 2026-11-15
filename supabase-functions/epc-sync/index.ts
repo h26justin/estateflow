@@ -12,7 +12,13 @@
 //   { action: 'sync_all' }                    — every property the caller can
 //                                               write to (RLS-scoped list)
 // Input (cron, x-cron-secret header):
-//   {}                                        — every live property, all users
+//   {}                                        — live properties not checked in
+//                                               the last RECHECK_DAYS, oldest
+//                                               check first, at most
+//                                               EPC_SYNC_BATCH per run and
+//                                               within a time budget, so each
+//                                               run makes progress and the
+//                                               next one picks up the rest
 //
 // Per property:
 //   1. Parse the postcode out of the free-text address (properties has no
@@ -44,6 +50,13 @@ const CRON_SECRET      = Deno.env.get('CRON_SECRET') || ''
 const EPC_API_TOKEN    = Deno.env.get('EPC_API_TOKEN') || ''
 
 const REGISTER_BASE   = 'https://api.get-energy-performance-data.communities.gov.uk/api'
+// Per-request timeout for register calls, the cron batch size, how long a
+// check stays fresh, and the cron run's time budget (well inside the edge
+// wall clock).
+const REGISTER_TIMEOUT_MS = 15_000
+const CRON_BATCH = (() => { const n = Number(Deno.env.get('EPC_SYNC_BATCH')); return Number.isInteger(n) && n > 0 && n <= 1000 ? n : 200 })()
+const RECHECK_DAYS = 25
+const CRON_BUDGET_MS = 110_000
 const PUBLIC_CERT_URL = 'https://find-energy-certificate.service.gov.uk/energy-certificate/'
 
 const corsHeaders = {
@@ -80,9 +93,14 @@ function extractPostcode(address: string | null): string | null {
 
 // ── Address matching ─────────────────────────────────────────────────────────
 // The register's addresses are structured (addressLine1..4, postTown) while
-// ours is one free-text string, so we match on token overlap. The house/flat
-// number is the strongest signal: a candidate that shares no number token
-// with the property address is never accepted.
+// ours is one free-text string, so we match on token overlap. Numbers must
+// agree exactly: every number token in the candidate must be in ours and
+// every number token in ours must be in the candidate (flat number AND
+// building number), so Flat 2 never takes Flat 3's certificate and a named
+// house never takes a numbered neighbour's. Anything below MIN_SCORE, or a
+// tie between two different addresses, is left as not_found for review
+// rather than written.
+const MIN_SCORE = 6
 
 const NOISE_TOKENS = new Set([
   'flat', 'apartment', 'apt', 'unit', 'room', 'house', 'the',
@@ -116,24 +134,28 @@ const isNum = (t: string) => /\d/.test(t)
 // candidate must be rejected.
 //
 // Two acceptance regimes:
-//   • Candidate HAS a number ("5 Thomas Street"): the house/flat number must
-//     agree with one of ours.
-//   • Candidate has NO number (building-level EPC — "Piers View", "Watts
-//     Moses House", "The Cloisters"): accept only on ≥2 distinct name-token
-//     matches, or when every name token the candidate has is contained in
-//     the property address (so "The Cloisters" matches "Flat 6, The
-//     Cloisters" but "Thomas Street Community Centre" never matches
-//     "5 Thomas Street").
+//   • Either side has a number: the number tokens must be the same set on
+//     both sides ("Flat 2, 5 Thomas Street" ≠ "Flat 3, 5 Thomas Street" or
+//     "5 Thomas Street"; "Rose Cottage, High Street" ≠ "3 High Street"), and
+//     when the candidate has street/building name tokens at least one must
+//     be ours ("5 Thomas Street" ≠ "5 Other Road" in the same postcode).
+//   • Neither side has a number (named buildings / houses): accept only on
+//     ≥2 distinct name-token matches, or when every name token the candidate
+//     has is contained in the property address (so "Rose Cottage" matches
+//     "Rose Cottage, High Street" but "Thomas Street Community Centre" never
+//     matches "Thomas Street House").
 function scoreCandidate(propTokens: string[], candLineTokens: string[], candTownTokens: string[]): number {
   const propSet = new Set(propTokens)
-  const propNums = propTokens.filter(isNum)
-  const candNums = candLineTokens.filter(isNum)
+  const propNums = [...new Set(propTokens.filter(isNum))]
+  const candNums = [...new Set(candLineTokens.filter(isNum))]
   const candReal = [...new Set(candLineTokens.filter(t => !isNum(t) && !NOISE_TOKENS.has(t)))]
+  const matchedReal = candReal.filter(t => propSet.has(t))
 
-  if (candNums.length > 0) {
-    if (propNums.length > 0 && !propNums.some(n => candNums.includes(n))) return -1
+  if (candNums.length > 0 || propNums.length > 0) {
+    if (!candNums.every(n => propSet.has(n))) return -1
+    if (!propNums.every(n => candNums.includes(n))) return -1
+    if (candReal.length > 0 && matchedReal.length === 0) return -1
   } else {
-    const matchedReal = candReal.filter(t => propSet.has(t))
     const fullyContained = matchedReal.length >= 1 && matchedReal.length === candReal.length
     if (!(matchedReal.length >= 2 || fullyContained)) return -1
   }
@@ -150,12 +172,6 @@ function scoreCandidate(propTokens: string[], candLineTokens: string[], candTown
       score += 1                             // town match is weak signal
     }
   }
-  // Penalise candidates whose numbers we don't have (e.g. "Flat 2, 5 Thomas
-  // St" when the property is just "5 Thomas St") so the plain house match
-  // outranks the flats within it.
-  for (const n of new Set(candNums)) {
-    if (!propSet.has(n)) score -= 2
-  }
   return score
 }
 
@@ -171,6 +187,7 @@ async function registerGet(path: string, params: Record<string, string>): Promis
       'Authorization': `Bearer ${EPC_API_TOKEN}`,
       'Accept': 'application/json',
     },
+    signal: AbortSignal.timeout(REGISTER_TIMEOUT_MS),
   })
 }
 
@@ -224,9 +241,12 @@ function toISODate(v: unknown): string | null {
   return m ? m[1] : null
 }
 
+// Same day N years on; 29 February becomes 28 February in a non-leap year.
 function addYears(iso: string, years: number): string {
   const [y, mo, d] = iso.split('-').map(Number)
-  return `${y + years}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const ny = y + years
+  const dim = new Date(Date.UTC(ny, mo, 0)).getUTCDate()
+  return `${ny}-${String(mo).padStart(2, '0')}-${String(Math.min(d, dim)).padStart(2, '0')}`
 }
 
 // ── Core: sync one property ──────────────────────────────────────────────────
@@ -271,23 +291,30 @@ async function syncProperty(admin: any, prop: PropertyRow, postcodeCache: Map<st
   // Best address match; the register returns every historical certificate,
   // so collect all rows for the winning address and keep the newest.
   const propTokens = tokenise(prop.address || '')
-  let bestScore = 0
+  let bestScore = -1
   let best: Record<string, unknown> | null = null
+  let tied = false
+  const passing: Record<string, unknown>[] = []
   for (const row of rows) {
     const score = scoreCandidate(propTokens, tokenise(candidateLineText(row)), tokenise(String(row.postTown || '')))
-    if (score > bestScore) { bestScore = score; best = row }
+    if (score < 0) continue
+    passing.push(row)
+    if (score > bestScore) { bestScore = score; best = row; tied = false }
+    else if (score === bestScore && best && candidateAddress(row).toLowerCase() !== candidateAddress(best).toLowerCase()) tied = true
   }
-  // A postcode with exactly one address is safe to accept even on a weak
-  // token match (rural addresses often share almost no tokens with our
-  // free-text form).
   let matchedBy: string = 'address'
-  if (!best && rows.length > 0) {
+  if (best && (tied || bestScore < MIN_SCORE)) best = null
+  // A postcode with exactly one address is safe to accept on a weak token
+  // match (rural addresses often share almost no tokens with our free-text
+  // form) — but only when that address passed the number rules above.
+  if (!best && !tied && rows.length > 0 && passing.length === rows.length) {
     const uniqueAddrs = new Set(rows.map(r => candidateAddress(r).toLowerCase()))
     if (uniqueAddrs.size === 1) { best = rows[0]; matchedBy = 'postcode_single' }
   }
   if (!best) {
+    // Nothing written: a weak or ambiguous match needs a person to check it.
     await stamp({ epc_sync_status: 'not_found' })
-    return { property_id: prop.id, name: prop.name, status: 'not_found' }
+    return { property_id: prop.id, name: prop.name, status: 'not_found', ...(tied || passing.length ? { error: 'No confident address match on the register; check and add the EPC manually' } : {}) }
   }
 
   const bestAddr = candidateAddress(best).toLowerCase()
@@ -386,10 +413,12 @@ async function syncProperty(admin: any, prop: PropertyRow, postcodeCache: Map<st
 }
 
 // deno-lint-ignore no-explicit-any
-async function syncMany(admin: any, props: PropertyRow[]): Promise<{ checked: number; found: number; results: SyncResult[] }> {
+async function syncMany(admin: any, props: PropertyRow[], deadline = Infinity): Promise<{ checked: number; found: number; results: SyncResult[]; stopped_early?: boolean }> {
   const cache = new Map<string, Record<string, unknown>[]>()
   const results: SyncResult[] = []
   for (const prop of props) {
+    // Out of time: leave the rest for the next run (oldest check first).
+    if (Date.now() >= deadline) return { checked: results.length, found: results.filter(r => r.status === 'found').length, results, stopped_early: true }
     try {
       results.push(await syncProperty(admin, prop, cache))
     } catch (e) {
@@ -429,11 +458,21 @@ serve(async (req) => {
     const cronHeader = req.headers.get('x-cron-secret')
     if (cronHeader !== null) {
       if (!secretMatches(cronHeader, CRON_SECRET)) return jsonError(403, 'Forbidden')
+      // Oldest check first, a bounded batch per run: every run makes
+      // progress and the next one picks up where it stopped.
+      const staleBefore = new Date(Date.now() - RECHECK_DAYS * 86_400_000).toISOString()
       const { data: props, error } = await admin.from('properties').select(PROPERTY_COLS)
+        // Sold is filtered here too, or never-stamped sold rows would hold
+        // the front of the queue forever.
+        .is('deleted_at', null).is('archived_at', null).neq('status', 'sold')
+        .or(`epc_last_checked_at.is.null,epc_last_checked_at.lt.${staleBefore}`)
+        .order('epc_last_checked_at', { ascending: true, nullsFirst: true })
+        .order('id')
+        .limit(CRON_BATCH)
       if (error) throw error
       const live = (props || []).filter(isLiveProperty) as unknown as PropertyRow[]
-      const summary = await syncMany(admin, live)
-      return json(200, summary)
+      const summary = await syncMany(admin, live, Date.now() + CRON_BUDGET_MS)
+      return json(200, { ...summary, batch: CRON_BATCH })
     }
 
     // ── User mode: JWT + per-property write check ────────────────────────────

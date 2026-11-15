@@ -233,7 +233,8 @@ serve(async (req) => {
           // Rules are already applied — degrade to "no suggestions" rather
           // than failing the whole request.
           console.warn('[bookkeeping-ai] AI pass failed:', (e as Error).message)
-          aiNote = 'AI suggestions are unavailable right now (' + (e as Error).message.slice(0, 160) + '). Rules were still applied.'
+          // Provider detail (model id, raw API text) stays in the log above.
+          aiNote = 'AI suggestions are unavailable right now. Rules were still applied.'
         }
       }
     }

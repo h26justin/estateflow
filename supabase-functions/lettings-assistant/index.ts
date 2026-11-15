@@ -66,6 +66,24 @@ function json(body: unknown, status = 200) {
   })
 }
 
+// Bound everything that reaches the prompt (and the bill).
+const clip = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
+const finiteOrUndef = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+
+// Only the documented criteria fields, typed and bounded.
+function cleanCriteria(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const c = raw as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  const budget = finiteOrUndef(c.max_budget)
+  if (budget !== undefined) out.max_budget = budget
+  if (typeof c.pets_allowed === 'boolean') out.pets_allowed = c.pets_allowed
+  const months = finiteOrUndef(c.min_tenancy_months)
+  if (months !== undefined) out.min_tenancy_months = months
+  if (typeof c.notes === 'string' && c.notes.trim()) out.notes = clip(c.notes, 500)
+  return out
+}
+
 const DISCLAIMER =
   'AI-generated draft. Review and edit before sending. Screening is a triage aid, not a right-to-rent or affordability decision.'
 
@@ -87,8 +105,8 @@ LANDLORD CRITERIA (JSON; any field may be absent):
 ${JSON.stringify(criteria || {}, null, 2)}
 
 INBOUND ENQUIRY:
-  Applicant name: ${applicantName || 'unknown'}
-  Applicant email: ${applicantEmail || 'unknown'}
+  Applicant name: ${clip(applicantName, 120) || 'unknown'}
+  Applicant email: ${clip(applicantEmail, 200) || 'unknown'}
   Message:
   """
   ${(message || '').slice(0, 4000)}
@@ -146,7 +164,7 @@ serve(async (req) => {
   try { body = await req.json() } catch { return json({ error: 'Bad JSON' }, 400) }
 
   const enquiryId = body.enquiry_id
-  const criteria = body.criteria && typeof body.criteria === 'object' ? body.criteria : {}
+  const criteria = cleanCriteria(body.criteria)
   if (!enquiryId) return json({ error: 'enquiry_id required' }, 400)
 
   // Load the enquiry.
@@ -168,9 +186,17 @@ serve(async (req) => {
   // Light property context for grounding.
   const { data: prop } = await admin
     .from('properties')
-    .select('name, address, rent_pcm')
+    .select('name, address, rent_pcm, company_id')
     .eq('id', enquiry.property_id)
     .maybeSingle()
+
+  // Liveness gate: never run paid AI for a company that isn't live
+  // (company_is_live, evaluated as the caller — same as maintenance-triage).
+  const liveCompanyId = prop?.company_id || enquiry.company_id
+  if (liveCompanyId) {
+    const { data: live } = await userClient.rpc('company_is_live', { p_company_id: liveCompanyId })
+    if (live !== true) return json({ error: 'Company subscription is not active' }, 402)
+  }
 
   const propertyLabel = prop?.name || prop?.address || 'a rental property'
   const rentPcm = prop?.rent_pcm != null ? Number(prop.rent_pcm) : null

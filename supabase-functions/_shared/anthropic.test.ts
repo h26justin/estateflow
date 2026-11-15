@@ -13,7 +13,8 @@ import {
   validateAgainstSchema, firstTextBlock, modelForTier, nullable, obj, DEFAULT_MODELS,
 } from './anthropic.ts'
 import { isAllowedJobPhotoPath } from '../maintenance-triage/photo-paths.ts'
-import { decideComplianceTarget } from '../extract-document/compliance-gate.ts'
+import { decideComplianceTarget, ukDateToIso, cycleProblem } from '../extract-document/compliance-gate.ts'
+import { reconcileStatement } from '../ingest-statement-email/reconcile.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const functionsDir = join(here, '..')
@@ -206,6 +207,50 @@ describe('callClaudeWithEscalation', () => {
   })
 })
 
+describe('overall deadline (deadlineMs)', () => {
+  it('caps each attempt timeout to the time left', async () => {
+    const t0 = 1_000_000
+    const spy = vi.spyOn(AbortSignal, 'timeout')
+    const fetchImpl = vi.fn(async () => okMessage())
+    await callClaude({ ...base, tier: 'fast', content: 'x', maxTokens: 50, fetchImpl, timeoutMs: 120_000, deadlineMs: t0 + 30_000, nowImpl: () => t0 })
+    expect(spy).toHaveBeenCalledWith(30_000)
+    spy.mockRestore()
+  })
+
+  it('does not start a retry that cannot finish before the deadline', async () => {
+    let t = 1_000_000
+    const deadline = t + 15_000
+    const fetchImpl = vi.fn(async () => { t += 4_000; return apiResponse({ error: 'overloaded' }, 529) })
+    await expect(callClaude({ ...base, tier: 'standard', content: 'x', maxTokens: 50, fetchImpl, deadlineMs: deadline, nowImpl: () => t }))
+      .rejects.toMatchObject({ kind: 'http', status: 529 })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses to start when the deadline has (almost) passed', async () => {
+    const fetchImpl = vi.fn(async () => okMessage())
+    await expect(callClaude({ ...base, tier: 'fast', content: 'x', maxTokens: 50, fetchImpl, deadlineMs: 1_005_000, nowImpl: () => 1_000_000 }))
+      .rejects.toMatchObject({ kind: 'timeout' })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('skips the escalation call when there is no time left for it', async () => {
+    let t = 1_000_000
+    const deadline = t + 20_000
+    const fetchImpl = vi.fn(async () => { t += 15_000; return okMessage({ content: [{ type: 'text', text: 'oops' }] }) })
+    await expect(callClaudeWithEscalation({ ...base, tier: 'standard', content: 'x', maxTokens: 50, schema: SCHEMA, fetchImpl, deadlineMs: deadline, nowImpl: () => t }))
+      .rejects.toMatchObject({ kind: 'parse' })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  it('still escalates when there is time', async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(okMessage({ content: [{ type: 'text', text: 'oops' }] }))
+      .mockResolvedValueOnce(okMessage({ model: 'claude-opus-5-5' }))
+    const r = await callClaudeWithEscalation({ ...base, tier: 'standard', content: 'x', maxTokens: 50, schema: SCHEMA, fetchImpl, deadlineMs: 2_000_000, nowImpl: () => 1_000_000 })
+    expect(r.escalated).toBe(true)
+  })
+})
+
 describe('checkAiRateLimit / recordAiUsage', () => {
   // Minimal stand-in for the supabase-js query builder.
   function fakeAdmin(opts: { count?: number; countError?: any; insertError?: any }) {
@@ -289,5 +334,52 @@ describe('extract-document compliance gate', () => {
     expect(decideComplianceTarget('p1', null)).toMatchObject({ propertyId: null, needsReview: true })
     expect(decideComplianceTarget('p1', { property_id: 'p9', match_confidence: 'high' }))
       .toMatchObject({ propertyId: null, needsReview: true, reason: 'match_conflicts_with_document_property' })
+  })
+})
+
+describe('extract-document date checks', () => {
+  it('accepts only real calendar dates', () => {
+    expect(ukDateToIso('28/02/2027')).toBe('2027-02-28')
+    expect(ukDateToIso('29/02/2028')).toBe('2028-02-29')
+    expect(ukDateToIso('29/02/2027')).toBeNull()
+    expect(ukDateToIso('31/02/2027')).toBeNull()
+    expect(ukDateToIso('01/13/2027')).toBeNull()
+    expect(ukDateToIso('2027-02-01')).toBeNull()
+    expect(ukDateToIso(null)).toBeNull()
+  })
+
+  it('requires the issue → expiry span to fit the statutory cycle', () => {
+    expect(cycleProblem('gas_safety', '2026-11-01', '2027-11-01')).toBeNull()
+    expect(cycleProblem('gas_safety', '2026-11-01', '2036-11-01')).toBe('expiry_beyond_statutory_cycle')
+    expect(cycleProblem('gas_safety', null, '2027-11-01')).toBe('issue_date_missing')
+    expect(cycleProblem('gas_safety', '2027-11-01', '2026-11-01')).toBe('expiry_not_after_issue')
+    expect(cycleProblem('eicr', '2026-01-10', '2031-01-10')).toBeNull()
+    expect(cycleProblem('eicr', '2026-01-10', '2032-01-10')).toBe('expiry_beyond_statutory_cycle')
+    expect(cycleProblem('epc', '2020-03-01', '2030-03-01')).toBeNull()
+    expect(cycleProblem('epc', '2020-03-01', '2031-06-01')).toBe('expiry_beyond_statutory_cycle')
+    expect(cycleProblem('unknown_type', '2026-01-01', '2027-01-01')).toBe('no_statutory_cycle')
+  })
+})
+
+describe('reconcileStatement', () => {
+  const items = [
+    { type: 'rent', amount: 950, property_address: 'a', description: '', tenant_name: null, date: null },
+    { type: 'rent', amount: 800, property_address: 'b', description: '', tenant_name: null, date: null },
+    { type: 'fee', amount: -175, property_address: 'a', description: '', tenant_name: null, date: null },
+    { type: 'maintenance', amount: -60.5, property_address: 'b', description: '', tenant_name: null, date: null },
+  ]
+  it('passes when every stated total matches its lines (fees signed or unsigned)', () => {
+    const r = reconcileStatement({ items, totals: { rent_income: 1750, fees: 175, maintenance: -60.5, net_to_landlord: 1514.5 } })
+    expect(r).toEqual({ ok: true, mismatches: [] })
+  })
+  it('tolerates 1p per line, flags more', () => {
+    expect(reconcileStatement({ items, totals: { rent_income: 1750.02, fees: null, maintenance: null, net_to_landlord: null } }).ok).toBe(true)
+    const r = reconcileStatement({ items, totals: { rent_income: 1750.03, fees: null, maintenance: null, net_to_landlord: 1500 } })
+    expect(r.ok).toBe(false)
+    expect(r.mismatches.map((m) => m.total)).toEqual(['rent_income', 'net_to_landlord'])
+  })
+  it('skips null totals and copes with no items', () => {
+    expect(reconcileStatement({ items: [], totals: { rent_income: null, fees: null, maintenance: null, net_to_landlord: null } }).ok).toBe(true)
+    expect(reconcileStatement(null).ok).toBe(true)
   })
 })

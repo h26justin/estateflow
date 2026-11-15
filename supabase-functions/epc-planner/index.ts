@@ -68,6 +68,9 @@ const PLAN_SCHEMA = obj({
   summary: { type: 'string' },
 })
 
+// Free-text inputs reach the prompt: strings only, bounded.
+const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '')
+
 function normaliseRating(r: unknown): string | null {
   if (typeof r !== 'string') return null
   const up = r.trim().toUpperCase()
@@ -151,11 +154,20 @@ serve(async (req) => {
       .eq('id', propertyId)
       .single()
 
+    // Liveness gate: never run paid AI for a company that isn't live
+    // (company_is_live, evaluated as the caller — same as maintenance-triage).
+    if (prop?.company_id) {
+      const { data: live } = await userClient
+        .rpc('company_is_live', { p_company_id: prop.company_id })
+      if (live !== true) return jsonError(402, 'Company subscription is not active')
+    }
+
     const manualRating = normaliseRating(body.current_rating)
-    const propertyType: string = body.property_type || ''
-    const region: string = body.region || ''
+    const propertyType: string = clip(body.property_type, 60)
+    const region: string = clip(body.region, 60)
     const floorArea: number | null =
-      typeof body.floor_area_sqm === 'number' ? body.floor_area_sqm : null
+      typeof body.floor_area_sqm === 'number' && Number.isFinite(body.floor_area_sqm)
+        && body.floor_area_sqm > 0 && body.floor_area_sqm < 100_000 ? body.floor_area_sqm : null
 
     // Register-synced rating wins; transparently falls back to the manual one.
     let source: 'epc_register' | 'manual' | 'unknown' = manualRating ? 'manual' : 'unknown'
@@ -183,21 +195,22 @@ serve(async (req) => {
         tier: 'standard', content: prompt, maxTokens: 8000, schema: PLAN_SCHEMA, timeoutMs: 90_000,
       })
     } catch (e) {
-      return jsonError(502, 'AI could not produce a retrofit plan: ' + (e as Error).message)
+      // Provider detail (model id, raw API text) is logged, never returned.
+      console.error('[epc-planner] AI call failed:', (e as Error).message)
+      return jsonError(502, 'AI could not produce a retrofit plan. Please try again.')
     }
     await recordAiUsage(admin, gate.usageId, aiResult)
     const plan = aiResult.data
-    const modelUsed = aiResult.model
     if (!Array.isArray(plan?.measures) || plan.measures.length === 0) {
       return jsonError(502, 'AI could not produce a retrofit plan. Please try again.')
     }
 
     const measures = Array.isArray(plan.measures) ? plan.measures : []
-    // Trust the AI sum but recompute defensively from the measures.
-    const computedTotal = measures.reduce(
-      (s: number, m: any) => s + (Number(m?.rough_cost_gbp) || 0), 0,
-    )
-    const estTotal = Number.isFinite(plan.est_total_cost_gbp) ? plan.est_total_cost_gbp : computedTotal
+    // The total is always recomputed from the measures; the model's own
+    // est_total_cost_gbp is not trusted (it can disagree with its lines).
+    const estTotal = Math.round(measures.reduce(
+      (s: number, m: any) => s + Math.max(0, Number(m?.rough_cost_gbp) || 0), 0,
+    ))
     const effectiveCurrent = currentRating || normaliseRating(plan.assumed_current_rating)
 
     const result: Record<string, unknown> = {
@@ -210,7 +223,6 @@ serve(async (req) => {
       projected_rating_after: normaliseRating(plan.projected_rating_after) || TARGET_RATING,
       summary: typeof plan.summary === 'string' ? plan.summary : '',
       source,
-      model_used: modelUsed,
       disclaimer: 'AI-generated planning guidance, not a survey or quote. Review with a qualified retrofit assessor before acting.',
     }
 
@@ -231,12 +243,17 @@ serve(async (req) => {
         })
         .select('id')
         .single()
-      if (insErr) throw new Error('Could not save plan: ' + insErr.message)
+      if (insErr) {
+        console.error('[epc-planner] save failed:', insErr.message)
+        throw new Error('Could not save plan')
+      }
       result.saved_id = row?.id
     }
 
     return json(200, result)
   } catch (e) {
-    return jsonError(500, (e as Error).message || 'Unexpected error')
+    console.error('[epc-planner] failed:', (e as Error)?.message || e)
+    const msg = (e as Error)?.message
+    return jsonError(500, msg === 'Could not save plan' ? msg : 'Unexpected error')
   }
 })

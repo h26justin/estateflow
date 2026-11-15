@@ -99,10 +99,13 @@ function buildMime({ from, to, subject, html, text }: {
   const boundary = '=_OwnProperly_' + crypto.randomUUID()
   const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`
   const plainBody = text || html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+  // Header values must never carry CR/LF: a newline in an address would let
+  // the rest of the value be read as extra headers (Bcc:, etc.).
+  const hdr = (s: string) => String(s).replace(/[\r\n]+/g, ' ').trim()
 
   return [
-    `From: ${from}`,
-    `To: ${to}`,
+    `From: ${hdr(from)}`,
+    `To: ${hdr(to)}`,
     `Subject: ${encodedSubject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,

@@ -12,19 +12,26 @@
 //        - property_address_text + postcode (for matching)
 //        - primary_expiry_date (for compliance auto-create)
 //        - human_summary
-//   3. Only if the answer fails to parse / match the schema, retry once on
-//      the escalate tier. Missing fields or 'low' confidence are returned
-//      as-is for the user to review — not re-bought on a pricier model.
+//   3. If the answer fails to parse / match the schema, retry once on the
+//      escalate tier. Also escalate once (same schema, same per-user AI
+//      rate limit) when the answer is a compliance certificate with an
+//      expiry — a field we might write — but its confidence is not high.
+//      The whole AI step runs inside an overall deadline so retries and
+//      escalation never outlast the edge wall clock.
 //   4. Fuzzy-match the extracted address against the user's properties
 //      (postcode first, then street-name substring). Attach matched_
 //      property_id + match_confidence.
-//   5. If doc is a compliance certificate, the property match is HIGH
-//      confidence (and agrees with the document's own property), and we have
-//      an expiry date, upsert a compliance_items row so the Compliance tab +
-//      reminder cron pick it up. Otherwise nothing is written: the response
-//      carries compliance_needs_review and the Documents tab's
-//      "+ Add to Compliance" prompt asks the user to confirm
-//      (./compliance-gate.ts).
+//   5. If doc is a compliance certificate, write a NEW compliance_items row
+//      only when everything checks out: high extraction confidence, a high-
+//      confidence property match that agrees with the document's own
+//      property (./compliance-gate.ts), real issue and expiry dates whose
+//      span fits the certificate's statutory cycle, and no existing row of
+//      that type (alias-aware) on the property. An existing row with the
+//      same expiry just gets the document linked; one with a different
+//      expiry is never replaced automatically. Everything else is staged:
+//      nothing is written, the response and extracted_fields carry
+//      compliance_needs_review + a reason, and the Documents tab's
+//      "+ Add to Compliance" prompt asks the user to confirm.
 //   6. If the user uploaded with category='other' but Claude detected
 //      a specific type with high confidence, update the document's
 //      category so future filters/searches behave correctly.
@@ -36,16 +43,21 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import {
-  callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, nullable, obj, UNTRUSTED_CONTENT_NOTICE,
+  callClaude, callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, nullable, obj, ClaudeError,
+  MIN_ATTEMPT_MS, UNTRUSTED_CONTENT_NOTICE,
 } from './anthropic.ts'
-import { decideComplianceTarget } from './compliance-gate.ts'
+import { cycleProblem, decideComplianceTarget, ukDateToIso } from './compliance-gate.ts'
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Per-user cap on extractions (ai_usage). Models: standard tier, escalate
-// tier on parse/schema failure only — see ./anthropic.ts.
+// tier on parse/schema failure or a low/medium-confidence certificate — see
+// ./anthropic.ts. An escalation reserves its own ai_usage row.
 const RATE_LIMIT = { perHour: 30, perDay: 200 }
+// Overall budget for the AI step, from request start: inside the edge
+// function wall clock with room left for the database writes.
+const AI_BUDGET_MS = 135_000
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -323,17 +335,31 @@ function matchPropertyAddress(
   return null
 }
 
-// Reformat DD/MM/YYYY → YYYY-MM-DD for Postgres date columns.
-function ukDateToIso(d: string | null | undefined): string | null {
-  if (!d || typeof d !== 'string') return null
-  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-  if (!m) return null
-  return `${m[3]}-${m[2]}-${m[1]}`
+// Every cert_type spelling a row of this type may carry (complianceCatalogue
+// aliases), for the existing-row lookup.
+const CERT_TYPE_ALIASES: Record<string, string[]> = {
+  gas_safety: ['gas_safety', 'gas', 'gas_cert'],
+}
+
+// What the browser (and extraction_error) may see. Provider detail, model
+// ids and storage errors are logged server-side only.
+const SAFE_ERRORS = new Set(['document_id required', 'Document not found'])
+function publicError(e: unknown): string {
+  if (e instanceof ClaudeError) {
+    if (e.kind === 'refusal') return 'The AI declined to read this document.'
+    if (e.kind === 'max_tokens') return 'The document was too long to extract in one pass.'
+    if (e.kind === 'timeout') return 'Extraction took too long. Please try again.'
+    if (e.kind === 'config') return 'Document extraction is not configured.'
+    return 'The AI service could not read this document right now. Please try again shortly.'
+  }
+  const msg = (e as Error)?.message || ''
+  return SAFE_ERRORS.has(msg) ? msg : 'Extraction failed. Please try again.'
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  const startedAt = Date.now()
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
   // Authenticate caller. Extraction must be tied to the calling user's
@@ -406,17 +432,35 @@ serve(async (req) => {
     const contentBlock = mimeType.startsWith('image/')
       ? { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } }
       : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
-    const ai = await callClaudeWithEscalation<any>({
-      tier: 'standard',
+    const deadlineMs = startedAt + AI_BUDGET_MS
+    const aiOpts = {
       content: [contentBlock, { type: 'text', text: UNIVERSAL_PROMPT }],
       maxTokens: 8000,
       schema: EXTRACTION_SCHEMA,
       timeoutMs: 120_000,
-    })
+      deadlineMs,
+    }
+    const ai = await callClaudeWithEscalation<any>({ tier: 'standard', ...aiOpts })
     await recordAiUsage(admin, gate.usageId, ai)
-    const extracted = ai.data
-    const modelUsed = ai.model
-    const fellBack = ai.escalated
+    let extracted = ai.data
+
+    // Escalate a not-high-confidence certificate with an expiry once: that
+    // expiry is a field we might write. Charged to the same per-user cap;
+    // skipped (keeping the first answer) when the cap or the clock says no.
+    const firstExpiry = extracted?.primary_expiry_date || extracted?.fields?.expiry_date || extracted?.fields?.cover_end
+    if (!ai.escalated && COMPLIANCE_TYPE_MAP[extracted?.document_type] && firstExpiry
+      && extracted?.confidence !== 'high' && deadlineMs - Date.now() >= MIN_ATTEMPT_MS) {
+      const gate2 = await checkAiRateLimit(admin, caller.id, 'extract-document', RATE_LIMIT)
+      if (gate2.allowed) {
+        try {
+          const better = await callClaude<any>({ tier: 'escalate', ...aiOpts })
+          await recordAiUsage(admin, gate2.usageId, better)
+          if (better.data) extracted = better.data
+        } catch (e) {
+          console.warn('[extract-document] confidence escalation failed, keeping the first answer:', (e as Error).message)
+        }
+      }
+    }
 
     // ── Property auto-matching ────────────────────────────────────
     // Pull the user's properties (not deleted) so we can match the
@@ -467,81 +511,101 @@ serve(async (req) => {
       docUpdates.category = reverseAlias[detectedType] || detectedType
     }
 
-    await admin.from('property_documents').update(docUpdates).eq('id', documentId)
-
-    // ── Compliance row for compliance certs — HIGH-confidence match only ──
-    // When the doc is a compliance certificate (gas/eicr/epc/insurance) with
-    // an expiry date, create/update the compliance_items row ONLY if the
-    // property match is high-confidence and agrees with the document's own
-    // property (./compliance-gate.ts). Otherwise stage it: nothing is
-    // written, and the user confirms via the Documents tab's
-    // "+ Add to Compliance" prompt.
+    // ── Compliance row for compliance certs — automatic only when safe ──
+    // See step 5 in the header. Anything short of every check passing is
+    // staged for the Documents tab's "+ Add to Compliance" confirmation.
     let complianceRowId: string | null = null
     let complianceNeedsReview = false
     let complianceReviewReason: string | null = null
     if (detectedType && COMPLIANCE_TYPE_MAP[detectedType]) {
       const certType = COMPLIANCE_TYPE_MAP[detectedType]
-      const expiryDate = ukDateToIso(extracted?.primary_expiry_date || extracted?.fields?.expiry_date || extracted?.fields?.cover_end)
+      const rawExpiry = extracted?.primary_expiry_date || extracted?.fields?.expiry_date || extracted?.fields?.cover_end
+      const expiryDate = ukDateToIso(rawExpiry)
+      const issueDate = ukDateToIso(extracted?.fields?.inspection_date || extracted?.fields?.valid_from || extracted?.fields?.cover_start)
       const issuer = extracted?.fields?.engineer_name
         || extracted?.fields?.contractor_name
         || extracted?.fields?.insurer
         || null
       const decision = decideComplianceTarget(doc.property_id, matchResult)
       const finalPropertyId = decision.propertyId
-      if (expiryDate && !finalPropertyId) {
-        complianceNeedsReview = true
-        complianceReviewReason = decision.reason
+      const stage = (reason: string) => { complianceNeedsReview = true; complianceReviewReason = reason }
+
+      if (rawExpiry && !expiryDate) stage('expiry_date_invalid')
+      else if (expiryDate && !finalPropertyId) stage(decision.reason || 'no_property_match')
+      else if (expiryDate && extracted?.confidence !== 'high') stage(`extraction_confidence_${extracted?.confidence || 'unknown'}`)
+      else if (expiryDate) {
+        const cycle = cycleProblem(certType, issueDate, expiryDate)
+        if (cycle) stage(cycle)
       }
 
-      if (expiryDate && finalPropertyId) {
-        // Upsert on (property_id, cert_type). If a row already exists with
-        // a LATER expiry date, don't override — the user might be uploading
-        // an older version of the same cert.
-        const { data: existing } = await admin
-          .from('compliance_items')
-          .select('id, expiry_date')
-          .eq('property_id', finalPropertyId)
-          .eq('cert_type', certType)
-          .is('deleted_at', null)
-          .maybeSingle()
+      if (expiryDate && finalPropertyId && !complianceNeedsReview) {
+        try {
+          // Alias-aware, and .limit(1) rather than .maybeSingle(): two rows
+          // of the same type must not error the lookup into an insert.
+          const { data: existingRows, error: exErr } = await admin
+            .from('compliance_items')
+            .select('id, expiry_date, document_id')
+            .eq('property_id', finalPropertyId)
+            .in('cert_type', CERT_TYPE_ALIASES[certType] || [certType])
+            .is('deleted_at', null)
+            .order('expiry_date', { ascending: false, nullsFirst: false })
+            .limit(1)
+          if (exErr) throw exErr
+          const existing = existingRows?.[0]
 
-        // compliance_items has no `issuer` or `updated_at` columns — writing
-        // them fails the whole statement, so auto-created compliance rows
-        // silently never appeared. Issuer goes in `notes`; new rows are owned
-        // by the DOCUMENT owner (doc.user_id), not the caller, so a platform
-        // admin triggering extraction doesn't create a row RLS hides from
-        // the landlord.
-        if (existing) {
-          if (!existing.expiry_date || new Date(existing.expiry_date) <= new Date(expiryDate)) {
-            await admin.from('compliance_items')
-              .update({
+          // compliance_items has no `issuer` or `updated_at` columns — writing
+          // them fails the whole statement, so auto-created compliance rows
+          // silently never appeared. Issuer goes in `notes`; new rows are owned
+          // by the DOCUMENT owner (doc.user_id), not the caller, so a platform
+          // admin triggering extraction doesn't create a row RLS hides from
+          // the landlord.
+          if (existing) {
+            if (existing.expiry_date && String(existing.expiry_date).slice(0, 10) === expiryDate) {
+              // Same certificate already recorded: just link the document.
+              if (!existing.document_id) {
+                const { error: upErr } = await admin.from('compliance_items')
+                  .update({ document_id: documentId }).eq('id', existing.id)
+                if (upErr) throw upErr
+              }
+              complianceRowId = existing.id
+            } else {
+              // Never replace a recorded expiry automatically: a misread
+              // far-future date would silence reminders.
+              stage('existing_compliance_differs')
+            }
+          } else {
+            const { data: inserted, error: insErr } = await admin.from('compliance_items')
+              .insert({
+                property_id: finalPropertyId,
+                cert_type: certType,
+                issue_date: issueDate,
                 expiry_date: expiryDate,
+                notes: issuer ? `Issuer: ${issuer}` : null,
                 document_id: documentId,
+                user_id: doc.user_id,
               })
-              .eq('id', existing.id)
-            complianceRowId = existing.id
+              .select('id').single()
+            if (insErr) throw insErr
+            complianceRowId = inserted?.id || null
           }
-        } else {
-          const { data: inserted } = await admin.from('compliance_items')
-            .insert({
-              property_id: finalPropertyId,
-              cert_type: certType,
-              expiry_date: expiryDate,
-              notes: issuer ? `Issuer: ${issuer}` : null,
-              document_id: documentId,
-              user_id: doc.user_id,
-            })
-            .select('id').single()
-          complianceRowId = inserted?.id || null
+        } catch (e) {
+          console.error('[extract-document] compliance write failed:', (e as Error)?.message || e)
+          stage('compliance_write_failed')
         }
       }
     }
 
+    // Keep the staging decision with the extraction so the review UI can
+    // show why it was not added automatically.
+    if (complianceNeedsReview && extracted && typeof extracted === 'object') {
+      extracted.compliance_needs_review = true
+      extracted.compliance_review_reason = complianceReviewReason
+    }
+    await admin.from('property_documents').update(docUpdates).eq('id', documentId)
+
     return new Response(JSON.stringify({
       success: true,
       extracted,
-      model_used: modelUsed,
-      fell_back_to_opus: fellBack,
       matched_property_id: matchResult?.property_id || null,
       match_confidence: matchResult?.match_confidence || null,
       compliance_row_id: complianceRowId,
@@ -553,7 +617,10 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (e) {
-    const errMsg = (e as Error).message
+    // Full detail in the function logs only; the browser and the stored
+    // extraction_error get a generic message.
+    console.error('[extract-document] failed:', (e as Error)?.message || e)
+    const errMsg = publicError(e)
     if (documentId) {
       try {
         await admin.from('property_documents').update({

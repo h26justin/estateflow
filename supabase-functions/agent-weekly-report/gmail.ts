@@ -95,19 +95,23 @@ export interface Attachment { filename: string; contentType: string; base64: str
 // Build a MIME message: multipart/mixed wrapping the text + HTML alternative
 // and any attachments. Encodes the Subject header (and attachment names) as
 // RFC 2047 UTF-8 so non-ASCII characters don't get mangled.
-function buildMime({ from, to, cc, subject, html, text, attachments = [] }: {
-  from: string; to: string; cc?: string[]; subject: string; html: string; text?: string; attachments?: Attachment[]
+function buildMime({ from, to, cc, replyTo, subject, html, text, attachments = [] }: {
+  from: string; to: string; cc?: string[]; replyTo?: string; subject: string; html: string; text?: string; attachments?: Attachment[]
 }): string {
   const mixed = '=_OwnProperly_mixed_' + crypto.randomUUID()
   const alt = '=_OwnProperly_alt_' + crypto.randomUUID()
   const enc = (s: string) => `=?UTF-8?B?${btoa(unescape(encodeURIComponent(s)))}?=`
   const plainBody = text || html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
   const wrap76 = (b64: string) => b64.replace(/.{1,76}/g, m => m + '\r\n').trimEnd()
+  // Header values must never carry CR/LF: a newline in an address would let
+  // the rest of the value be read as extra headers (Bcc:, etc.).
+  const hdr = (s: string) => String(s).replace(/[\r\n]+/g, ' ').trim()
 
   const lines = [
-    `From: ${from}`,
-    `To: ${to}`,
-    ...(cc && cc.length ? [`Cc: ${cc.join(', ')}`] : []),
+    `From: ${hdr(from)}`,
+    `To: ${hdr(to)}`,
+    ...(cc && cc.length ? [`Cc: ${hdr(cc.join(', '))}`] : []),
+    ...(replyTo ? [`Reply-To: ${hdr(replyTo)}`] : []),
     `Subject: ${enc(subject)}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${mixed}"`,
@@ -157,10 +161,11 @@ function gmailBase64(str: string): string {
 // `from` MUST be a workspace user that the service account is authorised
 // to impersonate (set up via Domain-Wide Delegation in Workspace Admin).
 // `from` accepts either bare email or "Display Name <email>".
-export async function sendGmail({ from, to, cc, subject, html, text, attachments }: {
+export async function sendGmail({ from, to, cc, replyTo, subject, html, text, attachments }: {
   from?: string
   to: string
   cc?: string[]
+  replyTo?: string
   subject: string
   html: string
   text?: string
@@ -179,7 +184,7 @@ export async function sendGmail({ from, to, cc, subject, html, text, attachments
   }
 
   const accessToken = await fetchAccessToken(sa, sender)
-  const mime = buildMime({ from: fromHeader, to, cc, subject, html, text, attachments })
+  const mime = buildMime({ from: fromHeader, to, cc, replyTo, subject, html, text, attachments })
   const raw = gmailBase64(mime)
 
   const sendRes = await fetch(
