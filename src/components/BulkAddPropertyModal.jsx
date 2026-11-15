@@ -44,6 +44,20 @@ const STATUSES = [
   { v: 'vacant',       l: 'Vacant' },
 ]
 
+// Split a total across n units in whole pounds, putting the rounding
+// remainder on the last unit so the units sum exactly to the total
+// (£100,000 over 3 → 33,333 / 33,333 / 33,334). Pence on the total land on
+// the last unit too.
+export function splitTotal(total, n) {
+  const count = Math.max(1, n | 0)
+  const t = Number(total) || 0
+  if (!t) return Array(count).fill(0)
+  const each = Math.round(t / count)
+  const out = Array(count).fill(each)
+  out[count - 1] = Math.round((t - each * (count - 1)) * 100) / 100
+  return out
+}
+
 export default function BulkAddPropertyModal({ companies = [], onClose, onSaved, showToast, asPage = false }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
@@ -94,14 +108,12 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
     const list = []
     const n = Math.max(1, Math.min(50, parseInt(unitCount) || 1))
     const start = Math.max(1, parseInt(startingNumber) || 1)
-    const purchasePerUnit = pricingMode === 'total' && totalPurchase
-      ? (parseFloat(totalPurchase) || 0) / n
-      : 0
-    const mortgagePerUnit = pricingMode === 'total' && totalMortgage
-      ? (parseFloat(totalMortgage) || 0) / n
-      : 0
-    const stampDutyPerUnit  = totalStampDuty ? (parseFloat(totalStampDuty) || 0) / n : 0
-    const legalFeesPerUnit  = totalLegalFees ? (parseFloat(totalLegalFees) || 0) / n : 0
+    // Whole-pound shares with the rounding remainder on the last unit, so
+    // the units always add back to the entered total.
+    const purchaseSplit = splitTotal(pricingMode === 'total' && totalPurchase ? (parseFloat(totalPurchase) || 0) : 0, n)
+    const mortgageSplit = splitTotal(pricingMode === 'total' && totalMortgage ? (parseFloat(totalMortgage) || 0) : 0, n)
+    const stampDutySplit = splitTotal(totalStampDuty ? (parseFloat(totalStampDuty) || 0) : 0, n)
+    const legalFeesSplit = splitTotal(totalLegalFees ? (parseFloat(totalLegalFees) || 0) : 0, n)
 
     for (let i = 0; i < n; i++) {
       const num = start + i
@@ -124,11 +136,11 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
         rent:    ov.rent    !== undefined ? ov.rent    : (defaultRent || ''),
         status:  ov.status  !== undefined ? ov.status  : defaultStatus,
         purchase: ov.purchase !== undefined ? ov.purchase
-          : (pricingMode === 'total' ? Math.round(purchasePerUnit) : ''),
+          : (pricingMode === 'total' ? purchaseSplit[i] : ''),
         mortgage: ov.mortgage !== undefined ? ov.mortgage
-          : (pricingMode === 'total' ? Math.round(mortgagePerUnit) : ''),
-        stampDuty: Math.round(stampDutyPerUnit),
-        legalFees: Math.round(legalFeesPerUnit),
+          : (pricingMode === 'total' ? mortgageSplit[i] : ''),
+        stampDuty: stampDutySplit[i],
+        legalFees: legalFeesSplit[i],
       })
     }
     return list
@@ -200,7 +212,9 @@ export default function BulkAddPropertyModal({ companies = [], onClose, onSaved,
         company_id: companyId,
         prop_type: propType || '',
         status: u.status,
-        refurb_status: 'planned',
+        // No refurb_status: it is a trigger-owned mirror of refurb_projects
+        // (single-add never writes it either); 'planned' here counted every
+        // new unit under "Planned refurbs".
         purchase_price: parseFloat(u.purchase) || 0,
         mortgage_amount: parseFloat(u.mortgage) || 0,
         stamp_duty: u.stampDuty || 0,

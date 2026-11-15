@@ -5,6 +5,7 @@ import { dealDocToPropertyCategory } from '../attachments'
 import { DEFAULT_COPY_OPTIONS, isCopyOptionActive, buildDealCopyFields, buildMilestoneCopies } from '../dealCopy'
 import { logAction } from './audit'
 import { validateUpload } from './documents'
+import { fetchAllPages } from '../paginate'
 
 // ── DEALS ─────────────────────────────────────────────────────────────────────
 export const DEFAULT_MILESTONES_STANDARD = [
@@ -218,8 +219,7 @@ export async function fetchDealMilestones(dealId) {
 }
 
 export async function initialiseMilestones(dealId, isAuction, isBRRR, milestoneConfig = {}) {
-  const base = isAuction ? DEFAULT_MILESTONES_AUCTION : DEFAULT_MILESTONES_STANDARD
-  const milestones = isBRRR ? [...base, ...DEFAULT_MILESTONES_BRRR] : base
+  const milestones = milestoneTemplate(isAuction, isBRRR)
   const rows = milestones.map(m => ({
     deal_id: dealId, milestone_key: m.key, label: m.label,
     stage: m.stage, sort_order: m.sort, is_required: m.required,
@@ -229,6 +229,53 @@ export async function initialiseMilestones(dealId, isAuction, isBRRR, milestoneC
   }))
   const { error } = await supabase.from('deal_milestones').insert(rows)
   if (error) throw error
+}
+
+// The milestone template a deal of this kind should carry.
+export function milestoneTemplate(isAuction, isBRRR) {
+  const base = isAuction ? DEFAULT_MILESTONES_AUCTION : DEFAULT_MILESTONES_STANDARD
+  return isBRRR ? [...base, ...DEFAULT_MILESTONES_BRRR] : base
+}
+
+// True when the deal's tracker already has exactly the steps of the template
+// for this purchase (auction / standard, with or without BRRR steps).
+export function trackerMatchesType(milestones, isAuction, isBRRR) {
+  const want = milestoneTemplate(isAuction, isBRRR).map(m => m.key).sort()
+  const have = (milestones || []).map(m => m.milestone_key).sort()
+  return want.length === have.length && want.every((k, i) => k === have[i])
+}
+
+// True when nobody has touched the tracker: nothing ticked, nothing dated, and
+// every on/off switch still as the user's master defaults set it.
+export function milestonesUntouched(milestones, milestoneConfig = {}) {
+  return (milestones || []).every(m =>
+    !m.completed && !m.completed_date
+    && (m.is_enabled !== false) === (milestoneConfig[m.milestone_key] !== false))
+}
+
+// Replace an untouched tracker with the template for the deal's current type
+// (e.g. after "Auction" is ticked or the deal becomes a BRRR). Refuses if any
+// step has progress, and the delete itself only matches unticked, undated
+// rows, so progress can never be discarded.
+export async function rebuildMilestones(dealId, isAuction, isBRRR, milestoneConfig = {}) {
+  const current = await fetchDealMilestones(dealId)
+  if (!milestonesUntouched(current, milestoneConfig)) {
+    throw new Error('This purchase tracker has progress on it, so it was not rebuilt.')
+  }
+  if (current.length) {
+    const { data, error } = await supabase.from('deal_milestones').delete()
+      .in('id', current.map(m => m.id))
+      .eq('completed', false)
+      .is('completed_date', null)
+      .select('id')
+    if (error) throw error
+    // A step was ticked or dated between the check and the delete: keep it
+    // and stop, rather than adding a second set of steps alongside it.
+    if ((data || []).length !== current.length) {
+      throw new Error('The purchase tracker changed while it was being rebuilt — reopen the tracker to check it.')
+    }
+  }
+  await initialiseMilestones(dealId, isAuction, isBRRR, milestoneConfig)
 }
 
 export async function updateMilestone(id, fields) {
@@ -339,12 +386,14 @@ export async function updateDealDocument(id, fields) {
 }
 
 // Per-deal photo / document counts for badges on the list and pipeline
-// cards. One query, RLS-scoped; grouped client-side (PostgREST can't
-// GROUP BY, and deal document volumes are small).
+// cards. RLS-scoped; grouped client-side (PostgREST can't GROUP BY). Paged
+// past the 1,000-row cap — oldest-first ordering meant the NEWEST deals were
+// the ones that silently lost their badges and cover photo.
 export async function fetchDealDocumentCounts() {
-  const { data, error } = await supabase.from('deal_documents')
-    .select('deal_id, type, name, file_path').order('created_at', { ascending: true })
-  if (error) throw error
+  const data = await fetchAllPages(() => supabase.from('deal_documents')
+    .select('deal_id, type, name, file_path')
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true }))
   // Oldest photo is the cover, so the thumbnail doesn't change every upload.
   const out = {}
   for (const row of data || []) {

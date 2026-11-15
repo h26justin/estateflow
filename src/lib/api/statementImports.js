@@ -13,6 +13,7 @@
 import { supabase } from '../supabase'
 import { createReceipt } from './tenancies'
 import { validateUpload } from './documents'
+import { fetchAllPages } from '../paginate'
 
 async function uid() {
   const { data } = await supabase.auth.getUser()
@@ -32,22 +33,21 @@ export async function fetchStatementImportContext(propertyIds, statementDate) {
   const from = statementDate ? new Date(new Date(statementDate).getTime() - 60 * 86400000).toISOString().slice(0, 10) : null
   const to = statementDate ? new Date(new Date(statementDate).getTime() + 60 * 86400000).toISOString().slice(0, 10) : null
   for (const part of chunk(ids)) {
+    // Every page: PostgREST caps a request at 1,000 rows, and a known ref
+    // missed past the cap would plan a re-uploaded statement as new.
     const [rec, exp, rows] = await Promise.all([
-      supabase.from('rent_receipts').select('source_ref').in('property_id', part).not('source_ref', 'is', null).limit(5000),
-      (() => {
-        let q = supabase.from('property_expenses').select('property_id, amount, date, source_ref, category').in('property_id', part).is('deleted_at', null)
+      fetchAllPages(() => supabase.from('rent_receipts').select('id, source_ref').in('property_id', part).not('source_ref', 'is', null).order('id')),
+      fetchAllPages(() => {
+        let q = supabase.from('property_expenses').select('id, property_id, amount, date, source_ref, category').in('property_id', part).is('deleted_at', null)
         if (from) q = q.gte('date', from).lte('date', to)
-        return q.limit(5000)
-      })(),
+        return q.order('id')
+      }),
       // The previous importer stamped its reference on the rent period too.
-      supabase.from('rent_payments').select('source_ref').in('property_id', part).not('source_ref', 'is', null).limit(5000),
+      fetchAllPages(() => supabase.from('rent_payments').select('id, source_ref').in('property_id', part).not('source_ref', 'is', null).order('id')),
     ])
-    if (rec.error) throw rec.error
-    if (exp.error) throw exp.error
-    if (rows.error) throw rows.error
-    for (const r of rec.data || []) knownRefs.add(r.source_ref)
-    for (const r of rows.data || []) knownRefs.add(r.source_ref)
-    for (const e of exp.data || []) {
+    for (const r of rec) knownRefs.add(r.source_ref)
+    for (const r of rows) knownRefs.add(r.source_ref)
+    for (const e of exp) {
       if (e.source_ref) knownRefs.add(e.source_ref)
       if (e.category === 'agent_fees') existingFees.push(e)
     }
@@ -126,6 +126,7 @@ export async function commitStatementImport({ plan, header, companyId, filename,
 
   // 1. New rent periods (only where no period covered the statement dates).
   const idFor = new Map()
+  const createdIds = new Set()
   for (const p of plan.newPeriods) {
     const { data, error } = await supabase.from('rent_payments').insert({
       property_id: p.property_id, user_id: me, year: p.year, month: p.month, month_label: p.month_label,
@@ -140,7 +141,7 @@ export async function commitStatementImport({ plan, header, companyId, filename,
       res.errors.push(`Could not create the rent period ${p.period_start} to ${p.period_end}: ${error.message}`)
       continue
     }
-    idFor.set(p.key, data.id); res.periodsCreated++
+    idFor.set(p.key, data.id); createdIds.add(data.id); res.periodsCreated++
   }
   for (const u of plan.periodUpdates) if (u.rent_payment_id) idFor.set(u.periodKey, u.rent_payment_id)
 
@@ -176,10 +177,22 @@ export async function commitStatementImport({ plan, header, companyId, filename,
     const total = Math.round((allocs || []).reduce((s, a) => s + Number(a.amount), 0) * 100) / 100
     const status = failedKeys.has(u.periodKey) && total <= 0 ? null : (u.status === 'paid' && total + 0.005 < u.amount ? 'partial' : u.status)
     if (!status) continue
-    if (u.previous) undo.push({ table: 'rent_payments', id, status: u.previous.status, amount: u.previous.amount, source_ref: u.previous.source_ref, import_batch_id: u.previous.import_batch_id })
+    // A period this batch did not create: capture its stored values for the
+    // revert, read live (the review's property data does not carry
+    // source_ref / import_batch_id). Without the real import_batch_id a
+    // period created by an earlier statement loses its owner when this one
+    // is reverted, and survives that earlier statement's revert as phantom
+    // income. Covers a period found by the 23505 fallback above too.
+    let prev = null
+    if (!createdIds.has(id)) {
+      const { data: cur, error: pErr } = await supabase.from('rent_payments').select('id, status, amount, source_ref, import_batch_id').eq('id', id).single()
+      if (pErr || !cur) { res.errors.push(`Could not read a rent period before updating it: ${pErr?.message || 'not found'}`); continue }
+      prev = cur
+      undo.push({ table: 'rent_payments', id, status: prev.status, amount: prev.amount, source_ref: prev.source_ref, import_batch_id: prev.import_batch_id })
+    }
     const { error } = await supabase.from('rent_payments').update({ status, amount: total, import_batch_id: batch.id }).eq('id', id)
     if (error) res.errors.push(`Could not update a rent period: ${error.message}`)
-    else if (u.previous) res.periodsUpdated++
+    else if (prev) res.periodsUpdated++
   }
 
   // 5. Fees, deductions, credits.

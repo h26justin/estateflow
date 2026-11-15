@@ -117,11 +117,18 @@ serve(async (req) => {
   // the whole notice draft 404'd. The address string carries the postcode.
   const { data: prop } = await admin
     .from('properties')
-    .select('id, name, address')
+    .select('id, name, address, company_id')
     .eq('id', property_id)
     .is('deleted_at', null)
     .maybeSingle()
   if (!prop) return json({ error: 'Property not found' }, 404)
+
+  // Liveness gate: never run paid AI for a company that isn't live
+  // (company_is_live, evaluated as the caller — same as maintenance-triage).
+  if (prop.company_id) {
+    const { data: live } = await userClient.rpc('company_is_live', { p_company_id: prop.company_id })
+    if (live !== true) return json({ error: 'Company subscription is not active' }, 402)
+  }
 
   // property_label is caller-supplied free text: single line, bounded.
   const suppliedLabel = body.property_label

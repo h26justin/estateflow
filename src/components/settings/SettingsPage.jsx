@@ -27,6 +27,8 @@ import { AccountTypePanel } from './AccountTypePanel'
 import { SkeletonRows } from '../../lib/Skeleton'
 import { canWriteCompany } from '../../lib/permissions'
 import { Button } from '../ui'
+import { useConfirm } from '../../lib/ConfirmContext'
+import { totpPrompt } from '../../lib/mfaStepUp'
 // HelpCenter is ~800 lines of static guide content only seen on the Settings
 // "Help" tab — lazy-load it so it stays out of the main bundle.
 const HelpCenter = lazy(() => import('../HelpCenter'))
@@ -56,6 +58,7 @@ function BookkeepingTabBody({ companies, properties = [], T, mono, permissionsMa
 // ── SETTINGS PAGE ─────────────────────────────────────────────────────────────
 export function SettingsPage({companies, setCompanies, companySettings, setCompanySettings, user, showToast, isAdmin, isPlatformAdmin, darkMode, setDarkMode, userNavPrefs, setUserNavPrefs, yieldBasis, setYieldBasis, accountType, setAccountType, properties = [], activeFlags = new Set(), companySubs = [], activeCompanyId = null, permissionsMap = null, devModeActive = false}) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const isMobile = useIsMobile(769)
   const [saving, setSaving] = useState(null)
   const [showAccessModal, setShowAccessModal] = useState(false)
@@ -156,7 +159,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     if (!newEmail.trim()) return
     setEmailSaving(true)
     try {
-      await api.updateUserEmail(newEmail.trim())
+      await api.updateUserEmail(newEmail.trim(), totpPrompt(confirmDialog, 'Enter the 6-digit code from your authenticator app to change your email.'))
       showToast('Confirmation sent to ' + newEmail + ' — check your inbox')
       setNewEmail('')
     } catch(e) { showToast(e.message, 'error') }
@@ -169,7 +172,9 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
     if (newPassword.length < 8) { showToast('Password must be at least 8 characters', 'error'); return }
     setPwSaving(true)
     try {
-      await api.updateUserPassword(currentPassword, newPassword, user?.email)
+      // The re-auth inside leaves an aal1 session; a 2FA account is asked
+      // for its code before the change (Supabase refuses it otherwise).
+      await api.updateUserPassword(currentPassword, newPassword, user?.email, totpPrompt(confirmDialog, 'Enter the 6-digit code from your authenticator app to change your password.'))
       showToast('Password updated successfully')
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
     } catch(e) { showToast(e.message, 'error') }
@@ -829,13 +834,13 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default reporting period</div>
           <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:20,lineHeight:1.7}}>
-            Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
+            Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the financial year (1 Apr — 31 Mar), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
           </div>
           {scopedCompanies.map(company => {
             const cs = companySettings[company.id] || {}
             // Normalise legacy short forms ('tax'/'calendar') to the canonical keys.
             const rawType = cs.year_type || 'tax_year'
-            const yearType = rawType==='tax' ? 'tax_year' : rawType==='calendar' ? 'calendar_year' : rawType
+            const yearType = rawType==='tax' ? 'tax_year' : rawType==='fy' ? 'financial_year' : rawType==='calendar' ? 'calendar_year' : rawType
             // Persist a patch on top of the company's existing settings row.
             const saveSettings = async(patch)=>{
               const updated={...cs,...patch}
@@ -853,7 +858,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{company.name}</span>
                 </div>
                 <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
+                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'financial_year',label:'Financial Year',sub:'1 Apr — 31 Mar'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
                     <button key={opt.k} onClick={()=>saveSettings({year_type:opt.k})}
                     style={{fontFamily:SANS,fontSize:FS.sm,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
                       border:`2px solid ${yearType===opt.k?T.gold:T.border}`,

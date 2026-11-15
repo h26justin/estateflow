@@ -7,10 +7,13 @@ import { fmt } from '../lib/format'
 import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEpcCertificate, syncEpcFromRegister, syncAllEpcFromRegister } from '../lib/api/epc'
 import { Skeleton } from '../lib/Skeleton'
 import { Button, EmptyState } from './ui'
+import { readableOn } from '../lib/contrast'
+import { MEES_DEADLINE_ISO } from '../lib/complianceCatalogue'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-const DEADLINE_ISO = '2030-12-31'
+// Planned date (government response, Jan 2026), subject to Parliamentary approval.
+const DEADLINE_ISO = MEES_DEADLINE_ISO
 
 // Band colours roughly mirror the EPC certificate gradient (green → red).
 const BAND_COLOR = {
@@ -44,7 +47,7 @@ function RatingBadge({ rating, label, T }) {
       <div style={{
         width: 56, height: 56, borderRadius: 12, background: bg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: mono, fontSize: 26, fontWeight: 700, color: '#fff',
+        fontFamily: mono, fontSize: 26, fontWeight: 700, color: BAND_COLOR[r] ? readableOn(bg) : T.text,
       }}>{r}</div>
       <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 6 }}>{label}</div>
     </div>
@@ -180,7 +183,7 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
   const targetRating = plan?.target_rating || 'C'
   const certExpired = cert?.expiry_date && new Date(cert.expiry_date + 'T00:00:00') < new Date()
 
-  const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '8px 12px', outline: 'none', width: '100%' }
+  const inp = { fontFamily: mono, fontSize: 12, background: T.bg, border: '1px solid var(--input-border)', color: T.text, borderRadius: 8, padding: '8px 12px', width: '100%' }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
   const card = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '20px 22px' }
 
@@ -198,12 +201,12 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
           <RatingBadge rating={targetRating} label="Target" T={T} />
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>2030 MEES deadline</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Planned MEES deadline (1 Oct 2030)</div>
           <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.goldText : T.text, marginTop: 4 }}>
             {cd.passed ? 'Deadline passed' : `${cd.years}y ${cd.months}m left`}
           </div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
-            {cd.passed ? '' : `${cd.days.toLocaleString('en-GB')} days · target 31 Dec 2030`}
+            {cd.passed ? '' : `${cd.days.toLocaleString('en-GB')} days · planned 1 Oct 2030, subject to Parliamentary approval`}
           </div>
         </div>
         <div style={{ textAlign: 'right', minWidth: 130 }}>

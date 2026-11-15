@@ -59,7 +59,7 @@ function buildPortfolioSummary(data: any) {
     const grossYield = baseCost > 0 && num(p.rent_pcm) > 0
       ? ((num(p.rent_pcm) * 12) / baseCost * 100).toFixed(1)
       : 'n/a'
-    return `${p.name || p.address || 'Unnamed'} (${p.prop_type || 'unknown type'}, status: ${p.status}) — `
+    return `[${p.id}] ${p.name || p.address || 'Unnamed'} (${p.prop_type || 'unknown type'}, status: ${p.status}) — `
       + `purchase £${num(p.purchase_price).toLocaleString()}, `
       + `value £${num(p.current_value || p.est_value).toLocaleString()}, `
       + `rent £${num(p.rent_pcm).toLocaleString()}/mo, `
@@ -68,13 +68,18 @@ function buildPortfolioSummary(data: any) {
       + `gross yield ${grossYield}%`
   }).join('\n')
 
-  // Compliance items with days-to-expiry
+  // Compliance items with days-to-expiry, only for active (non-deleted,
+  // non-sold) properties. Each line carries the property's name AND id, and
+  // each property line above carries its id, so the model can tie a
+  // certificate to a named property.
   const now = new Date()
+  const activeById = new Map(active.map((p: any) => [p.id, p]))
   const compLines = compliance
-    .filter((c: any) => !c.deleted_at && c.expiry_date)
+    .filter((c: any) => !c.deleted_at && c.expiry_date && activeById.has(c.property_id))
     .map((c: any) => {
       const days = Math.floor((new Date(c.expiry_date).getTime() - now.getTime()) / 86_400_000)
-      return `${c.cert_type} for property ${c.property_id} — ${days < 0 ? `EXPIRED ${Math.abs(days)}d ago` : `expires in ${days}d`}`
+      const p: any = activeById.get(c.property_id)
+      return `${c.cert_type} for ${p.name || p.address || 'Unnamed'} [${c.property_id}] — ${days < 0 ? `EXPIRED ${Math.abs(days)}d ago` : `expires in ${days}d`}`
     })
     .filter(Boolean)
     .join('\n')
@@ -270,17 +275,15 @@ serve(async (req) => {
     }
     if (companyId && !liveCompanies.has(companyId)) return jsonError(402, 'Company subscription is not active')
     const allProps = fetchedProps.filter((p) => !p.company_id || liveCompanies.has(p.company_id))
-    const propIds = new Set(allProps.map((p) => p.id))
-    const droppedNotLive = fetchedProps.length > allProps.length
     const rawCompliance = (complianceRes.data || []) as any[]
     const rawInsurance = (insuranceRes.data || []) as any[]
     const rawDeals = (dealsRes.data || []) as any[]
 
+    // Compliance only for active (non-deleted, non-sold) properties in scope.
+    const activePropIds = new Set(allProps.filter((p) => !p.deleted_at && p.status !== 'sold').map((p) => p.id))
     const data = {
       properties: allProps,
-      compliance: companyId || droppedNotLive
-        ? rawCompliance.filter((c) => c.property_id && propIds.has(c.property_id))
-        : rawCompliance,
+      compliance: rawCompliance.filter((c) => c.property_id && activePropIds.has(c.property_id)),
       insurance: companyId
         ? rawInsurance.filter((i) => i.company_id === companyId)
         : rawInsurance.filter((i) => !i.company_id || liveCompanies.has(i.company_id)),

@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
 import { useTheme } from './lib/ThemeContext'
 import { contentMaxWidth } from './lib/layout'
 import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
 import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS, AUTO_ENABLE_NAV_KEYS, navSeenMarker } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
-import { canDo } from './lib/permissions'
+import { canDo, withReadOnly } from './lib/permissions'
 import { rentMonthSnapshot } from './lib/rentForecast'
+import { propertyArrears } from './lib/rentEngine'
 import { MarketingSite } from './lib/lazyPages'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -47,10 +48,231 @@ import { RenameCompanyModal } from './components/app/RenameCompanyModal'
 import { LeftRail } from './components/app/LeftRail'
 import { EmptyState, Button } from './components/ui'
 import { subscriptionGrantsLive } from './lib/subscriptionLive'
+import { ROLE_DEFAULTS } from './lib/api/roles'
+import { ensureAal2, totpPrompt } from './lib/mfaStepUp'
 
 // canDo(permissionsMap, companyId, key) lives in src/lib/permissions.js so the
 // components that gate write surfaces (Day Tracker, importers, Team & Access)
 // share one fail-closed implementation with App.jsx.
+
+// Feature toggles a company without a company_settings row gets — shared by
+// the load path and a company created mid-session (handleSaveCo).
+const DEFAULT_COMPANY_SETTINGS = Object.freeze({
+  feature_compliance:true, feature_tenancy:true,
+  feature_maintenance:true, feature_documents:true,
+  feature_expenses:true, feature_reports:true,
+})
+
+// ── Visibility: ONE rule for loadData, refreshData and the post-rent-
+// generation refresh. They used to drift — the refreshes skipped the
+// suspended-company and impersonation filters and keyed "see everything" on
+// the platform-admin flag instead of the dev-mode toggle, so a collaborator's
+// suspended company reappeared after any refresh and an admin in "regular
+// user view" (or impersonating) saw every customer's data.
+// Step 1: access scope (owned + shared, or the impersonated user's companies).
+function scopeToAccess({ cos, props, accessibleIds, devActive, impersonationIds }) {
+  if (impersonationIds) {
+    return {
+      cos: cos.filter(c => impersonationIds.has(c.id)),
+      props: props.filter(p => impersonationIds.has(p.company_id)),
+    }
+  }
+  if (devActive) return { cos, props }
+  return {
+    cos: cos.filter(c => accessibleIds.has(c.id)),
+    props: props.filter(p => accessibleIds.has(p.company_id)),
+  }
+}
+// Step 2: hide collaborator companies whose billing is suspended (owner
+// stopped paying / trial expired). Owners always see their own companies so
+// they can pay. Developers in active mode bypass.
+// Mirrors company_is_live(): free tier (admin granted), paid / real Stripe
+// trial / grace-period past_due, or an in-app trial not yet expired. A bare
+// 'trialing' row with no Stripe subscription behind it does not count.
+function companyIsLive(c, subByCo) {
+  if (c.is_free_tier) return true
+  if (subscriptionGrantsLive(subByCo.get(c.id))) return true
+  const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
+  return trialEnd > Date.now()
+}
+function dropSuspended({ cos, props, subs, userId, devActive }) {
+  if (devActive) return { cos, props, suspended: [] }
+  const subByCo = new Map((subs || []).map(s => [s.company_id, s]))
+  // Owner always sees the company (so they can pay if needed).
+  const isCompanyLive = (c) => c.owner_id === userId || companyIsLive(c, subByCo)
+  const live = cos.filter(isCompanyLive)
+  const liveIds = new Set(live.map(c => c.id))
+  return {
+    cos: live,
+    // Also drop properties whose company we just hid.
+    props: props.filter(p => liveIds.has(p.company_id)),
+    suspended: cos.filter(c => c.owner_id !== userId && !liveIds.has(c.id)),
+  }
+}
+// Impersonation is read-only: the map carries the explicit read-only flag
+// (canDo / canWriteCompany / canAdminCompany deny every write while it is
+// set), and every visible company also gets the viewer preset (view keys
+// only, no owner map) as a second guard.
+function readOnlyPermissionsFor(companyIds) {
+  const map = { __owner: {} }
+  for (const id of companyIds) map[id] = { ...ROLE_DEFAULTS.viewer, _role: 'viewer' }
+  return withReadOnly(map)
+}
+
+// Hoisted out of App's render (2026-11): defined inline it was a new
+// component type on every App re-render, so React remounted it and wiped a
+// half-typed shareholder / agent form. PropertiesView still renders it with
+// the props it always passed (companies, setCompanies, user, showToast,
+// companySettings, setCompanySettings, T); the App state it used to close
+// over arrives through CompaniesPanelContext, provided around PropertiesView.
+const CompaniesPanelContext = createContext(null)
+function CompaniesPanel({ companies, setCompanies, user, showToast, T }) {
+  const panelContext = useContext(CompaniesPanelContext)
+  const {
+    setShowAddCo, activeCoTab, setActiveCoTab, companyStats, activeProperties, permissionsMap,
+    devModeActive, confirmDialog, setRenameCoTarget, setRenameCo, setRenameCoPassword, setRenameCoError,
+    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp, arrearsById,
+  } = panelContext
+  // Rent-engine arrears (the same figure as the Arrears tile), never the
+  // hand-typed properties.arrears.
+  const arrearsOf = p => arrearsById?.get(p.id) ?? propertyArrears(p)
+  const mono = MONO
+
+  function openRename(c) {
+    setRenameCoTarget(c)
+    setRenameCo({ name: c.name, abbr: c.abbr||'' })
+    setRenameCoPassword('')
+    setRenameCoError('')
+  }
+
+  return (
+    <div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
+        <Button variant="primary" size="sm" onClick={()=>setShowAddCo(true)}>+ Add company</Button>
+      </div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
+        {companies.map(c=>(
+          <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
+            style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}}
+            onClick={()=>setActiveCoTab(c.id)}>{c.name}{isHoldingCompany(c)&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,marginLeft:6,opacity:0.8,letterSpacing:'0.05em'}}>HOLDING</span>}</button>
+        ))}
+      </div>
+      {companies.filter(c=>c.id===activeCoTab).map(c=>{
+        const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
+        const cProps=activeProperties.filter(p=>p.company_id===c.id)
+        const holding=isHoldingCompany(c)
+        const canEditCo=canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive
+        // companies_update RLS lets only the owner (or a developer) write the
+        // company row: an admin collaborator's rename updated zero rows and
+        // still toasted success, so Rename is offered to the owner only.
+        const canWriteCoRow=c.owner_id===user?.id || devModeActive
+        // Convert between operating and holding. Operating → holding only
+        // while the company has no properties (they'd vanish from its view).
+        async function convertType() {
+          const toHolding=!holding
+          if (toHolding && cProps.length>0) return showToast(`${c.name} has ${plural(cProps.length,'property','properties')} — move them to another company before converting to a holding company`,'error')
+          if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
+            ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
+            : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
+          try {
+            const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
+            setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
+            showToast(toHolding?'Now a holding company':'Now an operating company')
+          } catch(e){ showToast(e.message,'error') }
+        }
+        return <div key={c.id}>
+          {/* Company header with rename button */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
+              <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
+              <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
+              {holding&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
+                title="Holding company — owns companies, not properties">HOLDING</span>}
+            </div>
+            {canEditCo && (
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={convertType}
+                  title={holding?'Convert back to an operating (property-owning) company':'Convert to a holding company (owns companies, not properties)'}
+                  style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                  {holding?'Make operating':'Make holding co'}
+                </button>
+                {canWriteCoRow && (
+                  <button onClick={()=>openRename(c)}
+                    style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
+                    Rename
+                  </button>
+                )}
+                {(c.owner_id === user?.id || devModeActive) && (
+                  <button onClick={()=>setDeleteCoTarget(c)}
+                    style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.red}33`,background:'transparent',color:T.red,cursor:'pointer'}}>
+                    Delete
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {holding ? (
+            <HoldingGroupPanel company={c} companies={companies} properties={activeProperties} T={T}
+              canEdit={canEditCo} showToast={showToast}
+              onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
+          ) : (<>
+          {/* companies_update RLS lets only the owner (or a developer) write the
+              company row, so admins see this read-only rather than hit an error. */}
+          <CompanyLegalOwnerSetting company={c} canEdit={canWriteCoRow} showToast={showToast} T={T}
+            onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
+            <StatCard icon="home" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
+            <StatCard icon="pound" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
+            <StatCard icon="pie-chart" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
+            <StatCard icon="alert-triangle" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
+          </div>
+          <div style={{display:'grid',gap:10}}>
+            {groupPropertiesByBuilding(cProps).map(group => (
+              <div key={group.tail || group.items[0].id}>
+                {group.isBuilding && (
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
+                    <Icon name="building" size={14} color={T.muted}/>
+                    <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
+                    <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
+                  </div>
+                )}
+                <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
+                  {group.items.map(p => {
+                    const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
+                    const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
+                    return (
+                    <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} {...pressable(()=>openDetail(p))}>
+                      <div style={{flex:1,minWidth:150}}>
+                        <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
+                        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{p.prop_type} · {p.address}</div>
+                      </div>
+                      {arrearsOf(p)>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(arrearsOf(p))}</div>}
+                      {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
+                          <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
+                          <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
+                        </div>}
+                      {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
+                      <Badge status={p.status}/>
+                    </div>
+                  )})}
+                </div>
+              </div>
+            ))}
+            {cProps.length===0&&<EmptyState compact icon="home" title="No properties for this company yet"
+              action={(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) ? <Button size="sm" icon="plus" onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>Add property</Button> : null}/>}
+          </div>
+          </>)}
+          <CompanyOwnershipSection company={c} companies={companies} properties={cProps} user={user} T={T} showToast={showToast}
+            showAgents={!holding} canEdit={canEditCo}/>
+        </div>
+      })}
+
+
+    </div>
+  )
+}
 
 export default function App({ initialLoginMode = null } = {}) {
   const {session,user,loading: authLoading} = useAuth()
@@ -214,6 +436,16 @@ export default function App({ initialLoginMode = null } = {}) {
   // the same figures in full; it stays available for anyone who hides the section.
   const WIDGET_DEFAULT_ENABLED = { portfolio_value:true, monthly_rent:true, rent_received:false, arrears:true, refurb:true, mortgages:true, cashflow_forecast:true, insurance_renewals:true, compliance_status:true, property_count:false, occupancy_rate:false }
 
+  // Impersonation: when set, platform admin sees the app filtered to this user's data (read-only)
+  const [storedImpersonation, setImpersonatingUser] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
+  })
+  // The sessionStorage key is only honoured for a platform admin: anyone can
+  // set it in devtools, and it used to skip the trial gate for them.
+  const impersonatingUser = isPlatformAdmin ? storedImpersonation : null
+  // Visibility inputs captured by loadData so refreshData and the post-rent-
+  // generation refresh apply exactly the same filters (see scopeToAccess).
+  const visibilityRef = useRef({ devActive: false, impersonationIds: null, accessibleIds: new Set() })
   // Developer mode toggle — lets a platform admin choose to "see everything"
   // (bypasses per-company permissions). Default OFF on every login: more
   // accurate preview of what a regular user sees, and avoids accidental
@@ -239,15 +471,13 @@ export default function App({ initialLoginMode = null } = {}) {
   const setDevModeDisabled = (v) => setDevModeEnabled(!v)
   // Effective "see everything" flag — true ONLY when platform admin has
   // explicitly opted into dev mode for this session.
-  const devModeActive = isPlatformAdmin && devModeEnabled
+  // Impersonation is read-only, so it also switches the dev-mode bypass off
+  // (every `canDo(...) || devModeActive` call site would otherwise allow writes).
+  const devModeActive = isPlatformAdmin && devModeEnabled && !impersonatingUser
   // Per-company permission map: { [companyId]: { view_rent: true, edit_financial: false, ... } }
   const [permissionsMap, setPermissionsMap] = useState({})
   // Active feature flags for current user
   const [activeFlags, setActiveFlags] = useState(new Set())
-  // Impersonation: when set, platform admin sees the app filtered to this user's data (read-only)
-  const [impersonatingUser, setImpersonatingUser] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { return null }
-  })
   const [userNavPrefs, setUserNavPrefs] = useState(DEFAULT_NAV_KEYS)
   // Tenant-portal branding for the current subdomain (<sub>.ownproperly.com).
   // Looked up once on mount via a public RPC so a logged-OUT visitor sees the
@@ -624,6 +854,15 @@ export default function App({ initialLoginMode = null } = {}) {
         // is_developer (new) or platform_admin (legacy) for backwards compat.
         const isPlatformAdminFlag = prof?.is_developer === true || prof?.platform_admin === true
         setIsPlatformAdmin(isPlatformAdminFlag)
+        // Impersonation is a platform-admin tool only. A stored key on any
+        // other account is ignored and cleared (it used to skip the trial gate).
+        let impersonation = null
+        try { impersonation = JSON.parse(sessionStorage.getItem('ownproperly_impersonate') || 'null') } catch(e) { impersonation = null }
+        if (impersonation && !isPlatformAdminFlag) {
+          try { sessionStorage.removeItem('ownproperly_impersonate') } catch(e) { /* non-fatal */ }
+          impersonation = null
+          setImpersonatingUser(null)
+        }
         // Nav / yield / account prefs from the same row.
         // Stored prefs may predate the Insurance → Compliance rename (2026-08);
         // map the old key so nobody loses the entry from their rail.
@@ -701,33 +940,35 @@ export default function App({ initialLoginMode = null } = {}) {
         // Check if developer mode is currently active (dev flag + toggle not disabled)
         const devActive = isPlatformAdminFlag && !devModeDisabled
 
-        // Filter companies and properties:
-        //   - Developers in active mode see EVERYTHING
-        //   - Regular users (and devs who toggled dev mode off) see only companies they own or have shared access to
-        let visibleCos = devActive ? cos : cos.filter(c => accessibleCompanyIds.has(c.id))
-        let visibleProps = devActive ? props : props.filter(p => accessibleCompanyIds.has(p.company_id))
-
-        // If impersonating, filter everything to only that user's data
-        if (impersonatingUser) {
+        // If impersonating, filter everything to only that user's data.
+        // Until 2026-09-08 only the properties were filtered, so the company
+        // chips, the By Company cards and the "N companies" summary still
+        // showed every company the admin could see. A failed lookup now shows
+        // NOTHING rather than falling back to every customer's data.
+        let impersonationIds = null
+        if (impersonation) {
+          impersonationIds = new Set()
           try {
             const [targetAccess, targetAccessEmail] = await Promise.all([
-              api.fetchUserAccess(impersonatingUser.id),
-              api.fetchUserAccessByEmail(impersonatingUser.email)
+              api.fetchUserAccess(impersonation.id),
+              api.fetchUserAccessByEmail(impersonation.email)
             ])
             if (!live()) return
-            const targetCompanyIds = new Set([
-              ...cos.filter(c => c.owner_id === impersonatingUser.id).map(c => c.id),
+            impersonationIds = new Set([
+              ...cos.filter(c => c.owner_id === impersonation.id).map(c => c.id),
               ...targetAccess.map(a => a.company_id),
               ...targetAccessEmail.map(a => a.company_id),
             ])
-            visibleProps = props.filter(p => targetCompanyIds.has(p.company_id))
-            // Until 2026-09-08 only the properties were filtered, so the
-            // company chips, the By Company cards and the "N companies"
-            // summary still showed every company the admin could see, each
-            // with zero properties, next to the impersonated user's data.
-            visibleCos = cos.filter(c => targetCompanyIds.has(c.id))
           } catch(e) { console.error('Impersonation filter failed', e) }
         }
+        // Filter companies and properties (scopeToAccess, shared with the
+        // refresh paths):
+        //   - Developers in active mode see EVERYTHING
+        //   - Regular users (and devs who toggled dev mode off) see only companies they own or have shared access to
+        const scoped = scopeToAccess({ cos, props, accessibleIds: accessibleCompanyIds, devActive, impersonationIds })
+        let visibleCos = scoped.cos
+        let visibleProps = scoped.props
+        visibilityRef.current = { devActive, impersonationIds, accessibleIds: accessibleCompanyIds }
         // ─── Suspended-company access control ────────────────────────────
         // If a company the user has access to (as collaborator) is
         // suspended (owner stopped paying, trial expired, no free-tier
@@ -759,46 +1000,28 @@ export default function App({ initialLoginMode = null } = {}) {
         // Track companies we hide due to suspension so we can show the
         // collaborator a clear banner ("your account owner hasn't paid")
         // instead of the onboarding wizard, which would be misleading.
-        let suspendedCollabCos = []
-        if (!devActive) {
-          const subByCo = new Map(initialSubs.map(s => [s.company_id, s]))
-          const isCompanyLive = (c) => {
-            // Owner always sees the company (so they can pay if needed).
-            if (c.owner_id === user.id) return true
-            // Free tier — always live (admin granted).
-            if (c.is_free_tier) return true
-            const sub = subByCo.get(c.id)
-            // Paid OR in a real Stripe-side trial OR grace-period past_due →
-            // live. Mirrors company_is_live(): a bare 'trialing' row with no
-            // Stripe subscription behind it does not count.
-            if (subscriptionGrantsLive(sub)) return true
-            // Otherwise live only while in-app trial hasn't expired yet.
-            const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
-            return trialEnd > Date.now()
-          }
-          suspendedCollabCos = visibleCos.filter(c => c.owner_id !== user.id && !isCompanyLive(c))
-          visibleCos = visibleCos.filter(isCompanyLive)
-          // Enrich suspended companies with the account owner's email so
-          // the banner can show who to contact. Best-effort — if RLS
-          // blocks the user_profiles read, the banner falls back to a
-          // generic "your account owner" label.
-          if (suspendedCollabCos.length > 0) {
-            try {
-              const ownerIds = [...new Set(suspendedCollabCos.map(c => c.owner_id).filter(Boolean))]
-              const { data: profiles } = await supabase
-                .from('user_profiles').select('user_id, email').in('user_id', ownerIds)
-              if (!live()) return
-              const emailById = {}
-              for (const p of (profiles || [])) emailById[p.user_id] = p.email
-              suspendedCollabCos = suspendedCollabCos.map(c => ({ ...c, owner_email: emailById[c.owner_id] || null }))
-            } catch (e) { /* fall back to generic label */ }
-          }
-          // Also drop any properties whose company we just hid — so the
-          // dashboard / reports / etc. don't surface data the user can
-          // no longer access.
-          const liveIds = new Set(visibleCos.map(c => c.id))
-          visibleProps = visibleProps.filter(p => liveIds.has(p.company_id))
+        const unsuspended = dropSuspended({ cos: visibleCos, props: visibleProps, subs: initialSubs, userId: user.id, devActive })
+        let suspendedCollabCos = unsuspended.suspended
+        visibleCos = unsuspended.cos
+        visibleProps = unsuspended.props
+        // Enrich suspended companies with the account owner's email so
+        // the banner can show who to contact. Best-effort — if RLS
+        // blocks the user_profiles read, the banner falls back to a
+        // generic "your account owner" label.
+        if (suspendedCollabCos.length > 0) {
+          try {
+            const ownerIds = [...new Set(suspendedCollabCos.map(c => c.owner_id).filter(Boolean))]
+            const { data: profiles } = await supabase
+              .from('user_profiles').select('user_id, email').in('user_id', ownerIds)
+            if (!live()) return
+            const emailById = {}
+            for (const p of (profiles || [])) emailById[p.user_id] = p.email
+            suspendedCollabCos = suspendedCollabCos.map(c => ({ ...c, owner_email: emailById[c.owner_id] || null }))
+          } catch (e) { /* fall back to generic label */ }
         }
+        // Impersonation is read-only: the admin gets the viewer preset on the
+        // impersonated user's companies and nothing else (canDo denies writes).
+        if (impersonationIds) setPermissionsMap(readOnlyPermissionsFor(visibleCos.map(c => c.id)))
         setCompanies(visibleCos)
         setCompanySubs(initialSubs)
         setProperties(visibleProps)
@@ -863,12 +1086,26 @@ export default function App({ initialLoginMode = null } = {}) {
         // Skip tenant portal if user has their own companies or is platform admin.
         const isLandlord = myCompanies.length > 0 || devActive
         if (tenantRows.length > 0 && !isLandlord) { setIsTenant(true); return }
-        // Auto-generate future rent months silently in background
-        api.ensureFutureRentMonths(visibleProps, 6).then(count=>{
+        // Auto-generate future rent months silently in background — only for
+        // companies this user may write rent on and that are live (RLS would
+        // reject the rows), and never while impersonating (read-only).
+        const rentSubByCo = new Map(initialSubs.map(s => [s.company_id, s]))
+        const rentPerms = { ...(permBatch?.[0] || {}), __owner: Object.fromEntries(ownedIds.map(id => [id, true])) }
+        const canGenerateRent = (cid) => {
+          if (impersonationIds) return false
+          if (devActive) return true
+          const c = visibleCos.find(x => x.id === cid)
+          return !!c && companyIsLive(c, rentSubByCo) && canDo(rentPerms, cid, 'edit_rent')
+        }
+        api.ensureFutureRentMonths(visibleProps, 6, { canWrite: canGenerateRent }).then(count=>{
           if(count>0){
             api.fetchProperties().then(refreshed=>{
               if (!live()) return
-              const vis = devActive ? refreshed : refreshed.filter(p=>accessibleCompanyIds.has(p.company_id))
+              // Same scope + suspension filters as the load above.
+              const vis = dropSuspended({
+                ...scopeToAccess({ cos, props: refreshed, accessibleIds: accessibleCompanyIds, devActive, impersonationIds }),
+                subs: initialSubs, userId: user.id, devActive,
+              }).props
               setProperties(vis)
             }).catch(e => logError('loadData:refreshAfterRentMonths', e))
           }
@@ -877,11 +1114,7 @@ export default function App({ initialLoginMode = null } = {}) {
         const settingsMap = {}
         const settingsById = new Map((settingsRows || []).map(s => [s.company_id, s]))
         visibleCos.forEach(c => {
-          settingsMap[c.id] = settingsById.get(c.id) || {
-            feature_compliance:true, feature_tenancy:true,
-            feature_maintenance:true, feature_documents:true,
-            feature_expenses:true, feature_reports:true
-          }
+          settingsMap[c.id] = settingsById.get(c.id) || { ...DEFAULT_COMPANY_SETTINGS }
         })
         setCompanySettings(settingsMap)
         // Tenancy rows for HealthBadge's tenancy-end deduction — best-effort,
@@ -933,22 +1166,35 @@ export default function App({ initialLoginMode = null } = {}) {
         api.fetchCompanies(),
       ])
       if (!live()) return
-      // Apply same access filter — use userAccess + owned
-      const { data: ownedCos } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
+      // Apply the same filters as loadData (scopeToAccess + dropSuspended),
+      // with the dev-mode / impersonation decision loadData made. Owned
+      // companies are re-read so one created since the load is included.
+      const { devActive, impersonationIds, accessibleIds: loadedIds } = visibilityRef.current
+      const { data: ownedCos, error: ownedErr } = await supabase.from('companies').select('id').eq('owner_id', user.id).is('deleted_at', null)
+      if (ownedErr) throw ownedErr
       if (!live()) return
       const ownedIds = (ownedCos || []).map(c => c.id)
-      const accessibleIds = new Set([...ownedIds, ...userAccess])
-      if (isPlatformAdmin) {
-        setProperties(props)
-        setCompanies(cos)
-      } else {
-        setProperties(props.filter(p => accessibleIds.has(p.company_id)))
-        setCompanies(cos.filter(c => accessibleIds.has(c.id)))
-      }
+      const accessibleIds = new Set([...ownedIds, ...userAccess, ...loadedIds])
+      const scoped = scopeToAccess({ cos, props, accessibleIds, devActive, impersonationIds })
+      const subs = scoped.cos.length > 0 ? await api.fetchSubscriptions(scoped.cos.map(c => c.id)) : []
+      if (!live()) return
+      const vis = dropSuspended({ ...scoped, subs, userId: user.id, devActive })
+      setProperties(vis.props)
+      setCompanies(vis.cos)
+      setCompanySubs(subs)
+      // A company that appeared since the load (created elsewhere, newly
+      // shared) needs settings, or its feature tabs are hidden.
+      setCompanySettings(prev => {
+        const missing = vis.cos.filter(c => !prev[c.id])
+        if (missing.length === 0) return prev
+        const next = { ...prev }
+        for (const c of missing) next[c.id] = { ...DEFAULT_COMPANY_SETTINGS }
+        return next
+      })
       // If the user was viewing a tab for a company that no longer exists, clear it
       setActiveCoTab(prev => {
         if (!prev) return prev
-        const stillExists = cos.some(c => c.id === prev)
+        const stillExists = vis.cos.some(c => c.id === prev)
         return stillExists ? prev : null
       })
     } catch(e) {
@@ -959,7 +1205,7 @@ export default function App({ initialLoginMode = null } = {}) {
       showToast('Refresh failed — showing last loaded data', 'error')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userAccess, isPlatformAdmin, user?.id])
+  }, [userAccess, user?.id])
 
   // Portfolio search: put the user back where they were once it is cleared.
   useScrollRestoreOnClear(Boolean(searchQ) || statusFilter !== 'all')
@@ -984,6 +1230,10 @@ export default function App({ initialLoginMode = null } = {}) {
       if (ka !== kb) return natSort(ka, kb)
       return natSort(flatKeyWithinBuilding(a.name), flatKeyWithinBuilding(b.name))
     }
+    // Rent-engine arrears (as the Arrears tile), computed once per property
+    // and only for the arrears sort — not the hand-typed properties.arrears.
+    const arrearsCache = new Map()
+    const arrearsOf = p => { if (!arrearsCache.has(p.id)) arrearsCache.set(p.id, propertyArrears(p)); return arrearsCache.get(p.id) }
     return [...f].sort((a,b)=>{
       switch(sortBy) {
         case 'company-name': {
@@ -996,7 +1246,7 @@ export default function App({ initialLoginMode = null } = {}) {
         case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
         case 'yield-high':   return calcGrossYield(b, yieldBasis)-calcGrossYield(a, yieldBasis)
-        case 'arrears':      return (b.arrears||0)-(a.arrears||0)
+        case 'arrears':      return arrearsOf(b)-arrearsOf(a)
         case 'value-high':   return propValue(b)-propValue(a)
         // Custom: drag positions first; rows never dragged (NULL sort_order)
         // tie at 0, so fall back to natural name order instead of DB order.
@@ -1049,11 +1299,15 @@ export default function App({ initialLoginMode = null } = {}) {
   // Uses isPropertyEarningRent/isPropertyOccupied helpers so 'notice_given'
   // counts toward income and occupancy (tenant is still paying), while
   // 'let_agreed' does NOT (no tenant has moved in yet).
+  // Rent-engine arrears per property (overdue periods + unpaid historic
+  // balance), the same figure as the dashboard tiles and Rent Tracker — not
+  // the hand-typed properties.arrears.
+  const arrearsById = useMemo(()=>new Map(dashProps.map(p=>[p.id, propertyArrears(p)])),[dashProps])
   const stats = useMemo(()=>({
     totalInvested:       dashProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
     totalEstVal:         dashProps.reduce((s,p)=>s+propValue(p),0),
     monthlyRent:         dashProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
-    totalArrears:        dashProps.reduce((s,p)=>s+(p.arrears||0),0),
+    totalArrears:        dashProps.reduce((s,p)=>s+(arrearsById.get(p.id)||0),0),
     totalMortgage:       dashProps.reduce((s,p)=>s+(p.mortgage_amount||0),0),
     totalEquity:         dashProps.reduce((s,p)=>s+propValue(p)-(p.mortgage_amount||0),0),
     monthlyMortgageCost: dashProps.reduce((s,p)=>{
@@ -1070,7 +1324,7 @@ export default function App({ initialLoginMode = null } = {}) {
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
     occupancy:           occupancySummary(dashProps),
-  }),[dashProps])
+  }),[dashProps, arrearsById])
 
   // Forecast vs received rent for this month and the two before it, plus next
   // month's forecast, for the dashboard's Rent Forecast / Rent Received cards.
@@ -1093,11 +1347,11 @@ export default function App({ initialLoginMode = null } = {}) {
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
       estVal:      ps.reduce((s,p)=>s+propValue(p),0),
       monthlyRent: ps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
-      arrears:     ps.reduce((s,p)=>s+(p.arrears||0),0),
+      arrears:     ps.reduce((s,p)=>s+(arrearsById.get(p.id)||0),0),
       rented:      ps.filter(p=>isPropertyOccupied(p.status)).length,
       vacant:      ps.filter(p=>p.status==='vacant').length,
     }
-  }),[dashCos, dashProps])
+  }),[dashCos, dashProps, arrearsById])
 
 
   // Success/info toasts auto-dismiss; ERROR toasts stay until dismissed —
@@ -1117,6 +1371,39 @@ export default function App({ initialLoginMode = null } = {}) {
     window.addEventListener('ownproperly:toast', handler)
     return () => window.removeEventListener('ownproperly:toast', handler)
   }, [showToast])
+
+  // Return from Stripe Checkout / the billing portal: create-checkout sends
+  // the user back to ?billing=success|cancelled. Strip the param, say what
+  // happened and, on success, re-read subscriptions a few times over ~20s so
+  // a webhook that lands after the redirect lifts the trial gate without a
+  // manual reload.
+  const companiesRef = useRef(companies)
+  companiesRef.current = companies
+  useEffect(() => {
+    if (!user) return
+    const params = new URLSearchParams(window.location.search)
+    const billing = params.get('billing')
+    if (billing !== 'success' && billing !== 'cancelled') return
+    params.delete('billing')
+    const qs = params.toString()
+    window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash)
+    if (billing === 'cancelled') { showToast('Checkout cancelled. You have not been charged.', 'info'); return }
+    showToast('Payment received. Activating your subscription…')
+    const uid = user.id
+    let stopped = false
+    const poll = async () => {
+      const ids = companiesRef.current.map(c => c.id)
+      if (stopped || ids.length === 0) return
+      try {
+        const subs = await api.fetchSubscriptions(ids)
+        if (!stopped && userIdRef.current === uid) setCompanySubs(subs)
+      } catch (e) { logError('billingReturn:pollSubscriptions', e) }
+    }
+    const timers = [2000, 5000, 9000, 14000, 20000].map(ms => setTimeout(poll, ms))
+    return () => { stopped = true; timers.forEach(clearTimeout) }
+  // Keyed to the signed-in user only: runs once per sign-in on return from Stripe.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   // Global keyboard shortcut to open the command palette. Cmd+K on Mac,
   // Ctrl+K elsewhere. We skip when the user is typing into an input/textarea
@@ -1299,7 +1586,9 @@ export default function App({ initialLoginMode = null } = {}) {
   // if ANY of their accessible companies is past its trial and not on a
   // paying plan or free tier, show a full-screen blocker requiring
   // Stripe Checkout per overdue company before the app loads.
-  if (!isPlatformAdmin && !impersonatingUser) {
+  // (Impersonation is honoured only for platform admins, so it no longer
+  // needs — or gets — its own bypass here.)
+  if (!isPlatformAdmin) {
     // Pass user.id so the gate only considers OWNED companies — we never
     // gate a user on someone else's billing state (they can't pay for it
     // anyway, and gating would just lock them out of their other paid
@@ -1330,7 +1619,13 @@ export default function App({ initialLoginMode = null } = {}) {
     />
   }
 
-  if (showOnboarding) return <Suspense fallback={<PageLoadingSpinner T={T}/>}><OnboardingWizard user={user} onComplete={()=>{ setShowOnboarding(false); refreshData() }}/></Suspense>
+  if (showOnboarding) return <Suspense fallback={<PageLoadingSpinner T={T}/>}><OnboardingWizard user={user} onComplete={()=>{
+    // Re-run the FULL load, not refreshData: joining or creating a company in
+    // the wizard changes access rows, the permissions/owner map, company
+    // settings and subscriptions — refreshData touches none of those, which
+    // left a joined company's dashboard empty and a created one read-only.
+    setShowOnboarding(false); setLoadNonce(n => n + 1)
+  }}/></Suspense>
 
 
   const selected = properties.find(p=>p.id===selectedId)
@@ -1506,7 +1801,12 @@ export default function App({ initialLoginMode = null } = {}) {
       const { error } = await supabase.auth.signInWithPassword({
         email: user.email, password
       })
-      if (error) { showToast('Incorrect password - property not deleted', 'error'); return false }
+      // Failures return a reason string for DeleteConfirmModal to show.
+      if (error) { showToast('Incorrect password - property not deleted', 'error'); return 'the password was not accepted' }
+      // The password re-auth replaced the session with an aal1 one; a 2FA
+      // account steps back up to aal2 before carrying on.
+      const step = await ensureAal2(totpPrompt(confirmDialog, 'Enter the 6-digit code from your authenticator app to delete this property.'))
+      if (step === 'cancelled') { showToast('Two-factor verification is required - property not deleted', 'error'); return 'two-factor verification is required' }
       // Soft-delete: flips deleted_at instead of hard-deleting. The property
       // moves to Trash where it can be restored within 30 days; the auto-purge
       // handles permanent removal. This means accidental deletes are
@@ -1519,7 +1819,7 @@ export default function App({ initialLoginMode = null } = {}) {
       setShowDeleteConfirm(null)
       showToast('Property moved to Trash')
       return true
-    }catch(e){showToast(e.message,'error'); return false}
+    }catch(e){showToast(e.message,'error'); return e?.message || 'something went wrong, please try again'}
   }
 
   async function handleDuplicateProp(id) {
@@ -1594,6 +1894,9 @@ export default function App({ initialLoginMode = null } = {}) {
         } catch(e) { logError('handleSaveCo:saveCompanySubdomain', e) }
       }
       setCompanies(prev=>[...prev,co]);setActiveCoTab(co.id)
+      // Same defaults the load path gives a company with no settings row —
+      // without them the property detail hid five feature tabs.
+      setCompanySettings(prev=>({ ...prev, [co.id]: prev[co.id] || { ...DEFAULT_COMPANY_SETTINGS } }))
       // The owner map inside permissionsMap was stamped at load time, so a
       // company created mid-session isn't in it — without this, every canDo()
       // on the new company denies (read-only Shareholders card, disabled
@@ -1611,10 +1914,17 @@ export default function App({ initialLoginMode = null } = {}) {
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email: user.email, password: renameCoPassword })
       if (authError) { setRenameCoError('Incorrect password'); setRenameCoSaving(false); return }
-      const { error } = await supabase.from('companies')
+      // Re-auth leaves an aal1 session; a 2FA account steps back up first.
+      const step = await ensureAal2(totpPrompt(confirmDialog, 'Enter the 6-digit code from your authenticator app to rename this company.'))
+      if (step === 'cancelled') { setRenameCoError('Two-factor verification is required'); setRenameCoSaving(false); return }
+      const { data: renamed, error } = await supabase.from('companies')
         .update({ name: renameCo.name.trim(), abbr: renameCo.abbr.trim() || renameCo.name.trim().slice(0,5).toUpperCase() })
         .eq('id', renameCoTarget.id)
+        .select('id')
       if (error) throw error
+      // RLS (companies_update) lets only the owner write the row: zero rows
+      // updated is a refusal, not a success.
+      if (!renamed || renamed.length === 0) throw new Error('Only the company owner can rename this company')
       setCompanies(prev => prev.map(c => c.id === renameCoTarget.id ? { ...c, name: renameCo.name.trim(), abbr: renameCo.abbr.trim() || c.abbr } : c))
       showToast('Company renamed successfully')
       setRenameCoTarget(null)
@@ -1649,137 +1959,10 @@ export default function App({ initialLoginMode = null } = {}) {
     }catch(e){showToast(e.message,'error')}
   }
 
-  function CompaniesPanel({ companies, setCompanies, user, showToast, companySettings, setCompanySettings, T }) {
-    const mono = MONO
-
-    function openRename(c) {
-      setRenameCoTarget(c)
-      setRenameCo({ name: c.name, abbr: c.abbr||'' })
-      setRenameCoPassword('')
-      setRenameCoError('')
-    }
-
-    return (
-      <div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-          <h2 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em',margin:0}}>Companies</h2>
-          <Button variant="primary" size="sm" onClick={()=>setShowAddCo(true)}>+ Add company</Button>
-        </div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:22}}>
-          {companies.map(c=>(
-            <button key={c.id} className={`tab ${activeCoTab===c.id?'active':''}`}
-              style={{border:`1px solid ${activeCoTab===c.id?c.color:T.border}`,color:activeCoTab===c.id?c.color:T.muted,background:activeCoTab===c.id?c.color+'11':'transparent'}}
-              onClick={()=>setActiveCoTab(c.id)}>{c.name}{isHoldingCompany(c)&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,marginLeft:6,opacity:0.8,letterSpacing:'0.05em'}}>HOLDING</span>}</button>
-          ))}
-        </div>
-        {companies.filter(c=>c.id===activeCoTab).map(c=>{
-          const cs=companyStats.find(x=>x.id===c.id)||{count:0,rented:0,vacant:0,monthlyRent:0,invested:0,estVal:0,arrears:0}
-          const cProps=activeProperties.filter(p=>p.company_id===c.id)
-          const holding=isHoldingCompany(c)
-          const canEditCo=canDo(permissionsMap, c.id, 'edit_company_settings') || devModeActive
-          // Convert between operating and holding. Operating → holding only
-          // while the company has no properties (they'd vanish from its view).
-          async function convertType() {
-            const toHolding=!holding
-            if (toHolding && cProps.length>0) return showToast(`${c.name} has ${plural(cProps.length,'property','properties')} — move them to another company before converting to a holding company`,'error')
-            if (!(await confirmDialog({ title: toHolding ? `Make ${c.name} a holding company?` : `Make ${c.name} an operating company?`, body: (toHolding
-              ? `Make ${c.name} a holding company? It will show a group view of the companies it owns instead of a property portfolio, and (as a passive holdco) stop counting toward the corporation tax threshold split.`
-              : `Make ${c.name} an operating company? It will show a property portfolio again and count as an associated company for corporation tax.`), confirmLabel: toHolding ? 'Make holding company' : 'Make operating company' }))) return
-            try {
-              const row=await api.updateCompany(c.id,{company_type:toHolding?'holding':'operating'})
-              setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))
-              showToast(toHolding?'Now a holding company':'Now an operating company')
-            } catch(e){ showToast(e.message,'error') }
-          }
-          return <div key={c.id}>
-            {/* Company header with rename button */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:10,height:10,borderRadius:'50%',background:c.color||T.gold}}/>
-                <span style={{fontSize:16,fontWeight:700,color:T.text}}>{c.name}</span>
-                <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,background:(c.color||T.gold)+'22',color:c.color||T.goldText,padding:'2px 8px',borderRadius:4}}>{c.abbr}</span>
-                {holding&&<span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,color:T.muted,border:`1px solid ${T.border}`,padding:'2px 8px',borderRadius:4,letterSpacing:'0.05em'}}
-                  title="Holding company — owns companies, not properties">HOLDING</span>}
-              </div>
-              {canEditCo && (
-                <div style={{display:'flex',gap:8}}>
-                  <button onClick={convertType}
-                    title={holding?'Convert back to an operating (property-owning) company':'Convert to a holding company (owns companies, not properties)'}
-                    style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-                    {holding?'Make operating':'Make holding co'}
-                  </button>
-                  <button onClick={()=>openRename(c)}
-                    style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer'}}>
-                    Rename
-                  </button>
-                  {(c.owner_id === user?.id || devModeActive) && (
-                    <button onClick={()=>setDeleteCoTarget(c)}
-                      style={{fontFamily:SANS,fontSize:FS.sm,padding:'5px 12px',borderRadius:7,border:`1px solid ${T.red}33`,background:'transparent',color:T.red,cursor:'pointer'}}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-            {holding ? (
-              <HoldingGroupPanel company={c} companies={companies} properties={activeProperties} T={T}
-                canEdit={canEditCo} showToast={showToast}
-                onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
-            ) : (<>
-            {/* companies_update RLS lets only the owner (or a developer) write the
-                company row, so admins see this read-only rather than hit an error. */}
-            <CompanyLegalOwnerSetting company={c} canEdit={c.owner_id===user?.id || devModeActive} showToast={showToast} T={T}
-              onUpdateCompany={row=>setCompanies(prev=>prev.map(x=>x.id===c.id?{...x,...row}:x))}/>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:12,marginBottom:22}}>
-              <StatCard icon="home" label="Properties" value={cs.count} sub={`${cs.rented} rented · ${cs.vacant} vacant`}/>
-              <StatCard icon="pound" label="Monthly Rent" value={fmt(cs.monthlyRent)} sub={fmt(cs.monthlyRent*12)+'/yr'} accent={T.green}/>
-              <StatCard icon="pie-chart" label="Total Invested" value={fmt(cs.invested)} sub={`Est. ${fmt(cs.estVal)}`}/>
-              <StatCard icon="alert-triangle" label="Arrears" value={fmt(cs.arrears)} accent={cs.arrears>0?T.red:T.green}/>
-            </div>
-            <div style={{display:'grid',gap:10}}>
-              {groupPropertiesByBuilding(cProps).map(group => (
-                <div key={group.tail || group.items[0].id}>
-                  {group.isBuilding && (
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6,marginBottom:6,paddingLeft:8}}>
-                      <Icon name="building" size={14} color={T.muted}/>
-                      <span style={{fontFamily:MONO,fontSize:11,fontWeight:700,color:T.text}}>{group.tail}</span>
-                      <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>· {plural(group.items.length,'unit')}</span>
-                    </div>
-                  )}
-                  <div style={{display:'grid',gap:10,marginLeft:group.isBuilding?14:0,borderLeft:group.isBuilding?`2px solid ${T.gold}33`:'none',paddingLeft:group.isBuilding?10:0}}>
-                    {group.items.map(p => {
-                      const canFin = canDo(permissionsMap, p.company_id, 'view_financial') || devModeActive
-                      const displayName = group.isBuilding ? (String(p.name||'').split(',')[0].trim() || p.name) : p.name
-                      return (
-                      <div key={p.id} className="card pcard" style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}} {...pressable(()=>openDetail(p))}>
-                        <div style={{flex:1,minWidth:150}}>
-                          <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
-                          <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{p.prop_type} · {p.address}</div>
-                        </div>
-                        {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
-                        {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
-                            <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
-                            <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
-                          </div>}
-                        {canFin && <div style={{fontFamily:MONO,fontSize:12,color:T.muted}}>{fmt(p.rent_pcm)+'/mo'}</div>}
-                        <Badge status={p.status}/>
-                      </div>
-                    )})}
-                  </div>
-                </div>
-              ))}
-              {cProps.length===0&&<EmptyState compact icon="home" title="No properties for this company yet"
-                action={(canDo(permissionsMap, activeCoTab, 'edit_properties') || devModeActive) ? <Button size="sm" icon="plus" onClick={()=>{setEditProp({company_id:activeCoTab});setShowAddProp(true)}}>Add property</Button> : null}/>}
-            </div>
-            </>)}
-            <CompanyOwnershipSection company={c} companies={companies} properties={cProps} user={user} T={T} showToast={showToast}
-              showAgents={!holding} canEdit={canEditCo}/>
-          </div>
-        })}
-
-
-      </div>
-    )
+  const companiesPanelContext = {
+    setShowAddCo, activeCoTab, setActiveCoTab, companyStats, activeProperties, permissionsMap,
+    devModeActive, confirmDialog, setRenameCoTarget, setRenameCo, setRenameCoPassword, setRenameCoError,
+    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp, arrearsById,
   }
 
   return (
@@ -1931,7 +2114,7 @@ export default function App({ initialLoginMode = null } = {}) {
             setConvertSourceDeal={setConvertSourceDeal} setShowAddProp={setShowAddProp}
           />}
 
-          {view==='properties'&&<PropertiesView
+          {view==='properties'&&<CompaniesPanelContext.Provider value={companiesPanelContext}><PropertiesView
             isMobile={isMobile} T={T} filtered={filtered} properties={properties}
             setPortfolioTab={setPortfolioTab} portfolioTab={portfolioTab} CompaniesPanel={CompaniesPanel}
             companies={companies} setCompanies={setCompanies} user={user} showToast={showToast}
@@ -1946,7 +2129,7 @@ export default function App({ initialLoginMode = null } = {}) {
             setSortBy={setSortBy} sortBy={sortBy} resetCustomOrder={resetCustomOrder}
             setPropLayout={setPropLayout} propLayout={propLayout} openDetail={openDetail}
             yieldBasis={yieldBasis}
-          />}
+          /></CompaniesPanelContext.Provider>}
 
           {/* Standalone Companies view removed — Companies now lives solely
               as a Portfolio sub-tab (#/properties/companies); legacy #/companies

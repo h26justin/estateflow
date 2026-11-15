@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 import { plural } from '../lib/format'
 import { Button } from './ui'
+import { calcStampDuty } from '../lib/api/calculators'
 
 const mono = MONO
 
@@ -184,7 +185,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
 
   const price = scraped?.price || 0
   const grossYield = price && rent ? ((parseFloat(rent) * 12) / price * 100).toFixed(1) : null
-  const sdlt = price ? Math.round(price * 0.05) : 0
+  const sdlt = price ? calcStampDuty(price, true) : 0
   const deposit = price ? Math.round(price * 0.25) : 0
   const monthlyInterest = price ? Math.round((price - deposit) * 0.045 / 12) : 0
   const monthlyProfit = rent && monthlyInterest ? Math.round(parseFloat(rent) * 0.9 - monthlyInterest - 50) : null
@@ -302,7 +303,7 @@ export function ListingYieldCalculator({ onAutoFill, T: TProp }) {
           </div>
 
           <div style={{fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginTop:10, lineHeight:1.7}}>
-            Profit estimate: 10% void/costs deducted, 4.5% interest-only mortgage at 75% LTV, £50/mo other costs. SDLT at 5% additional property rate (Oct 2024).
+            Profit estimate: 10% void/costs deducted, 4.5% interest-only mortgage at 75% LTV, £50/mo other costs. SDLT at standard rates plus the 5% additional property surcharge.
           </div>
         </div>
       )}

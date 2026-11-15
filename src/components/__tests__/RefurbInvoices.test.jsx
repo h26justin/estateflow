@@ -51,6 +51,32 @@ describe('Import refurb invoice', () => {
     expect(mutations.createProject).not.toHaveBeenCalled()
   })
 
+  it('a failed save keeps the refurbs it created, so a retry does not create them again', async () => {
+    const bare = props.slice(0, 2).map(p => ({ ...p, refurb_projects: [] }))
+    const mutations = { createProject: vi.fn(async pid => ({ id: `new-${pid}` })) }
+    createRefurbInvoice.mockRejectedValueOnce(new Error('network down'))
+    const showToast = vi.fn()
+    wrap(<ImportRefurbInvoice properties={bare} companies={companies} invoices={[]} canEditFor={() => true} mutations={mutations}
+      onCreated={vi.fn()} onCancel={vi.fn()} showToast={showToast} T={undefined} isMobile={false} />)
+    fireEvent.click(screen.getByText('Enter manually without a file'))
+    const inputs = screen.getAllByRole('textbox')
+    fireEvent.change(inputs[0], { target: { value: 'GLB Building' } })
+    fireEvent.change(inputs[1], { target: { value: 'INV-0023' } })
+    const gross = inputs.find(el => el.closest('div')?.previousSibling?.textContent === 'Gross *') || inputs[4]
+    fireEvent.change(gross, { target: { value: '1000' } })
+    fireEvent.blur(gross)
+    fireEvent.click(screen.getByText('Allocate to properties →'))
+    fireEvent.click(screen.getByText(/Whole block: The Cloisters \(2\)/))
+    const save = screen.getByRole('button', { name: 'Save invoice to 2 properties' })
+    fireEvent.click(save)
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('network down', 'error'))
+    expect(mutations.createProject).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Save invoice to 2 properties' }))
+    await waitFor(() => expect(createRefurbInvoice).toHaveBeenCalledTimes(2))
+    expect(mutations.createProject).toHaveBeenCalledTimes(2)
+    expect(createRefurbInvoice.mock.calls[1][1].map(a => a.project_id)).toEqual(['new-prop1', 'new-prop2'])
+  })
+
   it('blocks a duplicate supplier + invoice number', () => {
     const existing = [{ id: 'old', company_id: 'co', supplier_name: 'GLB Building Ltd', invoice_number: 'inv 0022', gross_amount: 100, doc_kind: 'invoice' }]
     wrap(<ImportRefurbInvoice properties={props} companies={companies} invoices={existing} canEditFor={() => true} mutations={{}}

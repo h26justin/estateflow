@@ -13,7 +13,7 @@ import {
 } from '../../lib/refurbWorkspace'
 import Gantt from './Gantt'
 import { QuickText } from './StageDrawer'
-import { mono, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate } from './ui'
+import { mono, inputStyle, panel, sectionHead, StatusChip, Pill, Empty, fmtShort, fmtDate, todayISO } from './ui'
 import { FS, SANS } from '../../lib/styles'
 import { Button } from '../ui'
 
@@ -170,7 +170,7 @@ function LegacyChecklist({ ws }) {
   if (!rows || !rows.some(m => m.completed)) return null
   async function toggle(m) {
     if (!canEdit) return
-    const fields = { completed: !m.completed, completed_date: !m.completed ? new Date().toISOString().slice(0, 10) : null }
+    const fields = { completed: !m.completed, completed_date: !m.completed ? todayISO() : null }
     setRows(rs => rs.map(x => x.id === m.id ? { ...x, ...fields } : x))
     try { await api.updateRefurbMilestone(m.id, fields) } catch (_) { setRows(rs => rs.map(x => x.id === m.id ? m : x)) }
   }

@@ -77,7 +77,12 @@ Features: ${features}
     return reply({ description })
   } catch (err) {
     const e = err as Error
+    // Provider detail (model id, raw API text) is logged, never returned.
+    console.error('[ai-listing-writer] AI call failed:', e?.message || e)
     const status = e instanceof ClaudeError && e.kind === 'config' ? 503 : 502
-    return reply({ error: e.message }, status)
+    const msg = e instanceof ClaudeError && e.kind === 'refusal'
+      ? 'The AI declined this request. Try rewording the features.'
+      : 'Could not write the listing right now. Please try again shortly.'
+    return reply({ error: msg }, status)
   }
 })

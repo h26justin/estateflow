@@ -34,8 +34,10 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import {
-  callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, nullable, obj, UNTRUSTED_CONTENT_NOTICE,
+  callClaude, callClaudeWithEscalation, checkAiRateLimit, recordAiUsage, nullable, obj, ClaudeError,
+  MIN_ATTEMPT_MS, UNTRUSTED_CONTENT_NOTICE,
 } from './anthropic.ts'
+import { reconcileStatement } from './reconcile.ts'
 
 const SUPABASE_URL          = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY      = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -51,6 +53,27 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 const MAX_ATTACHMENTS      = 10
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const DAILY_EXTRACTIONS    = { perDay: 100 }
+// Overall budget for one background extraction (inside the edge wall clock).
+const AI_BUDGET_MS         = 135_000
+
+// Postmark retries a webhook it thinks failed. The MessageID is folded into
+// the storage path (property_documents.file_path) so a retried delivery
+// finds its own earlier documents and is dropped — no new column needed.
+async function messageKey(messageId: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(messageId))
+  return Array.from(new Uint8Array(digest)).slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Extractions this owner has already used in the last 24h (same window as
+// checkAiRateLimit). null = could not tell (missing table) → no pre-check.
+async function extractionsUsedToday(ownerId: string): Promise<number | null> {
+  const since = new Date(Date.now() - 86_400_000).toISOString()
+  const { count, error } = await admin.from('ai_usage')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', ownerId).eq('function_name', 'ingest-statement-email').gte('created_at', since)
+  if (error) return null
+  return count ?? 0
+}
 
 // File types Claude reads: PDFs as document blocks; JPEG/PNG/WebP/GIF as image
 // blocks. HEIC/HEIF are NOT accepted by the API (the whole request would
@@ -197,7 +220,7 @@ serve(async (req) => {
       .filter(x => x.mime !== null) as { att: any; mime: string }[]
     const sized = readable.filter(x => base64Bytes(x.att.Content || '') <= MAX_ATTACHMENT_BYTES)
     const oversize = readable.length - sized.length
-    const pdfs = sized.slice(0, MAX_ATTACHMENTS)
+    let pdfs = sized.slice(0, MAX_ATTACHMENTS)
     const overCount = sized.length - pdfs.length
     if (oversize > 0 || overCount > 0) {
       console.log(`Skipped ${oversize} oversize and ${overCount} over-limit attachment(s) for company ${company.id}`)
@@ -225,10 +248,41 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, ignored: 'no_properties' }))
     }
 
+    // Retried delivery of a message we already took → drop it (no new
+    // documents, no second AI spend, no second notification).
+    const messageId = typeof payload.MessageID === 'string' ? payload.MessageID.trim() : ''
+    const mkey = messageId ? await messageKey(messageId) : ''
+    if (mkey) {
+      const { data: seen, error: seenErr } = await admin.from('property_documents')
+        .select('id').like('file_path', `statements/${company.id}/pm-${mkey}-%`).limit(1)
+      if (seenErr) throw seenErr
+      if (seen && seen.length > 0) {
+        console.log('Duplicate delivery of a message already ingested — ignoring')
+        return new Response(JSON.stringify({ ok: true, ignored: 'duplicate_message' }))
+      }
+    }
+
+    // Daily extraction cap, checked BEFORE anything is uploaded: files that
+    // could not be extracted today are not stored either.
+    const used = await extractionsUsedToday(company.owner_id)
+    if (used !== null) {
+      const left = Math.max(0, DAILY_EXTRACTIONS.perDay - used)
+      if (left === 0) {
+        console.log('Daily statement extraction cap reached for company', company.id)
+        return new Response(JSON.stringify({ ok: true, ignored: 'daily_cap' }))
+      }
+      if (pdfs.length > left) {
+        console.log(`Daily cap: taking ${left} of ${pdfs.length} attachment(s) for company ${company.id}`)
+        pdfs = pdfs.slice(0, left)
+      }
+    }
+
     const docIds: string[] = []
-    for (const { att, mime } of pdfs) {
+    for (const [idx, { att, mime }] of pdfs.entries()) {
       const safeName = (att.Name || 'statement.pdf').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
-      const path = `statements/${company.id}/${Date.now()}_${safeName}`
+      const path = mkey
+        ? `statements/${company.id}/pm-${mkey}-${idx}_${safeName}`
+        : `statements/${company.id}/${Date.now()}_${safeName}`
 
       // Postmark sends attachments base64-encoded inline
       const fileBytes = Uint8Array.from(atob(att.Content || ''), c => c.charCodeAt(0))
@@ -262,18 +316,25 @@ serve(async (req) => {
           try {
             await admin.from('property_documents').update({
               extraction_status: 'failed',
-              extraction_error: msg.slice(0, 500),
+              // Generic text only: provider detail stays in the logs.
+              extraction_error: publicExtractionError(e),
             }).eq('id', docId)
           } catch { /* best effort */ }
         }),
       )
     }
 
+    // Nothing stored → nothing to review: no notification.
+    if (docIds.length === 0) {
+      console.error('Every attachment failed to store for company', company.id)
+      return new Response(JSON.stringify({ ok: false, error: 'no attachments could be stored' }))
+    }
+
     // ── 6. Drop a notification for the company owner ──
     const fromName = payload.FromName || payload.From || 'an agent'
-    const summary = pdfs.length === 1
+    const summary = docIds.length === 1
       ? `${fromName} sent a rental statement`
-      : `${fromName} sent ${pdfs.length} rental statement files`
+      : `${fromName} sent ${docIds.length} rental statement files`
     await admin.from('notifications').insert({
       user_id: company.owner_id,
       type: 'statement_received',
@@ -283,7 +344,7 @@ serve(async (req) => {
       metadata: { company_id: company.id, document_ids: docIds, sender: payload.From },
     })
 
-    return new Response(JSON.stringify({ ok: true, company: company.name, pdfs_received: pdfs.length, doc_ids: docIds }), {
+    return new Response(JSON.stringify({ ok: true, company: company.name, pdfs_received: docIds.length, doc_ids: docIds }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (e: any) {
@@ -350,11 +411,26 @@ Return a JSON object with this shape:
   }
 }`
 
+// What the stored extraction_error may say. Provider detail and model ids
+// stay in the function logs.
+function publicExtractionError(e: unknown): string {
+  if (e instanceof ClaudeError) {
+    if (e.kind === 'refusal') return 'The AI declined to read this file.'
+    if (e.kind === 'max_tokens') return 'The statement was too long to extract in one pass.'
+    if (e.kind === 'timeout') return 'Extraction took too long.'
+    return 'The AI service could not read this file. Try importing it again later.'
+  }
+  const msg = (e as Error)?.message || ''
+  if (/^AI limit reached/.test(msg)) return msg
+  return 'Extraction failed.'
+}
+
 // Run extract-document's logic inline (no second HTTP round-trip).
 // We can't easily call our own edge function from another edge function
 // without an auth dance, so we copy the relevant bit here. Throws on any
 // failure; the caller marks the document 'failed'.
 async function extractDocumentInline(documentId: string, storagePath: string, mimeType: string, ownerId: string) {
+  const startedAt = Date.now()
   // Per-owner daily cap on statement extractions.
   const gate = await checkAiRateLimit(admin, ownerId, 'ingest-statement-email', DAILY_EXTRACTIONS)
   if (!gate.allowed) throw new Error(gate.message)
@@ -383,21 +459,46 @@ async function extractDocumentInline(documentId: string, storagePath: string, mi
     ? { type: 'image',    source: { type: 'base64', media_type: mimeType, data: base64 } }
     : { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
 
-  // Standard tier; escalates ONLY when the answer fails to parse / match the
-  // schema. A clean parse with zero line items is a valid answer (not a
-  // statement, or an empty one) and is kept as-is — no second, pricier pass.
-  const ai = await callClaudeWithEscalation<any>({
-    tier: 'standard',
+  // Standard tier; escalates when the answer fails to parse / match the
+  // schema, all inside one overall deadline. A clean parse with zero line
+  // items is a valid answer (not a statement, or an empty one) and is kept.
+  const deadlineMs = startedAt + AI_BUDGET_MS
+  const aiOpts = {
     content: [contentBlock, { type: 'text', text: STATEMENT_PROMPT }],
     maxTokens: 16000,
     schema: STATEMENT_SCHEMA,
     timeoutMs: 120_000,
-  })
+    deadlineMs,
+  }
+  const ai = await callClaudeWithEscalation<any>({ tier: 'standard', ...aiOpts })
   await recordAiUsage(admin, gate.usageId, ai)
+
+  // Code-side reconciliation: line items vs the stated totals. On a
+  // mismatch, one more pass on the escalate tier (charged to the same daily
+  // cap, skipped when out of cap or time); the answer that reconciles best
+  // is kept, and any remaining mismatch is flagged on the stored extraction
+  // for the review screen.
+  let data = ai.data
+  let recon = reconcileStatement(data)
+  let escalated = ai.escalated
+  if (!recon.ok && !ai.escalated && deadlineMs - Date.now() >= MIN_ATTEMPT_MS) {
+    const gate2 = await checkAiRateLimit(admin, ownerId, 'ingest-statement-email', DAILY_EXTRACTIONS)
+    if (gate2.allowed) {
+      try {
+        const better = await callClaude<any>({ tier: 'escalate', ...aiOpts })
+        await recordAiUsage(admin, gate2.usageId, better)
+        const r2 = reconcileStatement(better.data)
+        if (r2.mismatches.length <= recon.mismatches.length) { data = better.data; recon = r2; escalated = true }
+      } catch (e) {
+        console.warn('statement reconciliation escalation failed, keeping the first answer:', (e as Error).message)
+      }
+    }
+  }
+  const stored = { ...(data || {}), reconciliation: { ...recon, escalated, checked_at: new Date().toISOString() } }
 
   await admin.from('property_documents').update({
     extraction_status: 'completed',
-    extracted_fields: ai.data,
+    extracted_fields: stored,
     extracted_at: new Date().toISOString(),
     extraction_error: null,
   }).eq('id', documentId)

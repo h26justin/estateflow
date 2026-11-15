@@ -18,6 +18,8 @@
 // `subs` is the array of subscription rows for the user's accessible
 // companies (the same shape App.jsx loads into companySubs state).
 
+import { subscriptionGrantsLive } from './subscriptionLive'
+
 export const TIERS = {
   starter:  { key: 'starter',  label: 'Starter',  pricePerProp: 2,   color: '#888EA8' },
   investor: { key: 'investor', label: 'Investor', pricePerProp: 5,   color: '#C8A84B' },
@@ -31,16 +33,36 @@ export function canUseInvestorFeatures({ subs = [], companies = [], isPlatformAd
   if (isPlatformAdmin) return true
   // free_tier companies get everything (admin manually granted)
   if (companies.some(c => c?.is_free_tier)) return true
-  if (subs.some(s => s?.tier === 'investor' && (s.status === 'active' || s.status === 'trialing'))) return true
+  // Same rule as highestTier(): only a subscription that still grants
+  // liveness counts — a bare 'trialing' placeholder or a cancelled /
+  // incomplete Investor row does not unlock Investor features.
+  if (subs.some(s => s?.tier === 'investor' && subscriptionGrantsLive(s))) return true
   return false
 }
 
-// Get the highest tier for display purposes (header chip etc).
+// Get the highest tier for display purposes (header chip etc). Only a
+// subscription that still grants liveness counts — a cancelled or
+// never-completed Investor subscription is not Investor.
 export function highestTier({ subs = [], companies = [], isPlatformAdmin = false }) {
   if (isPlatformAdmin) return TIERS.investor
   if (companies.some(c => c?.is_free_tier)) return TIERS.investor
-  if (subs.some(s => s?.tier === 'investor')) return TIERS.investor
+  if (subs.some(s => s?.tier === 'investor' && subscriptionGrantsLive(s))) return TIERS.investor
   return TIERS.starter
+}
+
+// Tier the company's next charge uses. A live Stripe subscription keeps its
+// own tier (payment changes go through the Stripe portal); otherwise the
+// trial gate / "Add payment method" opens checkout with no tier, which
+// create-checkout bills as Starter.
+export function billingTierFor(sub) {
+  return sub?.tier === 'investor' && subscriptionGrantsLive(sub) ? 'investor' : 'starter'
+}
+
+// Billable properties for a company from a loaded properties list: anything
+// not in Trash (archived and sold still count) — mirrors
+// countBillableProperties in supabase-functions/_shared/billing.ts.
+export function billablePropertyCount(properties = [], companyId) {
+  return properties.filter(p => p?.company_id === companyId && !p.deleted_at).length
 }
 
 // Volume floor: under-5-property companies pay a £10 monthly minimum

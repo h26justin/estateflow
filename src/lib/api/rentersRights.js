@@ -1,7 +1,7 @@
 // Renters Rights Act compliance copilot — client API.
 //
 // Reads/writes rra_compliance (one tracker row per company, optionally
-// scoped to a property) and derives Awaab's-Law repair timers at read-time
+// scoped to a property) and derives repair timers (guidance targets) at read-time
 // from maintenance_jobs. Notice drafting is delegated to the rra-notice
 // edge function (AI draft only — never auto-served).
 
@@ -9,9 +9,13 @@ import { supabase } from '../supabase'
 
 const uid = async () => (await supabase.auth.getUser()).data.user.id
 
-// Awaab's-Law style expectations (guidance, not statute): emergency hazards
-// addressed within 24h, other significant hazards investigated within 14 days.
+// Guidance targets modelled on Awaab's Law (not the confirmed private-sector
+// timings, which this code's sources do not establish): emergency hazards
+// dealt with within 24 hours, other significant hazards investigated within
+// 14 days. Shown as targets, never as legal deadlines.
 export const REPAIR_SLA_DAYS = { emergency: 1, standard: 14 }
+// Only these priorities are treated as emergencies; 'high' is not.
+export const EMERGENCY_PRIORITIES = ['urgent', 'emergency']
 
 export const NOTICE_TYPES = [
   { v: 'periodic_conversion',     l: 'Periodic tenancy conversion letter' },
@@ -70,29 +74,38 @@ export async function updateRraCompliance(id, updates) {
   return data
 }
 
-// Awaab's-Law repair timers, derived from maintenance_jobs. Open jobs
-// (status not 'complete') are aged against the relevant SLA; 'urgent'/'high'
-// priority maps to the emergency 24h window. Returns enriched job rows.
+// Repair timers (guidance targets), derived from maintenance_jobs. Open jobs
+// (status not 'complete') are aged from the date the repair was raised (the
+// form's date_raised, else when the row was created) against the target;
+// 'urgent' / 'emergency' priority maps to the 24-hour target. Returns
+// enriched job rows.
 export async function fetchRepairTimers(propertyId) {
   if (!propertyId) return []
   const { data, error } = await supabase.from('maintenance_jobs')
-    .select('id, title, description, status, priority, category, reported_by_tenant, created_at')
+    .select('id, title, description, status, priority, category, reported_by_tenant, date_raised, created_at')
     .eq('property_id', propertyId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   if (error) throw error
 
-  const now = Date.now()
-  return (data || []).map((j) => {
-    const isEmergency = j.priority === 'urgent' || j.priority === 'high'
+  return repairTimersFor(data || [])
+}
+
+// Pure part of fetchRepairTimers, exported for tests.
+export function repairTimersFor(jobs, now = Date.now()) {
+  return (jobs || []).map((j) => {
+    const isEmergency = EMERGENCY_PRIORITIES.includes(j.priority)
     const slaDays = isEmergency ? REPAIR_SLA_DAYS.emergency : REPAIR_SLA_DAYS.standard
     const open = j.status !== 'complete'
-    const reported = j.created_at ? new Date(j.created_at).getTime() : now
+    // date_raised is a calendar date: read it as the start of that local day.
+    const raisedOn = j.date_raised ? new Date(`${String(j.date_raised).slice(0, 10)}T00:00:00`).getTime() : NaN
+    const reported = !Number.isNaN(raisedOn) ? raisedOn : j.created_at ? new Date(j.created_at).getTime() : now
     const elapsedDays = Math.floor((now - reported) / 86400000)
     const deadline = reported + slaDays * 86400000
     const daysToDeadline = Math.ceil((deadline - now) / 86400000)
     return {
       ...j,
+      reported_at: new Date(reported).toISOString(),
       sla_days: slaDays,
       severity: isEmergency ? 'emergency' : 'standard',
       open,

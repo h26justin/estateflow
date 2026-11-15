@@ -51,7 +51,12 @@ export function ukDateToISO(s) {
 export function buildComplianceFromDoc(doc) {
   if (!doc || !doc.extracted_fields) return null
   const f = doc.extracted_fields
-  const expiry = ukDateToISO(f.expiry_date || f.cover_end || f.valid_to)
+  // extract-document stores the type-specific values under `fields` and the
+  // headline expiry as `primary_expiry_date`; older / hand-built rows carry
+  // them at the top level.
+  const ff = (f.fields && typeof f.fields === 'object') ? f.fields : {}
+  const first = (...vals) => vals.find(v => v != null && v !== '') ?? null
+  const expiry = ukDateToISO(first(ff.expiry_date, ff.cover_end, ff.valid_to, f.primary_expiry_date, f.expiry_date, f.cover_end, f.valid_to))
   if (!expiry) return null
 
   const certByCategory = {
@@ -60,11 +65,15 @@ export function buildComplianceFromDoc(doc) {
     epc:       { cert_type: 'epc',        cert_name: 'EPC' },
     insurance: { cert_type: 'insurance',  cert_name: 'Landlord Insurance' },
   }
-  const mapped = certByCategory[doc.category]
+  // The document's category first; when that is not a certificate type
+  // (left as 'other', or recategorising was skipped on a medium-confidence
+  // read) fall back to the type the extraction detected.
+  const byDocType = { gas_cert: 'gas', eicr: 'eicr', epc: 'epc', insurance: 'insurance' }
+  const mapped = certByCategory[doc.category] || certByCategory[byDocType[f.document_type]]
   if (!mapped) return null
   const { cert_type, cert_name } = mapped
 
-  const issue = ukDateToISO(f.inspection_date || f.valid_from || f.cover_start)
+  const issue = ukDateToISO(first(ff.inspection_date, ff.valid_from, ff.cover_start, f.inspection_date, f.valid_from, f.cover_start))
   return {
     cert_type,
     cert_name,
@@ -74,6 +83,32 @@ export function buildComplianceFromDoc(doc) {
     notes: 'Auto-created from uploaded document.',
     document_id: doc.id,
   }
+}
+
+// Why extract-document did not add the certificate to Compliance itself
+// (extracted_fields.compliance_review_reason), in plain English. Null when
+// the extraction was not staged for review.
+const COMPLIANCE_REVIEW_REASONS = {
+  no_property_match: 'the address on the document did not match one of your properties',
+  match_confidence_medium: 'the address on the document only partly matched this property',
+  match_confidence_low: 'the address on the document only loosely matched a property',
+  match_conflicts_with_document_property: 'the address on the document matches a different property from the one it is filed under',
+  expiry_date_invalid: 'the expiry date could not be read as a real date',
+  extraction_confidence_medium: 'the document type was not read with high confidence',
+  extraction_confidence_low: 'the document type was not read with high confidence',
+  extraction_confidence_unknown: 'the document type was not read with high confidence',
+  no_statutory_cycle: 'this certificate type has no standard renewal cycle to check the dates against',
+  issue_date_missing: 'no issue or inspection date was found to check the expiry against',
+  expiry_not_after_issue: 'the expiry date is not after the issue date',
+  expiry_beyond_statutory_cycle: 'the expiry date is further out than this certificate normally lasts',
+  existing_compliance_differs: 'Compliance already has this certificate with a different expiry date',
+  compliance_write_failed: 'saving it to Compliance failed',
+}
+export function complianceReviewReason(doc) {
+  const f = doc?.extracted_fields
+  if (!f || !f.compliance_needs_review) return null
+  const code = f.compliance_review_reason
+  return COMPLIANCE_REVIEW_REASONS[code] || (code ? 'it needs checking before it is added' : null)
 }
 
 /**
@@ -115,12 +150,19 @@ export async function attachComplianceDocument(propertyId, propertyName, file, c
   const path = `${userId}/properties/${propertyId}/${Date.now()}.${ext}`
   const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
   if (uploadErr) throw uploadErr
+  // Live columns are file_type / file_size (there is no size, type or
+  // property_name column, so this insert always failed). propertyName is
+  // kept in the signature for callers but not stored.
   const { data, error } = await supabase.from('property_documents').insert({
-    property_id: propertyId, property_name: propertyName,
+    property_id: propertyId,
     name: file.name, file_path: path,
-    size: file.size, type: file.type, category, user_id: userId,
+    file_size: file.size, file_type: file.type || null, category, user_id: userId,
   }).select().single()
-  if (error) throw error
+  if (error) {
+    // Don't leave an orphaned file in the bucket.
+    try { await supabase.storage.from('property-documents').remove([path]) } catch (_) { /* best effort */ }
+    throw error
+  }
   return data
 }
 

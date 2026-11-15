@@ -106,6 +106,40 @@ describe('Short-Term Let Income page', () => {
     expect(rows.slice(idx + 1, allRooms).every(t => !t.includes('Room 1') && !t.includes('Room 2'))).toBe(true)
   })
 
+  it('search narrows only the bookings table: money figures stay put and Mark as paid is held', async () => {
+    renderPage()
+    await screen.findByRole('button', { name: 'Mark as paid' })
+    const tile = label => screen.getAllByText(label)[0].nextSibling.textContent
+    const before = { gross: tile('Gross income'), mgr: tile('Manager fees'), net: tile('Net to owner') }
+    fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: 'Hopper' } })
+    expect(tile('Gross income')).toBe(before.gross)
+    expect(tile('Manager fees')).toBe(before.mgr)
+    expect(tile('Net to owner')).toBe(before.net)
+    expect(screen.getByText(/matching "Hopper"/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mark as paid' })).toBeDisabled()
+    expect(screen.getByText(/Clear the property filter and search to record this payment/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: '' } })
+    expect(screen.getByRole('button', { name: 'Mark as paid' })).not.toBeDisabled()
+  })
+
+  it('a property filter never shrinks the pay run: it still covers every unit, and recording is held', async () => {
+    renderPage()
+    await screen.findByRole('button', { name: 'Mark as paid' })
+    expect(screen.getByText(/3 unit\(s\) · \d+ bookings/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Filter by property'), { target: { value: 'p2' } })
+    expect(screen.getByText(/3 unit\(s\) · \d+ bookings/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mark as paid' })).toBeDisabled()
+  })
+
+  it('room table headings are keyboard-operable buttons with aria-sort', async () => {
+    renderPage()
+    const card = await byRoomCard()
+    const gross = within(card).getByRole('button', { name: /^Gross/ })
+    expect(gross.closest('th').getAttribute('aria-sort')).toBe('descending')
+    fireEvent.click(gross)
+    expect(gross.closest('th').getAttribute('aria-sort')).toBe('ascending')
+  })
+
   it('shows a paid badge instead of the button once the ledger has this period', async () => {
     const api = await import('../../lib/api')
     // whatever "this month" resolves to, the ledger row must match it exactly

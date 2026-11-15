@@ -14,9 +14,11 @@
 // which then forwards to HMRC. So we send BOTH the client headers
 // (browser + device) AND the vendor headers (our server).
 //
-// Browser-only fields are collected here. Public IP + port come from the
-// browser via an external echo service (api.ipify.org). The edge function
-// fills in the server-side Gov-Vendor-* headers itself.
+// Browser-only fields are collected here. The public IP is NOT looked up
+// from the browser: for WEB_APP_VIA_SERVER the server sees the client's
+// address on the request (x-forwarded-for), so the edge function sets
+// Gov-Client-Public-IP itself along with the Gov-Vendor-* headers. (A
+// third-party IP echo would also be blocked by the app's CSP.)
 //
 // Privacy notes: this collection is for HMRC compliance ONLY. Nothing
 // in this file is stored or used for anything other than the headers
@@ -25,8 +27,6 @@
 import { supabase } from './supabase'
 
 const DEVICE_ID_KEY = 'ownproperly_hmrc_device_id'
-const PUBLIC_IP_CACHE_KEY = 'ownproperly_hmrc_public_ip'
-const PUBLIC_IP_TTL_MS = 30 * 60 * 1000 // 30 min — well under PSD2/HMRC freshness window
 
 // Persistent random UUID per browser. HMRC wants this stable so they can
 // correlate submissions from the same device over time.
@@ -42,30 +42,6 @@ function getDeviceId() {
     // Private browsing / storage blocked — return a session-only id so
     // we don't silently send blank. Will rotate per page load.
     return crypto.randomUUID()
-  }
-}
-
-// Public IP echo — cached for 30 min to avoid hammering the lookup.
-// If the call fails (offline, blocked), we send an empty string and
-// HMRC marks the submission as "degraded" rather than rejecting.
-async function getPublicIp() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(PUBLIC_IP_CACHE_KEY) || 'null')
-    if (cached && cached.ts && Date.now() - cached.ts < PUBLIC_IP_TTL_MS) {
-      return { ip: cached.ip, ts: cached.ts }
-    }
-  } catch { /* ignore */ }
-  try {
-    const res = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
-    const data = await res.json()
-    const ip = data?.ip || ''
-    const ts = Date.now()
-    if (ip) {
-      try { localStorage.setItem(PUBLIC_IP_CACHE_KEY, JSON.stringify({ ip, ts })) } catch {}
-    }
-    return { ip, ts }
-  } catch {
-    return { ip: '', ts: Date.now() }
   }
 }
 
@@ -135,15 +111,14 @@ function getDoNotTrack() {
   } catch { return 'false' }
 }
 
-// Collect everything the browser knows about itself. Async because
-// public IP requires a network round-trip.
+// Collect everything the browser knows about itself. Async because the
+// session lookup is.
 //
 // Returns an object suitable for shipping in a JSON body to the edge
 // function — the edge function then converts each entry into a real
 // Gov-Client-* HTTP header on its outbound HMRC request.
 export async function collectClientFraudHeaders() {
   const deviceId = getDeviceId()
-  const ipInfo = await getPublicIp()
 
   // Gov-Client-User-IDs must carry the identifier the user signs into OUR
   // system with (spec: "key=value" with the vendor's product as key), not a
@@ -166,8 +141,6 @@ export async function collectClientFraudHeaders() {
     'Gov-Client-Browser-JS-User-Agent': navigator.userAgent || '',
     'Gov-Client-Browser-Do-Not-Track': getDoNotTrack(),
     'Gov-Client-Multi-Factor': '', // Supabase Auth doesn't expose MFA status; populate when we add it
-    'Gov-Client-Public-IP': ipInfo.ip,
-    'Gov-Client-Public-IP-Timestamp': rfc3339(ipInfo.ts),
     // Local LAN IPs are difficult to enumerate reliably from a browser
     // (WebRTC trick is privacy-invasive and increasingly blocked). HMRC
     // accepts empty values during sandbox; we ship blank and rely on the

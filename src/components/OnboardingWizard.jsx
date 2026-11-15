@@ -165,7 +165,8 @@ export default function OnboardingWizard({ user, onComplete }) {
         address: propAddress.trim(),
         rent_pcm: parseFloat(propRent) || 0,
         status: 'purchased',
-        refurb_status: 'planned',
+        // refurb_status is a trigger-owned mirror of refurb_projects; the
+        // single-add form never writes it, so neither does onboarding.
       })
       setStep('done')
     } catch (e) {

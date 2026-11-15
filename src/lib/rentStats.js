@@ -63,11 +63,12 @@ export function getMonthlyRentStats(payments, year, rentPcm, now = new Date()) {
     else if (dom === 'late' || dom === 'partial') late++   // partial = attention bucket
     else if (dom === 'refurb') refurb++
     else if (dom === 'void') { if (!isFuture) voidM++ }
-    // Income credits actual amounts from paid AND partial segments (matching the
-    // Reports module); the rent_pcm fallback only covers a legacy amount-less
-    // PAID row, never a partial (a partial without an amount contributes £0).
+    // Income credits actual amounts from paid, partial AND late segments: late
+    // means paid late, and the rent engine counts its amount as received, so
+    // "Collected" agrees with it. The rent_pcm fallback only covers a legacy
+    // amount-less PAID row, never a partial or late one (no amount, £0).
     const fullPaidSegs = segs.filter(p => p.status === 'paid')
-    const incomeSegs = segs.filter(p => p.status === 'paid' || p.status === 'partial')
+    const incomeSegs = segs.filter(p => p.status === 'paid' || p.status === 'partial' || p.status === 'late')
     const monthIncome = incomeSegs.reduce((s, p) => s + (Number(p.amount) || 0), 0)
     income += monthIncome > 0 ? monthIncome : (fullPaidSegs.length ? (rentPcm || 0) : 0)
   }

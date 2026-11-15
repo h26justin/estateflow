@@ -61,36 +61,55 @@ const STORAGE_PATH_SOURCES: Record<string, Source[]> = {
 // one path per row; photos is a JSONB array of { path } objects (bare strings
 // on the oldest rows). Blank paths and public-URL-only legacy entries are
 // skipped, there is nothing in the bucket for them.
-function extractPaths(rows: any[], col: 'file_path' | 'photos'): string[] {
+//
+// photos is free-form JSON the row's author writes, and the service role
+// deletes whatever is listed — so a photo path is removed only when it sits
+// under the row owner's own folder (every photo upload path starts with the
+// uploader's uid: inspections.js, TenantPortal.jsx) and does not contain '..'.
+// Anything else is logged and left in the bucket. A path in any column with
+// '..' or a leading '/' is never removed.
+function safePath(p: string): boolean {
+  return !p.startsWith('/') && !p.includes('..') && !p.includes('\\')
+}
+
+function extractPaths(rows: any[], col: 'file_path' | 'photos', skipped: string[]): string[] {
   const out: string[] = []
   for (const row of rows || []) {
     const v = row?.[col]
     if (col === 'photos') {
       if (!Array.isArray(v)) continue
+      const prefix = row?.user_id ? `${row.user_id}/` : null
       for (const item of v) {
         const p = typeof item === 'string' ? item : item?.path
-        if (typeof p === 'string' && p.trim()) out.push(p.trim())
+        if (typeof p !== 'string' || !p.trim()) continue
+        const path = p.trim()
+        if (prefix && path.startsWith(prefix) && safePath(path)) out.push(path)
+        else skipped.push(path)
       }
     } else if (typeof v === 'string' && v.trim()) {
-      out.push(v.trim())
+      const path = v.trim()
+      if (safePath(path)) out.push(path)
+      else skipped.push(path)
     }
   }
   return [...new Set(out)]
 }
 
-async function pathsFor(admin: any, sources: Source[], ids: string[]): Promise<string[]> {
+async function pathsFor(admin: any, sources: Source[], ids: string[], skipped: string[]): Promise<string[]> {
   const paths: string[] = []
   for (const src of sources) {
     try {
-      const { data, error } = await admin.from(src.table).select(src.col).in(src.fk, ids)
-      if (!error) paths.push(...extractPaths(data, src.col))
+      // photos are checked against the row owner's uid prefix.
+      const cols = src.col === 'photos' ? 'photos, user_id' : src.col
+      const { data, error } = await admin.from(src.table).select(cols).in(src.fk, ids)
+      if (!error) paths.push(...extractPaths(data, src.col, skipped))
     } catch (_) { /* best effort: a missing table must not block the purge */ }
   }
   return paths
 }
 
-async function collectPaths(admin: any, table: string, ids: string[]): Promise<string[]> {
-  return [...new Set(await pathsFor(admin, STORAGE_PATH_SOURCES[table] || [], ids))]
+async function collectPaths(admin: any, table: string, ids: string[], skipped: string[]): Promise<string[]> {
+  return [...new Set(await pathsFor(admin, STORAGE_PATH_SOURCES[table] || [], ids, skipped))]
 }
 
 // Chunks of 100, the Storage API's comfortable batch size. Objects that no
@@ -136,8 +155,13 @@ serve(async (req) => {
       const ids = (rows || []).map((r: any) => r.id)
       if (!ids.length) { summary[table] = { rows: 0 }; continue }
 
-      const paths = await collectPaths(admin, table, ids)
+      const skipped: string[] = []
+      const paths = await collectPaths(admin, table, ids, skipped)
       const entry: Record<string, any> = { rows: ids.length, files: paths.length }
+      if (skipped.length) {
+        entry.files_skipped = skipped.length
+        console.warn(`[purge-trash] ${table}: skipped ${skipped.length} storage path(s) outside the row owner's folder or not safe to remove: ${skipped.slice(0, 20).join(', ')}`)
+      }
       if (dryRun) {
         entry.ids = ids
         entry.paths = paths

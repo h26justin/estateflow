@@ -30,6 +30,13 @@ export const BENEFIT_FREQUENCIES = [
 ]
 export const DEFAULT_PAYMENT_WINDOW_DAYS = 5
 
+// Local calendar date as ISO yyyy-mm-dd (same as rentEngine's isoToday, kept
+// here because rentEngine imports this module). Never toISOString(), which is
+// the UTC date and is "yesterday" just after midnight in British Summer Time.
+function localIsoDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function usesBenefit(paymentSource) {
   return paymentSource === 'housing_benefit' || paymentSource === 'universal_credit' || paymentSource === 'mixed'
 }
@@ -95,7 +102,7 @@ export function tenancyStatusFromProperty(propertyStatus) {
 export function tenancyDraftFromProperty(p, { goLive = '2026-01-01', today = new Date() } = {}) {
   if (!p) return null
   const endIso = parseLooseDate(p.tenancy_end)
-  const todayIso = today.toISOString().slice(0, 10)
+  const todayIso = localIsoDate(today)
   const notes = []
   if (p.tenancy_end && !endIso) notes.push(`Property tenancy end read "${p.tenancy_end}" (not a date; treated as periodic).`)
   if (endIso && endIso < todayIso) notes.push(`Property tenancy end ${endIso} is in the past; likely a historic fixed term. Confirm the current end.`)
@@ -144,11 +151,28 @@ export function benefitSplitCheck(t) {
   }
 }
 
+// The last day a tenancy is live, or null while it runs on.
+//
+// Since 1 May 2026 a fixed term no longer ends an assured tenancy in England:
+// a tenant still in place after an old tenancy_end is holding over and rent
+// stays due. That holding-over rule applies ONLY to a tenancy still marked
+// 'rented' (the DB default, so a missing status counts as 'rented'): its
+// cover runs past tenancy_end, ending on expected_move_out when one is
+// recorded. Every other status (notice_given, vacant, refurbishment, ended)
+// means the tenant is going or gone, so cover ends on expected_move_out when
+// set, else on tenancy_end.
+export function tenancyCoverEnd(t) {
+  if (!t) return null
+  const d = v => (v ? String(v).slice(0, 10) : null)
+  if (!t.status || t.status === 'rented') return d(t.expected_move_out)
+  return d(t.expected_move_out) || d(t.tenancy_end)
+}
+
 // Is a tenancy live on a given ISO date?
 export function tenancyCoversDate(t, iso) {
   if (!t?.tenancy_start) return false
   if (iso < t.tenancy_start) return false
-  const end = t.tenancy_end || t.expected_move_out || null
+  const end = tenancyCoverEnd(t)
   return !end || iso <= end
 }
 
@@ -160,7 +184,7 @@ export function tenancyForDate(tenancies, iso) {
 }
 
 export function currentTenancy(tenancies, today = new Date()) {
-  const iso = today.toISOString().slice(0, 10)
+  const iso = typeof today === 'string' ? today.slice(0, 10) : localIsoDate(today)
   return tenancyForDate(tenancies, iso)
     || (tenancies || []).filter(t => t.status !== 'ended').sort((a, b) => (a.tenancy_start < b.tenancy_start ? 1 : -1))[0]
     || null

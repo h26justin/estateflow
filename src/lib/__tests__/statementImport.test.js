@@ -196,6 +196,21 @@ describe('plan: multiple payments for one period land on ONE period', () => {
     expect(plan.receipts[0].allocation.target).toBe('historic_arrears')
     expect(plan.periodUpdates).toHaveLength(0)
   })
+  it('other income can never be included: confirming it does not make it Ready and the plan writes nothing for it', () => {
+    const parsed = rmsParsed()
+    parsed.lines = [{ ...parsed.lines[0], line_no: 9, line_type: 'other_income', gross_rent: 75, period_start: null, period_end: null }]
+    const ctx = { properties: [jubilee()], companies: COMPANIES, today: '2026-09-25' }
+    const first = reviewRows(parsed, ctx).rows[0]
+    expect(first.kind).toBe('other_income')
+    expect(first.blocked).toBe(true)
+    expect(first.reasons.join(' ')).toMatch(/not imported: record it manually/)
+    const confirmed = reviewRows(parsed, ctx, { 9: { confirmed: true, include: true } }).rows
+    expect(confirmed[0].include).toBe(false)
+    expect(confirmed[0].status).not.toBe(REVIEW_STATUS.READY)
+    expect(auditLines(confirmed)[0].included).toBe(false)
+    const plan = planImport(confirmed, { header: parsed.header })
+    expect(plan.receipts.length + plan.expenses.length + plan.periodUpdates.length).toBe(0)
+  })
   it('excluded rows write nothing', () => {
     const parsed = rmsParsed()
     const { rows } = reviewRows(parsed, { properties: [jubilee()], companies: COMPANIES }, Object.fromEntries(parsed.lines.map(l => [l.line_no, { include: false }])))

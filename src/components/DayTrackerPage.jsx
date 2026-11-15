@@ -5,6 +5,8 @@ import { Button } from './ui'
 import * as api from '../lib/api'
 import { isPropertyEarningRent } from '../lib/propertyStatus'
 import { plural } from '../lib/format'
+import { useConfirm } from '../lib/ConfirmContext'
+import { isoToday } from '../lib/rentEngine'
 
 const mono = MONO
 
@@ -53,15 +55,22 @@ function getDayStatus(day, year, month, payments, stlIds) {
 }
 
 // Returns true if a property has at least one period that is past, not future,
-// and not paid/void/refurb — i.e. an unpaid period the landlord should know about.
-function isPropertyOverdue(prop) {
+// and unpaid — i.e. an unpaid period the landlord should know about.
+// 'late' means the rent was paid, just late, so it never counts. A 'partial'
+// row counts once its period has ended (the rest is unpaid and past due).
+export function isPropertyOverdue(prop, today = isoToday()) {
   const payments = prop.rent_payments || []
-  const now = new Date()
+  const [ty, tm] = today.split('-').map(Number)
+  const now = new Date(ty, tm - 1, 1)
   for (const p of payments) {
-    if (p.status === 'overdue' || p.status === 'missed' || p.status === 'late') {
-      // A row marked overdue/late is overdue regardless of date.
+    if (p.status === 'overdue' || p.status === 'missed') {
+      // A row marked overdue is overdue regardless of date.
       // 'missed' kept for backward-compat with pre-2026-05-25 rows.
       return true
+    }
+    if (p.status === 'partial') {
+      const end = p.period_end || (p.year && p.month ? toKey(p.year, p.month, daysInMonth(p.year, p.month)) : null)
+      if (end && end < today) return true
     }
   }
   // Also flag rented (or notice_given) properties with a past month that has
@@ -126,6 +135,7 @@ const SETTABLE_STATUSES = ['paid', 'late', 'overdue', 'void']
 // other mount site keeps today's behaviour.
 export default function DayTrackerPage({ companies, properties, setProperties, showToast, onBack, canEdit = true }) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const STATUS_COLOR = statusColors(T)
   const now = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
@@ -135,8 +145,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   // Click popover for marking paid/missed/void. Position: anchored to the cell.
   // Shape: { propId, propName, segmentId, x, y } | null  (form holds the fields)
   const [editPopover, setEditPopover] = useState(null)
-  // Form for the popover's segment editor: { start, end, amount, status }
-  const [form, setForm] = useState({ start:'', end:'', amount:'', status:'paid' })
+  // Form for the popover's segment editor: { start, end, amount, status, origStatus }
+  // status is '' until the user picks one for a row whose real status isn't
+  // directly settable (partial, refurb, pending) — saving then needs a choice.
+  const [form, setForm] = useState({ start:'', end:'', amount:'', status:'paid', origStatus:null })
   const [savingPayment, setSavingPayment] = useState(false)
 
   // Overdue filter: 'all' | 'overdue-only' | 'overdue-highlighted'
@@ -170,10 +182,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   // Apply overdue filter mode. 'overdue-highlighted' keeps everything visible
   // and just adds a red border later. 'overdue-only' actually filters the list.
   const activeProps = overdueMode === 'overdue-only'
-    ? baseActiveProps.filter(isPropertyOverdue)
+    ? baseActiveProps.filter(p => isPropertyOverdue(p))
     : baseActiveProps
   const overdueIds = useMemo(
-    () => new Set(baseActiveProps.filter(isPropertyOverdue).map(p => p.id)),
+    () => new Set(baseActiveProps.filter(p => isPropertyOverdue(p)).map(p => p.id)),
     [baseActiveProps]
   )
 
@@ -202,15 +214,19 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
     if (seg) {
       // Editing an existing row. A legacy whole-month row (no period dates)
       // becomes a proper dated segment spanning the month on first save.
+      // Use the row's real status and amount. A row whose status isn't one of
+      // the settable ones (partial, refurb, pending) starts with no status
+      // selected, so a date edit can't silently rewrite it as fully paid.
       setForm({
         start:  seg.period_start || toKey(year, month, 1),
         end:    seg.period_end   || toKey(year, month, daysInMonth(year, month)),
-        amount: seg.amount ?? (prop?.rent_pcm || 0),
-        status: SETTABLE_STATUSES.includes(seg.status) ? seg.status : 'paid',
+        amount: seg.amount ?? '',
+        status: SETTABLE_STATUSES.includes(seg.status) ? seg.status : '',
+        origStatus: seg.status || null,
       })
     } else {
       // New segment in an uncovered (void) gap — default to a single day.
-      setForm({ start: dateStr, end: dateStr, amount: prop?.rent_pcm || 0, status: 'paid' })
+      setForm({ start: dateStr, end: dateStr, amount: prop?.rent_pcm || 0, status: 'paid', origStatus: null })
     }
     setEditPopover({
       propId: prop.id,
@@ -229,6 +245,10 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
     if (!editPopover || savingPayment || !popoverEditable) return
     if (!form.start || !form.end || form.end < form.start) {
       if (showToast) showToast('End date must be on or after start date', 'error')
+      return
+    }
+    if (!form.status) {
+      if (showToast) showToast(`Choose a status for this period (it is currently ${STATUS_LABEL[form.origStatus] || form.origStatus || 'unset'}).`, 'error')
       return
     }
     const amount = Number(form.amount) || 0
@@ -268,19 +288,30 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
   }
 
   // Delete the segment being edited (clears that range back to a void gap).
+  // Destructive: confirm first. The popover sits above the confirm layer, so
+  // it is hidden while the dialog is up and restored on cancel.
   async function deleteSegment() {
     if (!editPopover?.segmentId || savingPayment || !popoverEditable) return
+    const pop = editPopover
+    setEditPopover(null)
+    const ok = await confirm({
+      title: `Delete ${form.start} → ${form.end}?`,
+      body: `This permanently removes this rent period for ${pop.propName}. Any receipts allocated to it will be left unallocated and need re-allocating.`,
+      confirmLabel: 'Delete period',
+      destructive: true,
+    })
+    if (!ok) { setEditPopover(pop); return }
     setSavingPayment(true)
     try {
-      await api.deleteRentSegment(editPopover.segmentId)
+      await api.deleteRentSegment(pop.segmentId)
       setProperties(prev => prev.map(p => {
-        if (p.id !== editPopover.propId) return p
-        return { ...p, rent_payments: (p.rent_payments || []).filter(rp => rp.id !== editPopover.segmentId) }
+        if (p.id !== pop.propId) return p
+        return { ...p, rent_payments: (p.rent_payments || []).filter(rp => rp.id !== pop.segmentId) }
       }))
-      if (showToast) showToast(`${editPopover.propName}: range removed`)
-      setEditPopover(null)
+      if (showToast) showToast(`${pop.propName}: range removed`)
     } catch(e) {
       if (showToast) showToast(e.message || 'Delete failed', 'error')
+      setEditPopover(pop)
     }
     setSavingPayment(false)
   }
@@ -373,12 +404,12 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
 
         {/* Month navigation */}
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <button onClick={prevMonth}
+          <button onClick={prevMonth} aria-label="Previous month" title="Previous month"
             style={{ fontFamily:mono, fontSize:14, padding:'6px 12px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.text, cursor:'pointer' }}>
             ←
           </button>
           <div style={{ fontFamily:mono, fontSize:13, fontWeight:700, color:T.text, minWidth:160, textAlign:'center' }}>{monthName}</div>
-          <button onClick={nextMonth}
+          <button onClick={nextMonth} aria-label="Next month" title="Next month"
             style={{ fontFamily:mono, fontSize:14, padding:'6px 12px', borderRadius:7, border:`1px solid ${T.border}`, background:'transparent', color:T.text, cursor:'pointer' }}>
             →
           </button>
@@ -513,20 +544,31 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
                           const isHovered = hoverDay?.propId===prop.id && hoverDay?.day===d
 
                           return (
-                            <td key={d} style={{ padding:'4px 1px', textAlign:'center', position:'relative' }}>
-                              <div
+                            <td key={d} style={{ padding:'2px 1px', textAlign:'center', position:'relative' }}>
+                              {/* A real button with a 24px hit area; the coloured
+                                  square inside keeps the compact look. The label
+                                  carries date + status so colour isn't the only cue. */}
+                              <button type="button"
+                                aria-label={`${prop.name || prop.address}, ${dayLabel(year, month, d)}: ${STATUS_LABEL[futureStatus || status] || (futureStatus || status)}`}
+                                aria-disabled={isFuture || !editable ? 'true' : undefined}
                                 onMouseEnter={() => setHoverDay({ propId:prop.id, day:d, status: futureStatus || status, propName: prop.name||prop.address })}
                                 onMouseLeave={() => setHoverDay(null)}
+                                onFocus={() => setHoverDay({ propId:prop.id, day:d, status: futureStatus || status, propName: prop.name||prop.address })}
+                                onBlur={() => setHoverDay(null)}
                                 onClick={isFuture ? undefined : (e) => openEditPopover(e, prop, d)}
                                 style={{
-                                  width:16, height:16, borderRadius:3, margin:'0 auto',
+                                  width:24, height:24, minWidth:24, padding:0, margin:'0 auto', display:'flex',
+                                  alignItems:'center', justifyContent:'center', background:'transparent', border:'none',
+                                  cursor: (isFuture || !editable) ? 'default' : 'pointer',
+                                }}>
+                                <span aria-hidden="true" style={{
+                                  display:'block', width:16, height:16, borderRadius:3,
                                   background: isFuture ? futureCol : col,
                                   border: isFuture ? `1px dashed ${T.border}` : 'none',
                                   transition:'transform 0.1s',
                                   transform: isHovered ? 'scale(1.4)' : 'scale(1)',
-                                  cursor: (isFuture || !editable) ? 'default' : 'pointer',
-                                }}
-                              />
+                                }}/>
+                              </button>
                             </td>
                           )
                         })}
@@ -609,11 +651,16 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
             </label>
 
             {/* Status */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:10 }}>
+            {form.origStatus && !SETTABLE_STATUSES.includes(form.origStatus) && (
+              <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, marginBottom:6, lineHeight:1.4 }}>
+                Currently <strong style={{ color: STATUS_COLOR[form.origStatus] || T.text }}>{STATUS_LABEL[form.origStatus] || form.origStatus}</strong>. Choose a status to save.
+              </div>
+            )}
+            <div role="group" aria-label="Status" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:10 }}>
               {SETTABLE_STATUSES.map(s => {
                 const isSel = s === form.status
                 return (
-                  <button key={s} onClick={() => setForm(f => ({ ...f, status: s }))} disabled={savingPayment}
+                  <button key={s} type="button" aria-pressed={isSel} onClick={() => setForm(f => ({ ...f, status: s }))} disabled={savingPayment}
                     style={{
                       fontFamily:SANS, fontSize:FS.sm, fontWeight:700, padding:'7px 0', borderRadius:6,
                       border:`1px solid ${isSel ? STATUS_COLOR[s] : T.border}`,
@@ -647,6 +694,11 @@ export default function DayTrackerPage({ companies, properties, setProperties, s
       )}
     </div>
   )
+}
+
+// "Mon 3 November 2026" — accessible name for a day cell.
+function dayLabel(year, month, day) {
+  return new Date(year, month - 1, day).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'long', year:'numeric' })
 }
 
 // Clamp a number into [min, max].

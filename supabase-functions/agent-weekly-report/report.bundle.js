@@ -12,10 +12,16 @@ function parseDueDay(v) {
   const n = Number(m[1]);
   return n >= 1 && n <= 31 ? n : null;
 }
+function tenancyCoverEnd(t) {
+  if (!t) return null;
+  const d = (v) => v ? String(v).slice(0, 10) : null;
+  if (!t.status || t.status === "rented") return d(t.expected_move_out);
+  return d(t.expected_move_out) || d(t.tenancy_end);
+}
 function tenancyCoversDate(t, iso) {
   if (!t?.tenancy_start) return false;
   if (iso < t.tenancy_start) return false;
-  const end = t.tenancy_end || t.expected_move_out || null;
+  const end = tenancyCoverEnd(t);
   return !end || iso <= end;
 }
 function tenancyForDate(tenancies, iso) {
@@ -91,6 +97,27 @@ function monthlyRent(t) {
       return r;
   }
 }
+var CYCLE_DAYS = { weekly: 7, fortnightly: 14, four_weekly: 28 };
+function rentDueDatesIn(tenancy, start, end, nonChargeable) {
+  const step = CYCLE_DAYS[tenancy?.rent_frequency];
+  if (!step || !tenancy?.tenancy_start) return null;
+  const ts = tenancy.tenancy_start;
+  let anchor = tenancy.rent_due_anchor || ts;
+  if (anchor > ts) anchor = addDays(anchor, -Math.floor(Math.round((toUTC(anchor) - toUTC(ts)) / 864e5) / step) * step);
+  const rent = Number(tenancy.rent_amount) || 0;
+  const stepsFrom = (iso) => Math.ceil((toUTC(iso) - toUTC(anchor)) / 864e5 / step);
+  const k0 = Math.max(0, stepsFrom(ts));
+  const first = addDays(anchor, k0 * step);
+  const charge = (from, to) => rent * collectibleDays(from, to, tenancy, nonChargeable) / step;
+  const out = [];
+  if (first > ts && ts >= start && ts <= end) out.push({ date: ts, amount: charge(ts, addDays(first, -1)) });
+  for (let k = Math.max(k0, stepsFrom(start)); ; k++) {
+    const d = addDays(anchor, k * step);
+    if (d > end) break;
+    out.push({ date: d, amount: charge(d, addDays(d, step - 1)) });
+  }
+  return out.filter((x) => x.amount > 5e-3).map((x) => ({ date: x.date, amount: round2(x.amount) }));
+}
 function fallbackTenancyFromProperty(p) {
   if (!p) return null;
   const earning = p.status === "rented" || p.status === "notice_given";
@@ -156,10 +183,16 @@ function benefitDueOnOrAfter(tenancy, from) {
   const anchor = tenancy.benefit_next_payment_date;
   const step = { weekly: 7, fortnightly: 14, four_weekly: 28 }[tenancy.benefit_frequency];
   const at = (k2) => step ? addDays(anchor, k2 * step) : addMonths(anchor, k2);
-  let k = 0, guard = 0;
-  while (at(k) > from && at(k - 1) >= from && guard++ < 120) k--;
+  let k;
+  if (step) k = Math.ceil((toUTC(from) - toUTC(anchor)) / 864e5 / step);
+  else {
+    const [ay, am] = anchor.split("-").map(Number), [fy, fm] = from.split("-").map(Number);
+    k = (fy - ay) * 12 + (fm - am) - 1;
+  }
+  let guard = 0;
+  while (at(k) > from && at(k - 1) >= from && guard++ < 4) k--;
   guard = 0;
-  while (at(k) < from && guard++ < 120) k++;
+  while (at(k) < from && guard++ < 4) k++;
   return at(k);
 }
 function evaluatePeriod(row, ctx) {
@@ -260,7 +293,7 @@ function evaluatePeriod(row, ctx) {
   }
   if (!tenancy) {
     const recorded = (tenancies || []).filter((t) => t.tenancy_start);
-    const allEndedBefore = recorded.length && recorded.every((t) => t.tenancy_end && t.tenancy_end < start);
+    const allEndedBefore = recorded.length && recorded.every((t) => tenancyCoverEnd(t) && tenancyCoverEnd(t) < start);
     const allStartAfter = recorded.length && recorded.every((t) => t.tenancy_start > end);
     const why = allEndedBefore ? "After tenancy end" : allStartAfter ? "Before tenancy start" : recorded.length ? "Between tenancies" : property?.status === "vacant" ? "Property vacant" : property?.status === "refurb" ? "Property under refurbishment" : property?.status === "let_agreed" ? "Let agreed, tenancy not started" : property?.status === "on_rental_market" ? "On rental market, no tenant yet" : "No tenancy covers this period";
     if (base.received && base.received > 0 && !activeOverride) {
@@ -271,14 +304,21 @@ function evaluatePeriod(row, ctx) {
   const cDays = collectibleDays(start, end, tenancy, nonChargeable);
   base.collectibleDays = cDays;
   if (cDays === 0) {
-    const why = start < tenancy.tenancy_start ? "Before tenancy start" : tenancy.tenancy_end && start > tenancy.tenancy_end ? "After tenancy end" : nonChargeableWhy(nonChargeable, start, end);
+    const coverEnd = tenancyCoverEnd(tenancy);
+    const why = start < tenancy.tenancy_start ? "Before tenancy start" : coverEnd && start > coverEnd ? "After tenancy end" : nonChargeableWhy(nonChargeable, start, end);
     return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: [why] }, activeOverride);
   }
+  const dues = rentDueDatesIn(tenancy, start, end, nonChargeable);
+  const ownExpectation = row.expected_amount == null && activeOverride?.expected_amount == null;
+  if (dues && !dues.length && ownExpectation && !(base.received > 0)) {
+    return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: ["No rent due date falls in this period"] }, activeOverride);
+  }
+  const byInstalment = !!(dues && dues.length && ownExpectation);
   const [sy, sm] = start.split("-").map(Number);
   const mRent = monthlyRent(tenancy);
   const wholeMonth = start === monthBounds(sy, sm).start && end === monthBounds(sy, sm).end;
   const oneCycle = !wholeMonth && start.slice(8) !== "01" && start.slice(0, 7) !== end.slice(0, 7) && base.totalDays >= 28 && base.totalDays <= 31;
-  let expected = row.expected_amount != null ? Number(row.expected_amount) : (wholeMonth || oneCycle) && cDays === base.totalDays ? mRent : oneCycle ? mRent * cDays / base.totalDays : mRent * cDays / daysInMonth(sy, sm);
+  let expected = row.expected_amount != null ? Number(row.expected_amount) : dues ? dues.reduce((s, x) => s + x.amount, 0) : (wholeMonth || oneCycle) && cDays === base.totalDays ? mRent : oneCycle ? mRent * cDays / base.totalDays : mRent * cDays / daysInMonth(sy, sm);
   expected = round2(expected);
   if (activeOverride?.expected_amount != null) expected = round2(activeOverride.expected_amount);
   base.expected = expected;
@@ -290,7 +330,8 @@ function evaluatePeriod(row, ctx) {
   if (base.fallback) base.reasons.push("No tenancy record: using the property's rent and due day");
   if (base.cycleDueDay) base.reasons.push(`Due day ${base.cycleDueDay} taken from the latest recorded rent period`);
   if (usesBenefit(tenancy.payment_source)) {
-    const ratio = mRent ? expected / mRent : 1;
+    const perRent = dues ? Number(tenancy.rent_amount) || 0 : mRent;
+    const ratio = perRent ? expected / perRent : 1;
     if (tenancy.payment_source === "mixed") {
       base.tenantShare = round2((Number(tenancy.tenant_contribution) || 0) * ratio);
       base.benefitShare = round2(expected - base.tenantShare);
@@ -302,9 +343,10 @@ function evaluatePeriod(row, ctx) {
     base.tenantShare = expected;
     base.benefitShare = 0;
   }
-  base.dueDate = dueDateFor(tenancy, start);
+  base.dueDate = dues && dues.length ? dues[0].date : dueDateFor(tenancy, start);
   const windowDays = tenancy.payment_window_days == null ? DEFAULT_PAYMENT_WINDOW_DAYS : Number(tenancy.payment_window_days);
-  base.windowEnd = addDays(base.dueDate, windowDays);
+  base.windowEnd = addDays(dues && dues.length ? dues[dues.length - 1].date : base.dueDate, windowDays);
+  if (byInstalment) base.instalments = dues.map((x) => ({ ...x, windowEnd: maxIso(addDays(x.date, windowDays), base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, x.date) : null) }));
   base.benefitDue = base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, base.dueDate) || base.windowEnd : null;
   const received = base.received == null ? 0 : base.received;
   base.outstanding = round2(Math.max(0, expected - received));
@@ -324,6 +366,12 @@ function evaluatePeriod(row, ctx) {
       const tenantOwed = round2(Math.max(0, base.tenantShare - base.receivedTenant));
       const benefitOwed = round2(Math.max(0, base.benefitShare - base.receivedBenefit));
       overdue = tenantOwed > 5e-3 && today > base.windowEnd || benefitOwed > 5e-3 && today > base.benefitDue;
+    } else if (byInstalment) {
+      const owedByNow = dues.filter((x) => {
+        const last = maxIso(addDays(x.date, windowDays), base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, x.date) : null);
+        return today > last;
+      }).reduce((s, x) => s + x.amount, 0);
+      overdue = received < round2(owedByNow) - 5e-3;
     } else {
       const lastWindow = maxIso(base.windowEnd, base.benefitDue);
       overdue = today > lastWindow;
@@ -444,6 +492,72 @@ function groupByMonth(evals) {
   return [...by.values()].map(collapseMonth).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
 }
 var RATED_STATES = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED];
+function rateContribution(e) {
+  if (!e || e.needsBackfill) return null;
+  if (!RATED_STATES.includes(e.state)) return null;
+  if (e.expected == null) return null;
+  const rec = e.received == null ? 0 : e.received;
+  const info = round2(Number(e.needsInfo) || 0);
+  return { due: round2(e.expected - info), received: round2(Math.min(rec, e.expected)), excess: round2(Math.max(0, rec - e.expected)), needsInfo: info };
+}
+function contributionAsOf(e, asOf) {
+  const c = rateContribution(e);
+  if (!c || !e.instalments || !asOf) return c;
+  const later = round2(e.instalments.filter((x) => x.date > asOf).reduce((s, x) => s + x.amount, 0));
+  if (!(later > 0)) return c;
+  const rec = e.received == null ? 0 : e.received;
+  const due = round2(c.due - later);
+  const prepaid = Math.min(later, Math.max(0, rec - due));
+  return { ...c, due, received: round2(Math.min(rec, due)), notYetDue: round2(later - prepaid) };
+}
+function instalmentSplit(e, asOf, owed) {
+  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+  let left = e.received == null ? 0 : Number(e.received) || 0;
+  const parts2 = [];
+  for (const x of e.instalments) {
+    if (x.date > asOf) continue;
+    const paid = Math.min(left, x.amount);
+    left = round2(left - paid);
+    const unpaid = round2(x.amount - paid);
+    if (unpaid <= 5e-3) continue;
+    const bucket = asOf > (x.windowEnd || x.date) ? "overdue" : x.date === asOf ? "dueToday" : "inWindow";
+    parts2.push({ bucket, unpaid });
+  }
+  let excess = round2(parts2.reduce((s, x) => s + x.unpaid, 0) - owed);
+  for (let i = parts2.length - 1; i >= 0 && excess > 5e-3; i--) {
+    const cut = Math.min(excess, parts2[i].unpaid);
+    parts2[i].unpaid = round2(parts2[i].unpaid - cut);
+    excess = round2(excess - cut);
+  }
+  for (const x of parts2) out[x.bucket] = round2(out[x.bucket] + x.unpaid);
+  if (excess < -5e-3) out.inWindow = round2(out.inWindow - excess);
+  return out;
+}
+function missedOwed(e, asOf) {
+  if (e?.state !== STATE.MISSED) return 0;
+  const c = e.instalments ? contributionAsOf(e, asOf) : null;
+  if (!c) return Number(e.outstanding) || 0;
+  const owed = round2(Math.max(0, c.due - c.received));
+  return owed > 0 ? outstandingSplit(e, asOf, owed).overdue : 0;
+}
+function outstandingBucket(e, asOf) {
+  if (e.dueDate && e.dueDate > asOf) return "notYetDue";
+  if (e.dueDate === asOf) return "dueToday";
+  if (e.instalments) {
+    const sp = instalmentSplit(e, asOf, Infinity);
+    return sp.overdue > 0 ? "overdue" : sp.dueToday > 0 ? "dueToday" : "inWindow";
+  }
+  const lastWindow = maxIso(e.windowEnd, e.benefitDue);
+  if (lastWindow ? asOf > lastWindow : e.state === STATE.MISSED) return "overdue";
+  return "inWindow";
+}
+function outstandingSplit(e, asOf, owed) {
+  if (!e.instalments || e.dueDate && e.dueDate >= asOf) return { [outstandingBucket(e, asOf)]: owed };
+  const sp = instalmentSplit(e, asOf, owed);
+  const out = {};
+  for (const k of ["overdue", "dueToday", "inWindow"]) if (sp[k] > 0) out[k] = sp[k];
+  return out;
+}
 function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || [];
   const receipts = opts.receipts || property.rent_receipts || [];
@@ -451,8 +565,31 @@ function arrearsSummary(property, opts = {}) {
   const isOverlap = (t) => !!t.opening_arrears_date && t.opening_arrears_date > GO_LIVE;
   const overlap = round2(live.filter(isOverlap).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
   const opening = round2(live.filter((t) => !isOverlap(t)).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0));
-  const paid = round2(receipts.flatMap((r) => r.rent_allocations || []).filter((a) => a.target === "historic_arrears").reduce((s, a) => s + Number(a.amount), 0));
-  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)), overlap };
+  const openBy = new Map(live.map((t, i) => [t.id ?? `__unsaved${i}`, isOverlap(t) ? 0 : Number(t.opening_arrears) || 0]));
+  const paidBy = /* @__PURE__ */ new Map();
+  let unlinked = 0, paid = 0;
+  for (const r of receipts) for (const a of r.rent_allocations || []) {
+    if (a.target !== "historic_arrears") continue;
+    const amt = Number(a.amount) || 0;
+    const tid = a.tenancy_id || r.tenancy_id || null;
+    if (!tid) {
+      unlinked += amt;
+      paid += amt;
+    } else if (openBy.has(tid)) {
+      paidBy.set(tid, (paidBy.get(tid) || 0) + amt);
+      paid += amt;
+    }
+  }
+  let balance = 0, unmatched = 0;
+  for (const [tid, open] of openBy) {
+    const p = paidBy.get(tid) || 0;
+    balance += Math.max(0, open - p);
+    unmatched += Math.max(0, p - open);
+  }
+  const pooled = balance - unlinked;
+  balance = Math.max(0, pooled);
+  unmatched += Math.max(0, -pooled);
+  return { opening, paid: round2(paid), balance: round2(balance), unmatched: round2(unmatched), overlap };
 }
 
 // src/lib/stlIncome.js
@@ -911,8 +1048,9 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
   let owed = 0, missedMonths = 0;
   for (const e of evals) {
-    if (e.state === STATE.MISSED && e.outstanding > 0) {
-      owed = round23(owed + e.outstanding);
+    const o = missedOwed(e, asOf);
+    if (o > 0) {
+      owed = round23(owed + o);
       missedMonths++;
     }
   }
@@ -923,9 +1061,10 @@ function propertyCard(p, { asOf, year, thisMo }) {
   const yearStart = `${year}-01-01`;
   let shortfallYear = 0, shortfallTenancy = 0;
   for (const e of evals) {
-    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue;
-    if (e.periodStart >= yearStart) shortfallYear = round23(shortfallYear + e.outstanding);
-    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round23(shortfallTenancy + e.outstanding);
+    const o = missedOwed(e, asOf);
+    if (!(o > 0)) continue;
+    if (e.periodStart >= yearStart) shortfallYear = round23(shortfallYear + o);
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round23(shortfallTenancy + o);
   }
   const recent = recentMonths(thisMo).map((mo) => {
     const r = tiles.find((x) => x.year === mo.year && x.month === mo.month);
@@ -954,7 +1093,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     monthDue = round23(monthDue + e.expected);
     monthCollected = round23(monthCollected + collectedOf(e));
   }
-  const firstMissed = evals.filter((e) => e.state === STATE.MISSED && e.outstanding > 0).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1)[0];
+  const firstMissed = evals.filter((e) => missedOwed(e, asOf) > 0).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1)[0];
   return {
     id: p.id,
     name: String(p.name || p.address || "Property").trim(),

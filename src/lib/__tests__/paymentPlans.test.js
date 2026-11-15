@@ -37,6 +37,27 @@ describe('planProgress (Park Place West example: £208 arrears, £52 a month)', 
                { id: 'y', received_date: '2026-02-01', amount: 30, kind: 'receipt', rent_allocations: [{ target: 'historic_arrears', amount: 30, payment_plan_id: null }] }]
     expect(planPaid(plan(), r)).toBe(52)
   })
+  it('is not broken on the day an instalment falls due (a plan starting today)', () => {
+    expect(planProgress(plan({ start_date: '2026-04-10', due_day: 10 }), [], '2026-04-10').status).not.toBe('broken')
+    expect(planProgress(plan({ start_date: '2026-04-10', due_day: 10 }), [], '2026-04-11').status).toBe('broken')
+  })
+  it('the final part-instalment can break the plan', () => {
+    // £208 at £50: four £50 instalments, then £8. Paid £200; the £8 fell due 1 Jul.
+    const r = [rcpt('r1', '2026-03-01', 50), rcpt('r2', '2026-04-01', 50), rcpt('r3', '2026-05-01', 50), rcpt('r4', '2026-06-01', 50)]
+    const p = plan({ instalment_amount: 50 })
+    expect(planProgress(p, r, '2026-07-01').status).not.toBe('broken')
+    expect(planProgress(p, r, '2026-07-05').status).toBe('broken')
+  })
+  it('counts unlinked historic-arrears payments even when others are linked to the plan', () => {
+    const r = [rcpt('r1', '2026-03-01', 52),
+               { id: 'x', received_date: '2026-04-02', amount: 52, kind: 'receipt', rent_allocations: [{ target: 'historic_arrears', amount: 52, payment_plan_id: null }] },
+               rcpt('o', '2026-04-03', 30, 'other-plan')]
+    expect(planPaid(plan(), r)).toBe(104)
+  })
+  it('a bounced instalment (negative allocation linked to the plan) reduces progress', () => {
+    const r = [rcpt('r1', '2026-03-01', 52), rcpt('b1', '2026-03-04', -52)]
+    expect(planPaid(plan(), r)).toBe(0)
+  })
   it('never lets a current-rent allocation count towards the plan', () => {
     const r = [rcpt('r1', '2026-03-01', 480, 'pl1', 'current_rent')]
     expect(planPaid(plan(), r)).toBe(0)

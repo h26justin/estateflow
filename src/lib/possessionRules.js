@@ -15,6 +15,8 @@
 // guidance before serving. Wales (Renting Homes (Wales) Act 2016), Scotland
 // and Northern Ireland are different regimes and are not covered.
 
+import { currentTenancy } from './tenancyUtils'
+
 export const RRA_COMMENCEMENT = '2026-05-01'
 export const S21_PROCEEDINGS_DEADLINE = '2026-07-31'
 export const JURISDICTION_NOTE =
@@ -39,7 +41,7 @@ export const GROUNDS = [
   { id: '6',  mandatory: true,  period: { months: 4 },
     title: 'Redevelopment',
     detail: 'The landlord intends to demolish or substantially redevelop the property and cannot do so with the tenant in occupation.' },
-  { id: '6A', mandatory: true,  period: { months: 4 },
+  { id: '6B', mandatory: true,  period: { months: 4 },
     title: 'Compliance with enforcement action',
     detail: 'Possession is needed to comply with enforcement action, for example a banning order, overcrowding or licensing requirement.' },
   { id: '7',  mandatory: true,  period: { months: 2 },
@@ -80,7 +82,13 @@ export const GROUNDS = [
     detail: 'The tenancy was granted because of a false statement made knowingly or recklessly by the tenant.' },
 ]
 
-export const groundById = (id) => GROUNDS.find(g => g.id === String(id)) || null
+// Ground ids this tool once used for a different ground, mapped to the right
+// one. The enforcement-action ground was shown as "6A" until 15 Nov 2026; it
+// is Ground 6B (6A is the social-landlord decant ground). Drafts saved under
+// the old id still load as 6B.
+export const LEGACY_GROUND_IDS = Object.freeze({ '6A': '6B' })
+export const normaliseGroundId = (id) => LEGACY_GROUND_IDS[String(id)] || String(id)
+export const groundById = (id) => GROUNDS.find(g => g.id === normaliseGroundId(id)) || null
 export const groundLabel = (g) => `Ground ${g.id} — ${g.title}`
 
 export function periodLabel(period) {
@@ -142,11 +150,19 @@ export function earliestPossessionDate({ dateServed, groundIds = [], tenancyStar
   return { date: maxISO(...drivers.map(d => d.date)), drivers }
 }
 
+// Rent paid every four weeks is not named in Ground 8, which sets 13 weeks'
+// rent for weekly / fortnightly rent and 3 months' rent for monthly rent. We
+// take the 13-week reading (3.25 four-weekly payments), the higher and so the
+// more cautious threshold, and say so wherever it is shown.
+export const FOUR_WEEKLY_GROUND8_NOTE =
+  'Rent paid every four weeks: Ground 8 sets the threshold for rent paid weekly or fortnightly (13 weeks’ rent) and for rent paid monthly (3 months’ rent), not for four-weekly rent. We use 13 weeks’ rent (3.25 four-weekly payments), the higher of the two. Take advice before relying on Ground 8.'
+
 // Months (or 13-week blocks) of rent owed, for the Ground 8 threshold.
 export function ground8Threshold({ rentAmount, frequency = 'monthly' }) {
   const rent = Number(rentAmount) || 0
   if (frequency === 'weekly') return { amount: rent * 13, label: '13 weeks’ rent' }
   if (frequency === 'fortnightly') return { amount: (rent / 2) * 13, label: '13 weeks’ rent' }
+  if (frequency === 'four_weekly') return { amount: (rent / 4) * 13, label: '13 weeks’ rent', note: FOUR_WEEKLY_GROUND8_NOTE }
   if (frequency === 'quarterly') return { amount: rent, label: '3 months’ rent (one quarter)' }
   if (frequency === 'annually') return { amount: rent / 4, label: '3 months’ rent' }
   return { amount: rent * 3, label: '3 months’ rent' }
@@ -207,7 +223,9 @@ export function validateSection13({ dateServed, startDate, tenancyStart, lastInc
   }
   if (!tenancyStart) warnings.push('Add the tenancy start date so we can check the first-year rule.')
   const day = Number(rentDueDay)
-  if (startDate && day >= 1 && day <= 31 && Number(startDate.slice(8, 10)) !== day) {
+  // Rent due on the 31st falls on the last day of a shorter month.
+  const lastDay = startDate ? new Date(Date.UTC(Number(startDate.slice(0, 4)), Number(startDate.slice(5, 7)), 0)).getUTCDate() : 31
+  if (startDate && day >= 1 && day <= 31 && Number(startDate.slice(8, 10)) !== Math.min(day, lastDay)) {
     warnings.push(`Rent is due on day ${day} of the month. The new rent should start on the first day of a rental period.`)
   }
   if (cur > 0 && next > 0) {
@@ -217,11 +235,17 @@ export function validateSection13({ dateServed, startDate, tenancyStart, lastInc
   return { errors, warnings, earliest }
 }
 
-// Start date of the tenancy currently running, best effort from the property
-// row (tenancies join) with the legacy tenant_since column as fallback.
-export function currentTenancyStart(property) {
-  const ts = Array.isArray(property?.tenancies) ? property.tenancies : []
-  const active = ts.filter(t => t?.tenancy_start && (!t.status || t.status === 'active'))
-    .sort((a, b) => String(b.tenancy_start).localeCompare(String(a.tenancy_start)))[0]
-  return (active?.tenancy_start || property?.tenant_since || '').slice(0, 10) || ''
+// The tenancy currently running, from the property row's tenancies join:
+// one not marked ended that covers today (else the latest one not ended).
+// Tenancy statuses are rented / notice_given / vacant / refurbishment / ended.
+export function currentTenancyOf(property, today = new Date()) {
+  const ts = Array.isArray(property?.tenancies) ? property.tenancies.filter(t => t?.tenancy_start && t.status !== 'ended') : []
+  return currentTenancy(ts, today)
+}
+
+// Start date of the tenancy currently running, with the legacy tenant_since
+// column as fallback when no tenancy is recorded.
+export function currentTenancyStart(property, today = new Date()) {
+  const t = currentTenancyOf(property, today)
+  return String(t?.tenancy_start || property?.tenant_since || '').slice(0, 10) || ''
 }

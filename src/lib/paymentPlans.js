@@ -35,18 +35,20 @@ export function planDueDates(plan, until, maxCount = 400) {
   return out
 }
 
-// Amount allocated to this plan (or, when allocations are not linked to a
-// plan, to historic arrears on the same property since the plan started).
+// Amount allocated to this plan, plus historic-arrears allocations on the
+// same property since the plan started that are not linked to any plan (a
+// payment keyed without picking the plan still counts, even once others are
+// linked). Allocations linked to a different plan never count.
 export function planPaid(plan, receipts) {
-  let linked = 0, unlinked = 0, anyLinked = false
+  let paid = 0
   for (const r of receipts || []) {
     for (const a of r.rent_allocations || []) {
       if (a.target !== 'historic_arrears') continue
-      if (a.payment_plan_id) { anyLinked = true; if (a.payment_plan_id === plan.id) linked += Number(a.amount) }
-      else if (r.received_date >= plan.start_date) unlinked += Number(a.amount)
+      if (a.payment_plan_id) { if (a.payment_plan_id === plan.id) paid += Number(a.amount) }
+      else if (r.received_date >= plan.start_date) paid += Number(a.amount)
     }
   }
-  return Math.round((anyLinked ? linked : unlinked) * 100) / 100
+  return Math.round(paid * 100) / 100
 }
 
 // Full progress picture for a plan.
@@ -58,12 +60,18 @@ export function planProgress(plan, receipts, today = isoToday()) {
   const dueDates = dates.filter(d => d <= today)
   const nextDue = dates.find(d => d > today) || null
   const instalment = Number(plan.instalment_amount) || 0
-  const expectedToDate = Math.min(opening, Math.round(dueDates.length * instalment * 100) / 100)
+  // An instalment is expected once its due date has passed: one due today
+  // can still be paid today, so a plan starting today is not broken.
+  const pastDue = dates.filter(d => d < today)
+  const expectedToDate = Math.min(opening, Math.round(pastDue.length * instalment * 100) / 100)
   const shortfall = Math.round(Math.max(0, expectedToDate - paid) * 100) / 100
+  // Broken when a whole instalment is behind, or the final part-instalment
+  // (whatever is left of the balance) is.
+  const breakAt = Math.min(instalment, balance)
   let status
   if (plan.status_override === 'paused') status = 'paused'
   else if (plan.status_override === 'completed' || balance <= 0.005) status = 'completed'
-  else if (shortfall >= instalment - 0.005 && dueDates.length > 0) status = 'broken'
+  else if (pastDue.length > 0 && shortfall > 0.005 && shortfall >= breakAt - 0.005) status = 'broken'
   else if (nextDue && addDays(today, 7) >= nextDue) status = 'due_soon'
   else status = 'on_track'
   const instalmentsTotal = instalment ? Math.ceil(opening / instalment) : 0

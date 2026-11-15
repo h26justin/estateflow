@@ -39,7 +39,7 @@ export default function FeedbackPage({ user, showToast }) {
     setSending(false)
   }
 
-  const inp = { fontFamily: mono, fontSize: 13, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8, padding: '10px 14px', outline: 'none', width: '100%', boxSizing: 'border-box' }
+  const inp = { fontFamily: mono, fontSize: 13, background: T.bg, border: '1px solid var(--input-border)', color: T.text, borderRadius: 8, padding: '10px 14px', width: '100%', boxSizing: 'border-box' }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 6 }
   const TYPES = [
     { key: 'feature', icon: 'sparkle', label: 'Feature Request', desc: 'Suggest something new' },

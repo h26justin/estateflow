@@ -13,6 +13,7 @@ import {
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
+import { isoToday } from '../lib/rentEngine'
 
 // ── Rental Statement Audit ──────────────────────────────────────────────────
 // A standalone register for auditing managing-agent rental statements and
@@ -23,7 +24,7 @@ import { SkeletonRows } from '../lib/Skeleton'
 
 const fmt = n => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(Number(n) || 0)
 const fmtDate = d => d ? new Date(d + (String(d).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => isoToday()   // local date, not UTC
 const DEFAULT_START = 71
 
 // Same extraction as the statement importer (lib/pdfExtract).
@@ -65,6 +66,9 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
   const [editLine, setEditLine] = useState(null)   // { id|null, draft, statementId }
   const [fixError, setFixError] = useState(null)   // { statementId, index, draft }
   const [showRaw, setShowRaw] = useState(false)
+  // Stored statement text, fetched by id on demand (the list query leaves
+  // raw_text out because it is large): { [statementId]: text | '' }.
+  const [rawTexts, setRawTexts] = useState({})
   const [filter, setFilter] = useState('all')
 
   const currentSeries = series.find(s => s.series_key === seriesKey) || null
@@ -263,6 +267,15 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     if (!key) { showToast?.('Import one readable statement first so the landlord run exists', 'error'); return }
     setBusy(true)
     try {
+      // The upsert below would overwrite an uploaded statement's text, errors
+      // and carried-forward figure; only an empty "Not uploaded" slot (or a
+      // new number) may be recorded as an import error.
+      const held = await api.fetchAuditStatementByNumber(key, n)
+      if (held && held.status !== 'not_uploaded') {
+        showToast?.(`Statement ${n} is already on the register (${String(held.status).replace(/_/g, ' ')}). Check the number; to replace it, re-upload a readable copy of Statement ${n}.`, 'error')
+        setBusy(false)
+        return
+      }
       const { statement } = await api.saveAuditImport({ seriesKey: key, statement: {
         statement_number: n, file_name: u.fileName, raw_text: u.rawText || null,
         import_errors: [{ statement_number: n, reason: u.problem || 'Could not read the statement', raw_text: (u.rawText || '').slice(0, 2000) }],
@@ -331,7 +344,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
           if (k in values && String(values[k] ?? '') !== String(existing[k] ?? '')) patch[k] = values[k]
         }
         if (Object.keys(patch).length) {
-          const ok = await confirmDialog({ title: `Change line ${existing.line_no} on Statement ${existing.statement_number}?`, message: Object.entries(patch).map(([k, v]) => `${k}: ${existing[k] ?? '-'} -> ${v ?? '-'}`).join('\n'), confirmLabel: 'Save change' })
+          const ok = await confirmDialog({ title: `Change line ${existing.line_no} on Statement ${existing.statement_number}?`, body: Object.entries(patch).map(([k, v]) => `${k}: ${existing[k] ?? '-'} -> ${v ?? '-'}`).join('\n'), confirmLabel: 'Save change' })
           if (!ok) { setBusy(false); return }
           const saved = await api.updateAuditLine(existing, patch)
           setLines(prev => prev.map(l => l.id === saved.id ? saved : l))
@@ -352,7 +365,7 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     } catch (e) { showToast?.(e.message, 'error') }
   }
   async function removeLine(line) {
-    const ok = await confirmDialog({ title: `Delete line ${line.line_no} from Statement ${line.statement_number}?`, message: `${LINE_TYPE_LABEL[line.line_type]} - ${line.property_address || 'no property'} - ${fmt(lineAmount(line))}. This removes the entry from the register permanently. Marking it "Excluded" keeps it visible but uncounted.`, confirmLabel: 'Delete', danger: true })
+    const ok = await confirmDialog({ title: `Delete line ${line.line_no} from Statement ${line.statement_number}?`, body: `${LINE_TYPE_LABEL[line.line_type]} - ${line.property_address || 'no property'} - ${fmt(lineAmount(line))}. This removes the entry from the register permanently. Marking it "Excluded" keeps it visible but uncounted.`, confirmLabel: 'Delete', destructive: true })
     if (!ok) return
     try { await api.deleteAuditLine(line.id); setLines(prev => prev.filter(l => l.id !== line.id)) }
     catch (e) { showToast?.(e.message, 'error') }
@@ -370,10 +383,20 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
     } catch (e) { showToast?.(e.message, 'error') }
     setBusy(false)
   }
+  async function loadRawText(s) {
+    if (s.raw_text) return s.raw_text
+    if (rawTexts[s.id] !== undefined) return rawTexts[s.id]
+    const text = (await api.fetchAuditStatementText(s.id)) || ''
+    setRawTexts(prev => ({ ...prev, [s.id]: text }))
+    return text
+  }
   async function reprocessStored(s) {
-    if (!s.raw_text) { showToast?.('No stored text for this statement; upload the PDF again', 'error'); return }
+    let text
+    try { text = await loadRawText(s) }
+    catch (e) { showToast?.(e.message || 'Could not load the stored text', 'error'); return }
+    if (!text) { showToast?.('No stored text for this statement; upload the PDF again', 'error'); return }
     setUpload({ step: 'parsing', fileName: s.file_name || `Statement ${s.statement_number}` })
-    try { await previewText(s.raw_text, s.file_name || `Statement ${s.statement_number}`, s.statement_number) }
+    try { await previewText(text, s.file_name || `Statement ${s.statement_number}`, s.statement_number) }
     catch (e) { setUpload({ step: 'failed', fileName: s.file_name, problem: e.message }) }
   }
 
@@ -882,10 +905,14 @@ export default function StatementAuditPage({ user, showToast, onClose }) {
                         </div>
                       </details>
                     )}
-                    {s.raw_text && (
-                      <details style={{ marginTop: 8 }}>
+                    {s.status !== 'not_uploaded' && (
+                      <details style={{ marginTop: 8 }} onToggle={e => { if (e.currentTarget.open) loadRawText(s).catch(err => showToast?.(err.message || 'Could not load the stored text', 'error')) }}>
                         <summary style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, cursor: 'pointer' }}>Extracted statement text (kept for re-processing)</summary>
-                        <pre style={{ marginTop: 6, maxHeight: 240, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{s.raw_text}</pre>
+                        {(() => {
+                          const text = s.raw_text || rawTexts[s.id]
+                          if (text) return <pre style={{ marginTop: 6, maxHeight: 240, overflow: 'auto', fontFamily: MONO, fontSize: FS.xs, color: T.muted, background: T.bg, padding: 10, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{text}</pre>
+                          return <div style={{ marginTop: 6, fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>{rawTexts[s.id] === undefined ? 'Loading…' : 'No stored text for this statement.'}</div>
+                        })()}
                       </details>
                     )}
                   </>

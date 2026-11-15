@@ -67,6 +67,17 @@ describe('buildSchedule', () => {
     const rows = buildSchedule({ ...base, repayment_type: 'rolled_up', term_months: 18 })
     expect(rows).toEqual([{ period: 1, due_date: '2027-07-15', payment: 56000, interest: 6000, principal: 50000, balance: 0 }])
   })
+  it('keeps a month-end loan on the original day of the month, clamped per month', () => {
+    const rows = buildSchedule({ ...base, received_date: '2026-01-31', term_months: 4 })
+    expect(rows.map(r => r.due_date)).toEqual(['2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'])
+    const explicit = buildSchedule({ ...base, first_payment_date: '2026-01-31', term_months: 3 })
+    expect(explicit.map(r => r.due_date)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
+  })
+  it('rolled up with a first payment date is due on that date', () => {
+    const rows = buildSchedule({ ...base, repayment_type: 'rolled_up', term_months: 6, first_payment_date: '2026-07-15' })
+    expect(rows).toHaveLength(1)
+    expect(rows[0].due_date).toBe('2026-07-15')
+  })
   it('is empty without a principal, term or date', () => {
     expect(buildSchedule({ ...base, principal: 0 })).toEqual([])
     expect(buildSchedule({ ...base, term_months: 0 })).toEqual([])

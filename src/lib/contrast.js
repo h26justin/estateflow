@@ -80,3 +80,15 @@ export function textOn(bg, light = '#FFFFFF', dark = '#1C2830') {
   if (rl === null || rd === null) return dark
   return rl >= rd ? light : dark
 }
+
+// Text colour for a label on a fill we do not pick per theme (EPC band
+// colours, chart bars, status pills): paper or ink like `textOn`, but when
+// neither reaches `min` (mid-tones such as EPC band A green, where white is
+// 4.43:1 and ink 3.4:1) it falls back to pure black or white, whichever is
+// higher. Always returns a colour; check `contrastRatio` if you need the number.
+export function readableOn(bg, min = AA_TEXT) {
+  const pick = textOn(bg)
+  if (meetsContrast(pick, bg, min)) return pick
+  if (luminance(bg) === null) return pick
+  return contrastRatio('#000000', bg) >= contrastRatio('#FFFFFF', bg) ? '#000000' : '#FFFFFF'
+}

@@ -33,6 +33,10 @@ import { countBillableProperties } from './billing.ts'
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')!
 const SUPABASE_URL           = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY       = Deno.env.get('SERVICE_ROLE_KEY')!
+// Optional here: used only to READ the current subscription from Stripe so
+// out-of-order deliveries can't apply stale state. Without it the handler
+// falls back to the event payload (previous behaviour).
+const STRIPE_SECRET_KEY      = Deno.env.get('STRIPE_SECRET_KEY') || ''
 
 // Meta Conversions API (server-side attribution). Lets us tell Meta that
 // a user just bought, with their hashed email/IP/UA, so iOS 17+ ad
@@ -158,6 +162,100 @@ function toIso(unixSeconds: number | null | undefined): string | null {
   return new Date(unixSeconds * 1000).toISOString()
 }
 
+// ── Ordering guard ──────────────────────────────────────────────────────
+// Stripe does not guarantee delivery order, and a retried event can arrive
+// long after newer ones. Rather than trusting the (possibly stale) event
+// payload, read the subscription's CURRENT state from Stripe (read-only)
+// and apply that — Stripe's recommended pattern. Returns null when the
+// secret isn't configured; throws on a Stripe error so the event is retried.
+async function fetchLiveSubscription(subId: string | null | undefined, allowMissing = false): Promise<any | null> {
+  if (!STRIPE_SECRET_KEY || !subId) return null
+  const res = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subId)}`, {
+    headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  // A stored id Stripe no longer knows is not live (and must not make every
+  // retry fail forever).
+  if (allowMissing && res.status === 404) return null
+  if (!res.ok) throw new Error(`stripe subscription read: ${data?.error?.message || res.status}`)
+  return data
+}
+
+// Every subscription on a Stripe customer (read-only), or null when the
+// secret isn't configured. Throws on a Stripe error so the event is retried.
+async function listCustomerSubscriptions(customerId: string | null | undefined): Promise<any[] | null> {
+  if (!STRIPE_SECRET_KEY || !customerId) return null
+  const res = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`, {
+    headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(`stripe subscription list: ${data?.error?.message || res.status}`)
+  return Array.isArray(data?.data) ? data.data : []
+}
+
+// Statuses under which a subscription is still the customer's billing
+// relationship (paying, trialing, or failing payment).
+const LIVE_SUB_STATUSES = ['active', 'trialing', 'past_due', 'unpaid']
+
+// The company's stored subscription row (id + status), or null if none.
+async function storedSubscription(companyId: string): Promise<{ stripe_subscription_id: string | null, status: string | null } | null> {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('stripe_subscription_id, status')
+    .eq('company_id', companyId)
+    .maybeSingle()
+  if (error) throw new Error(`subscriptions read: ${error.message}`)
+  return data
+}
+
+// May an event about subscription `incomingId` (current status `status`)
+// write the company's row? Always when it IS the stored subscription.
+// Otherwise a live subscription may take over (a new signup), or an
+// 'incomplete' one when nothing is stored yet (checkout in progress). An
+// ended or orphaned subscription that isn't the stored one never overwrites
+// it — e.g. a delayed subscription.updated after subscription.deleted.
+//
+// Two live subscriptions on one customer (the double-billing case): when the
+// stored subscription is itself live (read from Stripe), a DIFFERENT one may
+// take over only if it is newer (Stripe `created`) and not set to cancel at
+// period end. Otherwise the stored id flipped to whichever sent the last
+// event, and cancelling the old one at period end then cancelled the
+// company while the new one was still paying. `incoming` is the incoming
+// subscription object (live read or payload). Without the Stripe secret the
+// stored subscription can't be read, and the previous rule applies.
+async function mayWriteSubscription(storedId: string | null | undefined, incomingId: string | null | undefined, status: string | null | undefined, incoming?: any): Promise<boolean> {
+  if (!incomingId) return false
+  if (storedId === incomingId) return true
+  if (LIVE_SUB_STATUSES.includes(status || '')) {
+    if (!storedId || !STRIPE_SECRET_KEY) return true
+    const storedSub = await fetchLiveSubscription(storedId, true)
+    if (!storedSub || !LIVE_SUB_STATUSES.includes(storedSub.status || '')) return true
+    if (incoming?.cancel_at_period_end) return false
+    const inCreated = Number(incoming?.created) || 0
+    const storedCreated = Number(storedSub.created) || 0
+    return inCreated > storedCreated
+  }
+  return !storedId && status === 'incomplete'
+}
+
+// Statuses under which another subscription on the customer keeps the
+// company billed when the stored one is deleted.
+const REPLACEMENT_SUB_STATUSES = ['active', 'trialing', 'past_due']
+
+// The best other live subscription on the customer to carry the company when
+// `deletedId` ends: not cancelling at period end first, then newest.
+function pickReplacementSubscription(subs: any[], deletedId: string): any | null {
+  const live = subs.filter((s: any) => s?.id && s.id !== deletedId && REPLACEMENT_SUB_STATUSES.includes(s.status))
+  live.sort((a: any, b: any) =>
+    (Number(!!a.cancel_at_period_end) - Number(!!b.cancel_at_period_end)) || ((Number(b.created) || 0) - (Number(a.created) || 0)))
+  return live[0] || null
+}
+
+// Period bounds moved from the subscription onto its items in newer Stripe
+// API versions; the live read may use a different version than the event.
+const periodStart = (s: any) => s.current_period_start ?? s.items?.data?.[0]?.current_period_start
+const periodEnd   = (s: any) => s.current_period_end   ?? s.items?.data?.[0]?.current_period_end
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok')
 
@@ -174,21 +272,23 @@ Deno.serve(async (req) => {
   const event = JSON.parse(body)
   const obj   = event.data.object
 
-  // Idempotency: Stripe retries delivery, so record each event_id once and
-  // skip reprocessing on a duplicate. If the stripe_events table doesn't
-  // exist yet (migration not applied), log a warning and proceed without
-  // dedupe — the webhook must never 500 on this.
+  // Idempotency: Stripe retries delivery, so each event_id is recorded once
+  // and a duplicate is skipped. The event is recorded only AFTER it has
+  // been handled successfully (below) — recording it first meant a crash or
+  // timeout after the claim lost the event, because Stripe's retry was then
+  // skipped as a duplicate. Handlers are idempotent upserts/updates, so a
+  // concurrent double delivery re-applies the same state at worst. If the
+  // stripe_events table doesn't exist yet, log and proceed without dedupe —
+  // the webhook must never 500 on this.
   try {
-    const { data: claimed, error: evErr } = await supabase
+    const { data: seen, error: evErr } = await supabase
       .from('stripe_events')
-      .upsert(
-        { event_id: event.id, type: event.type },
-        { onConflict: 'event_id', ignoreDuplicates: true },
-      )
       .select('event_id')
+      .eq('event_id', event.id)
+      .maybeSingle()
     if (evErr) {
       console.warn('stripe_events dedupe unavailable (continuing without):', evErr.message)
-    } else if (!claimed || claimed.length === 0) {
+    } else if (seen) {
       console.log('Duplicate Stripe event skipped:', event.id, event.type)
       return new Response(JSON.stringify({ received: true, duplicate: true }), {
         headers: { 'Content-Type': 'application/json' },
@@ -214,14 +314,25 @@ Deno.serve(async (req) => {
       case 'checkout.session.completed': {
         if (!companyId) { console.warn('checkout.session.completed: no company_id'); break }
         const sessionTier = resolveTier(obj)
-        await must('checkout.session.completed upsert', supabase.from('subscriptions').upsert({
-          company_id: companyId,
-          stripe_customer_id: obj.customer,
-          stripe_subscription_id: obj.subscription,
-          status: 'active',
-          ...(sessionTier ? { tier: sessionTier } : {}),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'company_id' }))
+        // Use the subscription's current status when we can read it — a
+        // delayed session event must not re-activate a since-cancelled one.
+        // 'incomplete' (payment still confirming) keeps the previous
+        // behaviour of 'active' on a completed checkout.
+        const liveSub = await fetchLiveSubscription(obj.subscription)
+        const sessionStatus = !liveSub?.status || liveSub.status === 'incomplete' ? 'active' : liveSub.status
+        const storedForSession = await storedSubscription(companyId)
+        if (!await mayWriteSubscription(storedForSession?.stripe_subscription_id, obj.subscription, sessionStatus, liveSub)) {
+          console.warn('checkout.session.completed: stale or superseded subscription, not applied', obj.subscription, sessionStatus)
+        } else {
+          await must('checkout.session.completed upsert', supabase.from('subscriptions').upsert({
+            company_id: companyId,
+            stripe_customer_id: obj.customer,
+            stripe_subscription_id: obj.subscription,
+            status: sessionStatus,
+            ...(sessionTier ? { tier: sessionTier } : {}),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'company_id' }))
+        }
 
         // Meta Conversions API — fire Purchase event with hashed email.
         // amount_total is in pence on Stripe (e.g. 200 = £2.00).
@@ -238,21 +349,28 @@ Deno.serve(async (req) => {
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
         if (!companyId) { console.warn(`${event.type}: no company_id`); break }
-        const subTier = resolveTier(obj)
+        // Current state from Stripe, not the (possibly stale) payload.
+        const cur = (await fetchLiveSubscription(obj.id)) || obj
+        const stored = await storedSubscription(companyId)
+        if (!await mayWriteSubscription(stored?.stripe_subscription_id, obj.id, cur.status, cur)) {
+          console.warn(`${event.type}: stale or superseded subscription, not applied`, obj.id, cur.status)
+          break
+        }
+        const subTier = resolveTier(cur) || resolveTier(obj)
         // property_count is the company's real billable count, read live —
         // the Stripe quantity can be higher because of the £10 minimum.
         const liveCount = await countBillableProperties(supabase, companyId)
         await must(`${event.type} upsert`, supabase.from('subscriptions').upsert({
           company_id: companyId,
-          stripe_customer_id: obj.customer,
+          stripe_customer_id: cur.customer,
           stripe_subscription_id: obj.id,
-          stripe_price_id: obj.items?.data?.[0]?.price?.id || null,
-          status: obj.status,
+          stripe_price_id: cur.items?.data?.[0]?.price?.id || null,
+          status: cur.status,
           ...(subTier ? { tier: subTier } : {}),
-          property_count: liveCount ?? obj.items?.data?.[0]?.quantity ?? 0,
-          current_period_start: toIso(obj.current_period_start),
-          current_period_end:   toIso(obj.current_period_end),
-          cancel_at_period_end: obj.cancel_at_period_end ?? false,
+          property_count: liveCount ?? cur.items?.data?.[0]?.quantity ?? 0,
+          current_period_start: toIso(periodStart(cur)),
+          current_period_end:   toIso(periodEnd(cur)),
+          cancel_at_period_end: cur.cancel_at_period_end ?? false,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'company_id' }))
         break
@@ -260,19 +378,61 @@ Deno.serve(async (req) => {
 
       case 'customer.subscription.deleted': {
         if (!companyId) { console.warn('customer.subscription.deleted: no company_id'); break }
-        await must('subscription.deleted update', supabase.from('subscriptions').update({
+        // Only the company's CURRENT subscription ending cancels the company.
+        // Cancelling an orphaned / older subscription on the same customer
+        // must not lock out a company that is paying on another one.
+        const storedDel = await storedSubscription(companyId)
+        const storedDelId = storedDel?.stripe_subscription_id || null
+        if (storedDelId && storedDelId !== obj.id) {
+          console.warn('customer.subscription.deleted: not the stored subscription, ignored', obj.id)
+          break
+        }
+        // Before cancelling, check whether another subscription on the same
+        // customer is still live (read-only list). If so the company is
+        // still paying: switch the row to that subscription instead.
+        const customerSubs = await listCustomerSubscriptions(obj.customer)
+        const replacement = customerSubs ? pickReplacementSubscription(customerSubs, obj.id) : null
+        if (replacement) {
+          const repTier = resolveTier(replacement)
+          const repQuery = supabase.from('subscriptions').update({
+            stripe_subscription_id: replacement.id,
+            stripe_price_id: replacement.items?.data?.[0]?.price?.id || null,
+            status: replacement.status,
+            ...(repTier ? { tier: repTier } : {}),
+            current_period_start: toIso(periodStart(replacement)),
+            current_period_end:   toIso(periodEnd(replacement)),
+            cancel_at_period_end: replacement.cancel_at_period_end ?? false,
+            updated_at: new Date().toISOString(),
+          }).eq('company_id', companyId)
+          console.log('customer.subscription.deleted: switched to live subscription', obj.id, '->', replacement.id)
+          await must('subscription.deleted switch', storedDelId
+            ? repQuery.eq('stripe_subscription_id', storedDelId)
+            : repQuery.is('stripe_subscription_id', null))
+          break
+        }
+        const delQuery = supabase.from('subscriptions').update({
           status: 'canceled',
           stripe_subscription_id: null,
           updated_at: new Date().toISOString(),
-        }).eq('company_id', companyId))
+        }).eq('company_id', companyId)
+        // Conditional on the id we just compared, so a concurrent takeover
+        // by a new subscription isn't overwritten.
+        await must('subscription.deleted update', storedDelId
+          ? delQuery.eq('stripe_subscription_id', storedDelId)
+          : delQuery.is('stripe_subscription_id', null))
         break
       }
 
       case 'invoice.payment_succeeded': {
         const subId = obj.subscription
         if (!subId) break
+        // Matches only the row whose STORED subscription is this one, so an
+        // old / replaced subscription's invoice can't touch the company.
+        // Status is the subscription's current one when readable (a delayed
+        // success after a later failure must not force 'active').
+        const paidSub = await fetchLiveSubscription(subId)
         await must('invoice.payment_succeeded update', supabase.from('subscriptions').update({
-          status: 'active',
+          status: paidSub?.status || 'active',
           updated_at: new Date().toISOString(),
         }).eq('stripe_subscription_id', subId))
         break
@@ -281,8 +441,18 @@ Deno.serve(async (req) => {
       case 'invoice.payment_failed': {
         const subId = obj.subscription
         if (!subId) break
+        // past_due unless the subscription's current state says otherwise:
+        // Stripe may not have flipped an 'active' subscription yet when this
+        // arrives, but a failure for an invoice that is no longer the latest
+        // (a later payment succeeded) or a subscription that has since moved
+        // on (unpaid / canceled / incomplete) keeps that current status.
+        const failedSub = await fetchLiveSubscription(subId)
+        const latestInvoice = typeof failedSub?.latest_invoice === 'string' ? failedSub.latest_invoice : failedSub?.latest_invoice?.id
+        const failedStatus = !failedSub ? 'past_due'
+          : (failedSub.status === 'active' && (!latestInvoice || latestInvoice === obj.id)) ? 'past_due'
+          : failedSub.status
         await must('invoice.payment_failed update', supabase.from('subscriptions').update({
-          status: 'past_due',
+          status: failedStatus,
           updated_at: new Date().toISOString(),
         }).eq('stripe_subscription_id', subId))
         break
@@ -295,13 +465,23 @@ Deno.serve(async (req) => {
     // Surface the real error message so we can debug from Stripe's
     // webhook UI (it shows the response body inline).
     console.error('Webhook handler error:', e)
-    // Release the idempotency claim so Stripe's retry isn't skipped as a
-    // duplicate — we're about to 500 and want the event reprocessed.
-    try { await supabase.from('stripe_events').delete().eq('event_id', event.id) } catch { /* best-effort */ }
+    // Nothing is recorded in stripe_events on failure, so Stripe's retry is
+    // processed in full.
     return new Response(JSON.stringify({ error: e.message, event: event.type }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     })
+  }
+
+  // Handled — record the event so a redelivery is skipped. Best-effort: if
+  // this write fails the redelivery just re-applies the same state.
+  try {
+    const { error: markErr } = await supabase
+      .from('stripe_events')
+      .upsert({ event_id: event.id, type: event.type }, { onConflict: 'event_id', ignoreDuplicates: true })
+    if (markErr) console.warn('stripe_events record failed:', markErr.message)
+  } catch (e) {
+    console.warn('stripe_events record failed:', (e as Error).message)
   }
 
   return new Response(JSON.stringify({ received: true }), {
@@ -310,14 +490,16 @@ Deno.serve(async (req) => {
 })
 
 async function verifyStripeSignature(payload: string, header: string, secret: string) {
-  const parts = header.split(',').reduce((acc: Record<string, string>, part) => {
+  // The header can carry several v1 signatures (e.g. during a webhook
+  // secret roll); any one matching is valid, as in Stripe's own libraries.
+  let timestamp = ''
+  const signatures: string[] = []
+  for (const part of header.split(',')) {
     const [k, v] = part.split('=')
-    acc[k] = v
-    return acc
-  }, {})
-  const timestamp = parts['t']
-  const signature = parts['v1']
-  if (!timestamp || !signature) throw new Error('Malformed signature header')
+    if (k === 't') timestamp = v
+    else if (k === 'v1' && v) signatures.push(v)
+  }
+  if (!timestamp || signatures.length === 0) throw new Error('Malformed signature header')
   // Replay protection — Stripe's reference implementation rejects events
   // whose signed timestamp is outside a 5-minute tolerance window.
   const skewSeconds = Math.abs(Date.now() / 1000 - Number(timestamp))
@@ -331,7 +513,12 @@ async function verifyStripeSignature(payload: string, header: string, secret: st
   )
   const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signed))
   const expected = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('')
-  if (!timingSafeEqual(expected, signature)) throw new Error('Invalid signature')
+  // Compare against every candidate (no early exit) to keep timing flat.
+  let matched = false
+  for (const signature of signatures) {
+    if (timingSafeEqual(expected, signature)) matched = true
+  }
+  if (!matched) throw new Error('Invalid signature')
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

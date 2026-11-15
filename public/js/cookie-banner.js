@@ -12,6 +12,7 @@
     var b = document.getElementById('op-cookie-banner');
     if (b) b.remove();
     window.removeEventListener('resize', reserveSpace);
+    if (shellObserver) shellObserver.disconnect();
     document.documentElement.classList.remove('op-cookie-open');
     document.documentElement.style.removeProperty('--op-cookie-h');
   }
@@ -21,8 +22,35 @@
   function reserveSpace() {
     var b = document.getElementById('op-cookie-banner');
     if (!b) return;
+    placeAboveNav(b);
     document.documentElement.style.setProperty('--op-cookie-h', b.offsetHeight + 'px');
-    document.documentElement.classList.add('op-cookie-open');
+    // Guarded: classList.add rewrites the attribute even when the class is
+    // already there, which would re-fire the shell observer below every frame.
+    if (!document.documentElement.classList.contains('op-cookie-open')) {
+      document.documentElement.classList.add('op-cookie-open');
+    }
+  }
+
+  // Signed in on a phone, the app's fixed bottom tab bar (.mobile-nav) sits
+  // where the banner would; lift the banner to sit on top of the bar so both
+  // stay usable. The bar has the safe-area inset, so the banner drops its own.
+  function placeAboveNav(b) {
+    var nav = document.querySelector('.mobile-nav');
+    var h = 0;
+    try { h = nav && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0; } catch (e) {}
+    b.style.bottom = h ? h + 'px' : '';
+    b.style.paddingBottom = h ? '8px' : '';
+  }
+
+  // The app shell mounts (and adds class="ef-app" to <html>) after this
+  // script runs, and again after each sign-in; re-place the banner then.
+  var shellObserver = null;
+  function watchShell() {
+    if (typeof MutationObserver !== 'function') return;
+    shellObserver = new MutationObserver(function() {
+      (window.requestAnimationFrame || setTimeout)(reserveSpace);
+    });
+    shellObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   }
 
   function accept() {
@@ -58,6 +86,7 @@
     banner.querySelector('.op-cookie-reject').addEventListener('click', reject);
     reserveSpace();
     window.addEventListener('resize', reserveSpace);
+    watchShell();
   }
 
   if (document.readyState === 'loading') {

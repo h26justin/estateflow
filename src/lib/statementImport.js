@@ -290,7 +290,9 @@ export function reviewRows(parsed, ctx, overrides = {}) {
     if (kind === 'arrears' && !tenancy) reasons.push('Recorded against historic arrears')
     if (kind === 'deduction') { review = true; reasons.push('Deducted by the agent: check it is not already recorded as a bill before recording it as an expense') }
     if (kind === 'credit') { review = true; reasons.push('Credit / refund on the statement: shown for the record; tick to add it to the property\'s expenses as a credit') }
-    if (kind === 'other_income') { review = true; reasons.push('Income that is not a dated month\'s rent: check what it is for') }
+    // planImport has no write path for other income, so it can never be
+    // included: say so on the row instead of offering "Checked: import it".
+    if (kind === 'other_income') { review = true; reasons.push('Other income is not imported: record it manually (it is not a dated month\'s rent)') }
     for (const f of line.flags || []) {
       if (f === 'fee_does_not_match_percentage') { review = true; reasons.push('Fee does not equal the stated percentage') }
       if (f === 'missing_tenant' && kind === 'rent') reasons.push('No tenant name on the line')
@@ -311,7 +313,7 @@ export function reviewRows(parsed, ctx, overrides = {}) {
     let status = hard || (!ov.confirmed && soft) || (review && !ov.confirmed ? REVIEW_STATUS.NEEDS_REVIEW : REVIEW_STATUS.MATCHED)
     // Anything that would write to the Rent Tracker needs a property; rent
     // also needs a period.
-    const blocked = !propertyId || (kind === 'rent' && (!periodStart || !periodEnd))
+    const blocked = !propertyId || (kind === 'rent' && (!periodStart || !periodEnd)) || kind === 'other_income'
     const defaultInclude = !ov.confirmed ? !['credit', 'deduction', 'other_income'].includes(kind) : true
     const include = status === REVIEW_STATUS.MATCHED && !blocked && (ov.include !== undefined ? !!ov.include : defaultInclude)
     if (include) status = REVIEW_STATUS.READY
@@ -386,7 +388,10 @@ export function planImport(rows, ctx = {}) {
     const total = round2(t.received)
     plan.periodUpdates.push({ periodKey: t.key, rent_payment_id: t.row?.id || null, amount: total,
       status: expected == null || expected <= 0 || total + 0.005 >= expected ? 'paid' : 'partial',
-      previous: t.row ? { status: t.row.status, amount: t.row.amount ?? null, source_ref: t.row.source_ref ?? null, import_batch_id: t.row.import_batch_id ?? null } : null })
+      // For display only: the commit re-reads the period's stored status,
+      // amount, source_ref and import_batch_id for the revert, because the
+      // property data the review runs on does not carry the last two.
+      previous: t.row ? { status: t.row.status, amount: t.row.amount ?? null } : null })
   }
   return plan
 }

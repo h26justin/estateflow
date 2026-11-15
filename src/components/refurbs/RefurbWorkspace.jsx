@@ -365,7 +365,7 @@ export default function RefurbWorkspace({
     await ops.updateProject(fields)
   }
   async function toggleArchive() {
-    if (project.archived_at) { await ops.updateProject({ archived_at: null }); showToast?.('Refurb restored from the archive'); return }
+    if (project.archived_at) { if (await ops.updateProject({ archived_at: null })) showToast?.('Refurb restored from the archive'); return }
     const ok = await confirm({ title: 'Archive this refurb?', body: 'It leaves the active views and moves to Archived. Nothing is deleted and it can be restored at any time.', confirmLabel: 'Archive' })
     if (ok && await ops.updateProject({ archived_at: new Date().toISOString() })) showToast?.('Refurb archived')
   }

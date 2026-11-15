@@ -38,6 +38,7 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
     try {
       const {data} = await supabase.from('company_documents')
         .select('*').eq('company_id', companyId)
+        .is('deleted_at', null)
         .order('created_at', {ascending:false})
       if (!isCurrent()) return
       setDocs(data||[])
@@ -55,8 +56,14 @@ export function CompanyDocumentsTab({companyId, showToast, isAdmin, user}) {
 
     for (const file of Array.from(files)) {
       try {
+        // Type / size check before anything is uploaded.
+        api.validateUpload(file)
         const {data:{user:u}} = await supabase.auth.getUser()
-        const filePath = `${u.id}/company_documents/${companyId}/${Date.now()}-${file.name}`
+        // Storage key without the raw file name: {ts}_{random}.{ext}, the
+        // same shape as uploadDealDocument. The display name lives in the row.
+        const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+        const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin'
+        const filePath = `${u.id}/company_documents/${companyId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
 
         const {error:uploadErr} = await supabase.storage
           .from('property-documents')

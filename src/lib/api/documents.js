@@ -71,12 +71,17 @@ export async function uploadDocument(propertyId, propertyName, file, userId) {
   if (uploadErr) throw uploadErr
   // Bucket is private — do NOT store a public URL. Always generate signed URLs
   // on demand via getDocumentSignedUrl(). file_path is the canonical reference.
+  // Live columns are file_type / file_size (no size, type or property_name).
   const { error: dbErr } = await supabase.from('property_documents').insert({
-    property_id: propertyId, property_name: propertyName,
+    property_id: propertyId,
     name: file.name, file_path: path,
-    size: file.size, type: file.type, user_id: userId,
+    file_size: file.size, file_type: file.type || null, user_id: userId,
   })
-  if (dbErr) throw dbErr
+  if (dbErr) {
+    // Don't leave an orphaned file in the bucket.
+    try { await supabase.storage.from('property-documents').remove([path]) } catch (_) { /* best effort */ }
+    throw dbErr
+  }
   return path
 }
 
@@ -208,9 +213,12 @@ export async function uploadAndExtractMortgageDocument(file, firstPropertyId, ca
   if (!file)            throw new Error('No file provided')
   if (!firstPropertyId) throw new Error('Need at least one property to attach the document to')
 
-  // Storage path: userId/propertyId/timestamp_filename
-  const safeName = (file.name || 'mortgage.pdf').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
-  const path = `${uid}/${firstPropertyId}/${Date.now()}_${safeName}`
+  // Storage path: userId/propertyId/{ts}_{n}.{ext} — no user-supplied file
+  // name in the key (as uploadDealDocument); the display name lives on the
+  // row. The random suffix keeps two uploads in the same millisecond apart.
+  const rawExt = String(file.name || '').includes('.') ? (file.name.split('.').pop() || '').toLowerCase() : ''
+  const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : (file.type === 'application/pdf' || !file.type ? 'pdf' : 'bin')
+  const path = `${uid}/${firstPropertyId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
   const { error: upErr } = await supabase.storage.from('property-documents').upload(path, file, {
     contentType: file.type || 'application/pdf',
     upsert: false,

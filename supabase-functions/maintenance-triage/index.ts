@@ -36,6 +36,11 @@ const RATE_LIMIT = { perHour: 15, perDay: 60 }
 
 const STORAGE_BUCKET = 'property-documents'
 const MAX_PHOTOS     = 6
+// The API rejects any image over 5 MB (measured on the base64 payload); one
+// such photo would fail the whole request, so it is skipped instead.
+const MAX_IMAGE_B64_BYTES = 5 * 1024 * 1024
+// Free text from the job row is bounded before it reaches the prompt.
+const clip = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -203,8 +208,15 @@ serve(async (req) => {
         if (!fileRes.ok) continue
         const mime = (fileRes.headers.get('content-type') || 'image/jpeg').split(';')[0].trim().toLowerCase()
         if (!CLAUDE_IMAGE_TYPES.includes(mime)) continue
+        const declared = Number(fileRes.headers.get('content-length'))
+        if (Number.isFinite(declared) && Math.ceil(declared / 3) * 4 > MAX_IMAGE_B64_BYTES) {
+          skippedPhotos++
+          await fileRes.body?.cancel().catch(() => {})
+          continue
+        }
         const buf = await fileRes.arrayBuffer()
         const bytes = new Uint8Array(buf)
+        if (Math.ceil(bytes.byteLength / 3) * 4 > MAX_IMAGE_B64_BYTES) { skippedPhotos++; continue }
         let binary = ''
         const chunk = 0x8000
         for (let i = 0; i < bytes.byteLength; i += chunk) {
@@ -216,14 +228,14 @@ serve(async (req) => {
       }
     }
     if (skippedPhotos > 0) {
-      console.warn(`[maintenance-triage] job ${jobId}: skipped ${skippedPhotos} photo path(s) outside the job's storage folders`)
+      console.warn(`[maintenance-triage] job ${jobId}: skipped ${skippedPhotos} photo(s) (outside the job's storage folders, or over the 5 MB image limit)`)
     }
 
     const jobText = [
-      job.title ? `Title: ${job.title}` : '',
-      job.category ? `Category (landlord-set): ${job.category}` : '',
-      job.priority ? `Current priority (landlord-set): ${job.priority}` : '',
-      job.description ? `Description: ${job.description}` : '',
+      job.title ? `Title: ${clip(job.title, 200)}` : '',
+      job.category ? `Category (landlord-set): ${clip(job.category, 60)}` : '',
+      job.priority ? `Current priority (landlord-set): ${clip(job.priority, 60)}` : '',
+      job.description ? `Description: ${clip(job.description, 4000)}` : '',
       images.length === 0 ? '(No photos were attached — triage from the text only.)' : `(${images.length} photo(s) attached.)`,
     ].filter(Boolean).join('\n')
 

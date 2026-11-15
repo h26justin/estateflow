@@ -14,7 +14,7 @@
 //   'void'   — cancel an envelope (status -> 'voided').
 //
 // No money movement, no irreversible action. Server-side access checks via
-// has_property_permission / has_company_access; writes use service-role.
+// has_property_permission / has_company_write; writes use service-role.
 
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
@@ -76,8 +76,10 @@ serve(async (req) => {
       return true
     }
     if (companyId) {
-      const { data: access } = await userClient.rpc('has_company_access', { p_company_id: companyId })
-      if (!access) return false
+      // Company-level envelopes need WRITE (owner / admin / editor), not mere
+      // membership — has_company_access is true for read-only viewers too.
+      const { data: access } = await userClient.rpc('has_company_write', { p_company_id: companyId })
+      if (access !== true) return false
       const { data: live } = await userClient.rpc('company_is_live', { p_company_id: companyId })
       return !!live
     }

@@ -3,9 +3,12 @@
 // Gareth at Propertunity, Mondays 07:00 UK.
 //
 // Schedules live in public.agent_report_schedules (one row per owner + agent).
-// pg_cron calls this hourly; a schedule sends only when it is its weekday and
-// send hour in Europe/London and it has not already gone out that day, so the
-// UTC cron covers GMT and BST without editing.
+// pg_cron calls this hourly; a schedule sends on its weekday at or after its
+// send hour in Europe/London, once: last_sent_at is claimed (compare-and-set)
+// before sending and put back if the send fails, so a failed hourly run is
+// retried by the next one that day and two runs can never both send. The UTC
+// cron covers GMT and BST without editing. Schedules whose owner has no live
+// company (company_is_live) are skipped.
 //
 // The report itself is src/lib/agentReport.js + agentReportPdf.js, bundled
 // into ./report.bundle.js by scripts/build-agent-report.mjs, so the email is
@@ -44,10 +47,10 @@ const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent
   'company:companies(id,name,color),' +
   'rent_payments(id,property_id,year,month,month_label,status,amount,period_start,period_end),' +
   'stl_bookings(id,rent_payment_id),' +
-  'rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)),' +
+  'rent_receipts(id,tenancy_id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,tenancy_id,rent_payment_id,target,amount,payment_plan_id)),' +
   'non_chargeable_periods(id,start_date,end_date,reason),' +
   'rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at),' +
-  'tenancies(id,tenant_name,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
+  'tenancies(id,tenant_name,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,rent_due_anchor,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const money0 = (n: number) => '\u00A3' + Math.round(Number(n) || 0).toLocaleString('en-GB')
@@ -187,7 +190,7 @@ async function sendReport({ to, cc, replyTo, subject, html, filename, pdf }: {
 }) {
   const from = `Properly <${GMAIL_SENDER}>`
   if (Deno.env.get('GOOGLE_SA_KEY')) {
-    await sendGmail({ from, to: to.join(', '), cc, subject, html,
+    await sendGmail({ from, to: to.join(', '), cc, replyTo, subject, html,
       attachments: [{ filename, contentType: 'application/pdf', base64: pdf }] })
     return
   }
@@ -225,7 +228,7 @@ serve(async (req) => {
   const results: any[] = []
   let mark: { data: string; w: number; h: number } | null | undefined
   for (const sch of schedules || []) {
-    const due = sch.enabled && sch.weekday === now.weekday && sch.send_hour === now.hour
+    const due = sch.enabled && sch.weekday === now.weekday && Number.isInteger(sch.send_hour) && now.hour >= sch.send_hour
       && !(sch.last_sent_at && londonNow(new Date(sch.last_sent_at)).iso === now.iso)
     if (!preview && !dryRun && !due) { results.push({ id: sch.id, skipped: 'not due' }); continue }
     try {
@@ -235,20 +238,29 @@ serve(async (req) => {
       const { data: props, error: pErr } = await admin.from('properties').select(PROPERTY_SELECT)
         .eq('user_id', sch.user_id).is('deleted_at', null).is('archived_at', null)
       if (pErr) throw new Error(pErr.message)
+      // Only properties of live companies (company_is_live); none → skip.
+      const liveCo = new Set<string>()
+      for (const cid of [...new Set((props || []).map((p: any) => p.company_id).filter(Boolean))] as string[]) {
+        const { data: live, error: liveErr } = await admin.rpc('company_is_live', { p_company_id: cid })
+        if (liveErr) throw new Error(`company_is_live: ${liveErr.message}`)
+        if (live === true) liveCo.add(cid)
+      }
+      if (!liveCo.size) { results.push({ id: sch.id, skipped: 'no live company' }); continue }
+      const liveProps = (props || []).filter((p: any) => liveCo.has(p.company_id))
       const [{ data: cos }, { data: settings }] = await Promise.all([
         admin.from('companies').select('id,name,color').eq('user_id', sch.user_id),
         admin.from('company_settings').select('company_id,logo_url').eq('user_id', sch.user_id),
       ])
       const logoUrl = new Map((settings || []).map((r: any) => [r.company_id, r.logo_url]))
       const companies = (cos || []).map((c: any) => ({ ...c, logo_url: logoUrl.get(c.id) || null }))
-      const stl = await loadStl(admin, props || [])
-      const model = buildAgentReport(props || [], { agent: sch.agent, companies, asOf: now.iso, stl })
+      const stl = await loadStl(admin, liveProps)
+      const model = buildAgentReport(liveProps, { agent: sch.agent, companies, asOf: now.iso, stl })
       if (dryRun) {
         const stlSummary = (model.stl || []).map((b: any) => ({ name: b.name, rooms: b.rooms, of: b.totalRooms, month: { ...b.month, months: undefined }, year: { ...b.year, months: undefined } }))
         results.push({ id: sch.id, summary: model.summary, lines: model.lines.length, stl: stlSummary }); continue
       }
 
-      const to = (preview ? sch.cc : sch.recipients).filter(validEmail)
+      const to = ((preview ? sch.cc : sch.recipients) || []).filter(validEmail)
       const cc = preview ? [] : (sch.cc || []).filter(validEmail)
       if (!to.length) throw new Error(preview ? 'no cc address to preview to' : 'no recipients')
       if (mark === undefined) mark = await loadPng(LOGO_URL)
@@ -260,9 +272,25 @@ serve(async (req) => {
       const doc = drawAgentReportPdf(jsPDF, model, { logos, mark })
       const pdf = b64encode(new Uint8Array(doc.output('arraybuffer')))
       const subject = emailSubject(model, preview)
-      await sendReport({ to, cc, replyTo: (sch.cc || []).find(validEmail), subject, html: emailHtml(model), filename: agentReportFilename(model), pdf })
+      const send = () => sendReport({ to, cc, replyTo: (sch.cc || []).find(validEmail), subject, html: emailHtml(model), filename: agentReportFilename(model), pdf })
       if (!preview) {
-        await admin.from('agent_report_schedules').update({ last_sent_at: new Date().toISOString(), last_status: `sent ${model.summary.units} properties`, updated_at: new Date().toISOString() }).eq('id', sch.id)
+        // Claim today's send first (compare-and-set on the last_sent_at we
+        // read), so an overlapping run cannot send it too.
+        let claim = admin.from('agent_report_schedules').update({ last_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', sch.id)
+        claim = sch.last_sent_at ? claim.eq('last_sent_at', sch.last_sent_at) : claim.is('last_sent_at', null)
+        const { data: claimed, error: claimErr } = await claim.select('id')
+        if (claimErr) throw new Error(`claim: ${claimErr.message}`)
+        if (!claimed?.length) { results.push({ id: sch.id, skipped: 'already sent' }); continue }
+        try {
+          await send()
+        } catch (e) {
+          // Release the claim so the next hourly run today retries.
+          await admin.from('agent_report_schedules').update({ last_sent_at: sch.last_sent_at ?? null }).eq('id', sch.id)
+          throw e
+        }
+        await admin.from('agent_report_schedules').update({ last_status: `sent ${model.summary.units} properties`, updated_at: new Date().toISOString() }).eq('id', sch.id)
+      } else {
+        await send()
       }
       results.push({ id: sch.id, sent: to.length + cc.length, preview, units: model.summary.units, pages: doc.getNumberOfPages() })
     } catch (e) {

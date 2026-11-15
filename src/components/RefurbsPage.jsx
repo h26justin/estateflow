@@ -33,6 +33,7 @@ import { BUILT_IN_TEMPLATES, PROJECT_TYPES, filterProjects, distinctValues, jour
 import { useRefurbInvoices, allLinesOf, ImportRefurbInvoice, InvoiceList, InvoiceDetail, ProjectInvoices } from './RefurbInvoices'
 import RefurbWorkspace, { WORKSPACE_TABS } from './refurbs/RefurbWorkspace'
 import { CoverImage } from './refurbs/CoverPhoto'
+import { todayISO } from './refurbs/ui'
 import { pressable } from '../lib/pressable'
 import { Icon } from '../lib/icons'
 import { Skeleton } from '../lib/Skeleton'
@@ -45,7 +46,6 @@ const fmtLine = n => {
   return '£' + v.toLocaleString('en-GB', { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 })
 }
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-const todayISO = () => new Date().toISOString().slice(0, 10)
 const ACTIVE_VIEWS = ['cards', 'list', 'board', 'payments', 'invoices']
 
 // ── Shared: permissions + mutations ────────────────────────────────────────
@@ -144,7 +144,8 @@ function toneFor(project, t, today) {
   return 'ok'
 }
 
-const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', outline: 'none', width: '100%' })
+// No outline here: the global :focus-visible ring must show on these fields.
+const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', width: '100%' })
 
 // ── New refurb form ────────────────────────────────────────────────────────
 function NewRefurbForm({ properties, companies, fixedPropertyId, defaultType = 'residential', templates = [], people = [], onCreate, onCancel, T }) {
@@ -296,9 +297,11 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
     }
   }
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  async function saveField(k) {
+  // A select saves straight from its onChange, before the state update has
+  // rendered: pass the new value so the save does not read the old one.
+  async function saveField(k, value) {
     if (!canEdit) return
-    let v = form[k]
+    let v = value !== undefined ? value : form[k]
     if (['agreed_price', 'expected_rent_after', 'expected_value_after'].includes(k)) v = v === '' || v == null ? (k === 'agreed_price' ? 0 : null) : Number(v)
     if (['start_date', 'target_end_date', 'completed_date', 'funding', 'contractor_name', 'notes'].includes(k)) v = v === '' ? null : v
     if (v === (project[k] ?? (k === 'agreed_price' ? 0 : null))) return
@@ -314,13 +317,22 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
     setSuggest(null)
   }
 
+  // In-flight guard: a double click or a second Enter must not log the
+  // same payment twice (it would double Paid and the mirrored refurb_cost).
+  const addingRef = useRef(false)
+  const [adding, setAdding] = useState(false)
   async function addQuick() {
+    if (addingRef.current) return
     const amount = Number(quick.amount)
     if (!amount || amount <= 0) return
-    const created = await mutations.addLine(property.id, project.id, {
-      kind: quick.kind, amount, date: quick.date || todayISO(),
-      payee: quick.payee.trim() || null, description: quick.description.trim() || null,
-    })
+    addingRef.current = true; setAdding(true)
+    let created
+    try {
+      created = await mutations.addLine(property.id, project.id, {
+        kind: quick.kind, amount, date: quick.date || todayISO(),
+        payee: quick.payee.trim() || null, description: quick.description.trim() || null,
+      })
+    } finally { addingRef.current = false; setAdding(false) }
     if (!created) return
     setQuick(q => ({ ...q, amount: '', description: '' }))
     // Forward-only nudges: first payment on a planned job moves it on
@@ -457,7 +469,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
             <span style={{ color: T.muted }}>Total agreed</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.agreed)}</b>
           </div>
           {canEdit && quick.kind === 'extra' ? (
-            <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} onCancel={() => setQuick(q => ({ ...q, kind: 'payment' }))} T={T} isMobile={isMobile} />
+            <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} busy={adding} onCancel={() => setQuick(q => ({ ...q, kind: 'payment' }))} T={T} isMobile={isMobile} />
           ) : canEdit && (
             <Button variant="secondary" size="sm" onClick={() => setQuick(q => ({ ...q, kind: 'extra', description: '' }))} style={{marginTop: 10}} icon="plus">Extra (builder added cost)</Button>
           )}
@@ -474,7 +486,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
           <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: mono, fontSize: 12, paddingTop: 4 }}>
             <span style={{ color: T.muted }}>{t.overpaid > 0 ? 'Paid over agreed' : 'Remaining to pay'}</span><b style={{ color: t.overpaid > 0 ? T.red : T.goldText, fontVariantNumeric: 'tabular-nums' }}>{fmt(t.overpaid > 0 ? t.overpaid : t.remaining)}</b>
           </div>
-          {canEdit && quick.kind !== 'extra' && <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} T={T} isMobile={isMobile} allowCredit />}
+          {canEdit && quick.kind !== 'extra' && <QuickAdd quick={quick} setQuick={setQuick} onAdd={addQuick} busy={adding} T={T} isMobile={isMobile} allowCredit />}
         </div>
       </div>
 
@@ -485,7 +497,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div><label style={lbl}>Contractor</label><input aria-label="Contractor" list="refurb-payees" value={form.contractor_name} onChange={e => set('contractor_name', e.target.value)} onBlur={() => saveField('contractor_name')} disabled={!canEdit} placeholder="Main contractor" style={inputStyle(T)} /></div>
             <div><label style={lbl}>Funded by</label>
-              <select aria-label="Funded by" value={form.funding} onChange={e => { set('funding', e.target.value); setTimeout(() => saveField('funding'), 0) }} onBlur={() => saveField('funding')} disabled={!canEdit} style={inputStyle(T)}>
+              <select aria-label="Funded by" value={form.funding} onChange={e => { set('funding', e.target.value); saveField('funding', e.target.value) }} onBlur={() => saveField('funding')} disabled={!canEdit} style={inputStyle(T)}>
                 <option value="">Not set</option>{FUNDING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select></div>
             <div><label style={lbl}>Started</label><input aria-label="Started" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} onBlur={() => saveField('start_date')} disabled={!canEdit} style={inputStyle(T)} /></div>
@@ -494,7 +506,7 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
             <div><label style={lbl}>Expected rent after</label><MoneyInput aria-label="Expected rent after" prefix="£" value={form.expected_rent_after} onChange={v => set('expected_rent_after', v == null ? '' : v)} onBlur={() => saveField('expected_rent_after')} disabled={!canEdit} placeholder="pcm" style={inputStyle(T)} /></div>
             <div><label style={lbl}>Expected value after</label><MoneyInput aria-label="Expected value after" prefix="£" value={form.expected_value_after} onChange={v => set('expected_value_after', v == null ? '' : v)} onBlur={() => saveField('expected_value_after')} disabled={!canEdit} placeholder="0" style={inputStyle(T)} /></div>
             <div><label style={lbl}>Treatment</label>
-              <select aria-label="Treatment" value={form.treatment} onChange={e => { set('treatment', e.target.value); setTimeout(() => saveField('treatment'), 0) }} disabled={!canEdit} style={inputStyle(T)}>
+              <select aria-label="Treatment" value={form.treatment} onChange={e => { set('treatment', e.target.value); saveField('treatment', e.target.value) }} disabled={!canEdit} style={inputStyle(T)}>
                 <option value="capital">Capital (improvement)</option><option value="revenue">Revenue (repair)</option>
               </select></div>
           </div>
@@ -523,19 +535,19 @@ function ProjectDetail({ project, property, company, canEdit, payees, mutations,
   </div>
 }
 
-function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit = false }) {
+function QuickAdd({ quick, setQuick, onAdd, onCancel, T, isMobile, allowCredit = false, busy = false }) {
   const isExtra = quick.kind === 'extra'
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   return <div style={{ marginTop: 12, padding: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8 }}>
     <div style={{ fontFamily: mono, fontSize: FS.xs, color: isExtra ? T.amber : T.goldText, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{isExtra ? 'Add an extra' : 'Log a payment'}</div>
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1.2fr 1.6fr auto', gap: 8, alignItems: 'end' }}>
       <div><label style={lbl}>Amount</label><MoneyInput aria-label="Amount" prefix="£" value={quick.amount} onChange={v => setQuick(q => ({ ...q, amount: v == null ? '' : v }))} allowDecimals placeholder="0" style={inputStyle(T)}
-        onKeyDown={e => { if (e.key === 'Enter') onAdd() }} /></div>
+        onKeyDown={e => { if (e.key === 'Enter' && !busy) onAdd() }} /></div>
       <div><label style={lbl}>Date</label><input aria-label="Date" type="date" value={quick.date} onChange={e => setQuick(q => ({ ...q, date: e.target.value }))} style={inputStyle(T)} /></div>
       <div><label style={lbl}>{isExtra ? 'Agreed with' : 'Paid to'}</label><input list="refurb-payees" value={quick.payee} onChange={e => setQuick(q => ({ ...q, payee: e.target.value }))} placeholder="Contractor" style={inputStyle(T)} /></div>
-      <div><label style={lbl}>{isExtra ? 'What was added' : 'Note'}</label><input value={quick.description} onChange={e => setQuick(q => ({ ...q, description: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter') onAdd() }} placeholder={isExtra ? 'e.g. Rewire to current regs' : 'e.g. Second stage payment'} style={inputStyle(T)} /></div>
+      <div><label style={lbl}>{isExtra ? 'What was added' : 'Note'}</label><input value={quick.description} onChange={e => setQuick(q => ({ ...q, description: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && !busy) onAdd() }} placeholder={isExtra ? 'e.g. Rewire to current regs' : 'e.g. Second stage payment'} style={inputStyle(T)} /></div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <Button variant="primary" size="sm" onClick={onAdd} disabled={!Number(quick.amount)} style={{opacity: Number(quick.amount) ? 1 : 0.5}}>Add</Button>
+        <Button variant="primary" size="sm" onClick={onAdd} disabled={busy || !Number(quick.amount)} style={{opacity: Number(quick.amount) && !busy ? 1 : 0.5}}>{busy ? 'Adding…' : 'Add'}</Button>
         {onCancel && <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>}
       </div>
     </div>
@@ -829,7 +841,9 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
   const allProjects = useMemo(() => projectsFromProperties(properties), [properties])
   const typed = useMemo(() => filterProjects(allProjects, { type: filters.type, archived: filters.archived }), [allProjects, filters.type, filters.archived])
   const filtered = useMemo(() => filterProjects(allProjects, filters), [allProjects, filters])
-  const summary = useMemo(() => summariseProjects(filtered), [filtered])
+  // Tiles sum what the list shows: the default (active) view keeps its
+  // meaning, a view that lists completed refurbs includes them.
+  const summary = useMemo(() => summariseProjects(filtered, new Date(), { includeComplete: filters.status !== 'active' }), [filtered, filters.status])
   const payees = useMemo(() => knownPayees(allProjects), [allProjects])
   const contractors = useMemo(() => distinctValues(typed, 'contractor_name'), [typed])
   const managers = useMemo(() => distinctValues(typed, 'project_manager_name'), [typed])
@@ -983,7 +997,7 @@ export default function RefurbsPage({ user, companies = [], properties = [], per
     {pageHead}
 
     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)', gap: 10, marginBottom: 14 }}>
-      {stat('Active refurbs', summary.active)}
+      {filters.status === 'active' ? stat('Active refurbs', summary.active) : stat('Refurbs shown', summary.total)}
       {stat('Agreed total', fmt(summary.agreed))}
       {stat('Paid so far', fmt(summary.paid), T.green)}
       {stat('Remaining to pay', fmt(summary.remaining), T.gold)}
@@ -1073,16 +1087,23 @@ async function createWithJourney(mutations, propertyId, fields, template, showTo
 // Row-level quick payment without opening the refurb.
 function InlineQuickPay({ project, mutations, onDone, T, isMobile }) {
   const [quick, setQuick] = useState({ kind: 'payment', amount: '', date: todayISO(), payee: project.contractor_name || '', description: '' })
+  const addingRef = useRef(false)
+  const [adding, setAdding] = useState(false)
   async function add() {
+    if (addingRef.current) return
     const amount = Number(quick.amount)
     if (!amount) return
-    const created = await mutations.addLine(project.property_id, project.id, { kind: quick.kind, amount, date: quick.date || todayISO(), payee: quick.payee.trim() || null, description: quick.description.trim() || null })
+    addingRef.current = true; setAdding(true)
+    let created
+    try {
+      created = await mutations.addLine(project.property_id, project.id, { kind: quick.kind, amount, date: quick.date || todayISO(), payee: quick.payee.trim() || null, description: quick.description.trim() || null })
+    } finally { addingRef.current = false; setAdding(false) }
     if (!created) return
     if (project.stage === 'planned') mutations.updateProject(project.property_id, project.id, { stage: 'in_progress' })
     onDone()
   }
   return <div style={{ margin: '-4px 0 12px 22px' }}>
-    <QuickAdd quick={quick} setQuick={setQuick} onAdd={add} onCancel={onDone} T={T} isMobile={isMobile} allowCredit />
+    <QuickAdd quick={quick} setQuick={setQuick} onAdd={add} busy={adding} onCancel={onDone} T={T} isMobile={isMobile} allowCredit />
   </div>
 }
 

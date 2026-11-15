@@ -1,6 +1,7 @@
 // Pure calculators: stamp duty, mortgage repayment, property health score
 // and deal scoring (DSCR, stress test, cash-on-cash, LTV). No I/O.
 
+import { computeDealMetrics } from '../dealMetrics'
 
 // Stamp duty calculator (UK 2024 rates)
 export function calcStampDuty(price, isAdditional = true, isFirstTimeBuyer = false) {
@@ -69,7 +70,8 @@ export function calcPropertyHealthScore(property, compliance=[], tenancy=null, m
     { key:'hmo_licence_expiry',   label:'HMO Licence', critical:true },
   ]
   compliance.forEach(c => {
-    if (!c.expiry_date) return
+    // Trashed items (soft-deleted, still embedded on the property) no longer count.
+    if (c.deleted_at || !c.expiry_date) return
     const exp = new Date(c.expiry_date)
     const daysLeft = (exp - today) / (1000*60*60*24)
     if (daysLeft < 0) { score -= 20; issues.push({ type:'error', text:`${c.title || c.item_type} expired` }) }
@@ -159,27 +161,30 @@ export function calcLTV(loanAmount, propertyValue) {
   return (loanAmount / propertyValue) * 100
 }
 
-// Overall deal score 0-100 — weighted across key metrics
+// Overall deal score 0-100 — weighted across key metrics.
+// Every figure comes from computeDealMetrics (the same maths the deal editor,
+// list, compare and PDF show) so the score card can never disagree with the
+// numbers beside it: calculated SDLT, arrangement fee, voids, agent fee,
+// maintenance, insurance, service charge, HMO extras, interest-only vs
+// repayment and the default deposit all flow through. Only the DSCR/stress
+// coverage uses an assumed 5% rate when no mortgage rate has been entered
+// (matching the stress-test table on the editor).
 export function calcDealScore(deal) {
-  const purchasePrice = deal.purchase_price || 0
+  const m = computeDealMetrics(deal || {})
+  const purchasePrice = m.price
   if (purchasePrice <= 0) return { score: 0, breakdown: {}, rating: 'insufficient-data' }
 
-  const grossRentPcm = deal.expected_rent || deal.rent_pcm || 0
-  const annualRent = grossRentPcm * 12
-  const grossYield = (annualRent / purchasePrice) * 100
+  const annualRent = m.grossMonthlyRent * 12
+  const grossYield = m.grossYield
 
-  const isCash = deal.purchase_type === 'cash'
-  const depositPercent = deal.deposit_percent || 25
-  const loanAmount = isCash ? 0 : purchasePrice * (1 - depositPercent / 100)
-  const mortgageRate = deal.mortgage_rate || 5
-  const annualMortgage = isCash ? 0 : loanAmount * (mortgageRate / 100) // interest-only approx
+  const isCash = m.isCash
+  const loanAmount = m.loanAmount
+  const mortgageRate = parseFloat(deal.mortgage_rate) || 5
+  const annualMortgage = isCash ? 0
+    : (m.monthlyRepayment > 0 ? m.monthlyRepayment * 12 : loanAmount * (mortgageRate / 100))
 
-  const operatingCosts = (deal.insurance || 0) + (deal.maintenance_budget || annualRent * 0.1) + (deal.management_fee_percent ? annualRent * (deal.management_fee_percent / 100) : 0)
-  const annualProfit = annualRent - annualMortgage - operatingCosts
-
-  const sd = deal.stamp_duty_override ?? 0
-  const totalCost = purchasePrice + sd + (deal.legal_fees || 0) + (deal.survey_cost || 0) + (deal.refurb_cost || 0) + (deal.other_costs || 0)
-  const cashIn = isCash ? totalCost : totalCost - loanAmount
+  const annualProfit = m.annualProfit
+  const cashIn = m.cashIn
 
   const dscr = calcDSCR(annualRent, annualMortgage)
   const cashOnCash = calcCashOnCash(annualProfit, cashIn)

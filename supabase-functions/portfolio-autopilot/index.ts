@@ -111,6 +111,46 @@ function certLabel(type: string | null): string {
   return labels[(type || '').toLowerCase()] || type || 'Certificate'
 }
 
+// Legacy cert_type spellings → canonical catalogue key
+// (src/lib/complianceCatalogue.js ALIAS_TO_KEY). Unknown types unchanged.
+const CERT_ALIASES: Record<string, string> = {
+  gas: 'gas_safety', gas_cert: 'gas_safety',
+  alarm: 'smoke_alarm',
+  hmo_licence: 'hmo',
+  fire_risk_assessment: 'fire',
+}
+function canonicalCertType(t: string | null | undefined): string {
+  const k = String(t || '').toLowerCase()
+  return CERT_ALIASES[k] || k
+}
+
+// Catalogue keys (src/lib/complianceCatalogue.js CATALOGUE). A type outside
+// the catalogue is a custom certificate: every one is saved as cert_type
+// 'other' with a free-text cert_name, so those are told apart by name too
+// (as buildComplianceReport / src/lib/complianceStatus.js do) — otherwise a
+// Legionella check expiring next week and a PAT test expiring next year
+// collapsed into one and only the later one was ever reminded.
+const CATALOGUE_KEYS = new Set([
+  'gas_safety', 'eicr', 'epc', 'smoke_alarm', 'co_alarm', 'tenancy_agreement', 'deposit_protection',
+  'right_to_rent', 'rra_info_sheet', 'hmo', 'selective_licence', 'fire', 'fire_alarm_service', 'emergency_lighting',
+  'legionella', 'insurance', 'pat', 'boiler_service', 'chimney_sweep', 'inventory',
+])
+function certCollapseKey(c: any): string {
+  const key = canonicalCertType(c?.cert_type || c?.item_type)
+  return CATALOGUE_KEYS.has(key) ? key : `${key}|${String(c?.cert_name || '').trim().toLowerCase()}`
+}
+
+// Subscription half of public.company_is_live (2026-10-15 hardening; client
+// mirror src/lib/subscriptionLive.js): active / past_due, or trialing backed
+// by a Stripe subscription (or a billing period still running).
+function subscriptionGrantsLive(s: any, now: number): boolean {
+  if (!s) return false
+  if (s.status === 'active' || s.status === 'past_due') return true
+  if (s.status !== 'trialing') return false
+  if (s.stripe_subscription_id) return true
+  return !!s.current_period_end && new Date(s.current_period_end).getTime() > now
+}
+
 // ── Action candidate type ────────────────────────────────────────────────────
 type Candidate = {
   company_id: string
@@ -252,26 +292,27 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
     // 1. Live, non-deleted companies. Liveness mirrors company_is_live:
-    //    free-tier companies are always live; paid companies are live while
-    //    within trial OR holding an active subscription.
-    const { data: companies, error: coErr } = await admin
+    //    free tier, an in-app trial that has not ended, or a subscription
+    //    that grants it (active, past_due, Stripe-backed trialing).
+    const companies = await fetchAllRows((from, to) => admin
       .from('companies')
-      .select('id, owner_id, name, is_free_tier, trial_ends_at, deleted_at, subscriptions!subscriptions_company_id_fkey(status)')
+      .select('id, owner_id, name, is_free_tier, trial_ends_at, deleted_at, subscriptions!subscriptions_company_id_fkey(status, stripe_subscription_id, current_period_end)')
       .is('deleted_at', null)
-    if (coErr) throw coErr
+      .order('id').range(from, to))
 
     const now = Date.now()
-    const liveCompanies = (companies || []).filter((co: any) => {
+    const liveCompanies = companies.filter((co: any) => {
       if (co.is_free_tier) return true
       const trialOk = co.trial_ends_at && new Date(co.trial_ends_at).getTime() > now
-      const subActive = Array.isArray(co.subscriptions)
-        ? co.subscriptions.some((s: any) => s?.status === 'active')
-        : co.subscriptions?.status === 'active'
-      return Boolean(trialOk || subActive)
+      const subs = Array.isArray(co.subscriptions) ? co.subscriptions : (co.subscriptions ? [co.subscriptions] : [])
+      return Boolean(trialOk || subs.some((s: any) => subscriptionGrantsLive(s, now)))
     })
 
     let totalActions = 0
     let notifiedUsers = 0
+    // Per-company failures are collected and reported; one company's error
+    // never stops the rest of the run.
+    const errors: { company_id: string; error: string }[] = []
 
     for (const co of liveCompanies) {
       const companyId = co.id as string
@@ -386,8 +427,22 @@ serve(async (req) => {
         })
       }
 
-      // 3b. Compliance — anything expired or expiring within 60 days.
+      // 3b. Compliance — anything expired or expiring within 60 days. Only
+      //     the latest expiry per property + canonical certificate type
+      //     counts: a renewed certificate supersedes the old one, so an
+      //     expired predecessor is not flagged (src/lib/weeklySummary.js rule).
+      const latestCert = new Map<string, any>()
       for (const c of (compliance || [])) {
+        if (!c.expiry_date || c.deleted_at) continue
+        const k = `${c.property_id}|${certCollapseKey(c)}`
+        const cur = latestCert.get(k)
+        if (!cur || String(c.expiry_date) > String(cur.expiry_date)) latestCert.set(k, c)
+      }
+      const latestCertIds = new Set([...latestCert.values()].map((c: any) => c.id))
+      const supersededCertKeys = (compliance || [])
+        .filter((c: any) => c.expiry_date && !latestCertIds.has(c.id))
+        .map((c: any) => `compliance:${c.id}`)
+      for (const c of latestCert.values()) {
         const p = propById[c.property_id]
         if (!p) continue
         const d = daysUntil(c.expiry_date)
@@ -641,11 +696,20 @@ serve(async (req) => {
       //     acted on or dismissed in the last 30 days, so daily re-runs don't
       //     resurface items the landlord has already dealt with.
       const cutoff = new Date(Date.now() - 30 * DAY_MS).toISOString()
-      const { data: recentClosed } = await admin.from('autopilot_actions')
-        .select('user_id, dedupe_key')
-        .in('user_id', [...new Set(candidates.map((c) => c.user_id))])
-        .neq('status', 'open')
-        .gte('updated_at', cutoff)
+      let recentClosed: any[]
+      try {
+        recentClosed = await fetchAllRows((from, to) => admin.from('autopilot_actions')
+          .select('id, user_id, dedupe_key')
+          .in('user_id', [...new Set(candidates.map((c) => c.user_id))])
+          .neq('status', 'open')
+          .gte('updated_at', cutoff)
+          .order('id').range(from, to))
+      } catch (e) {
+        // A failed read must not look like "nothing dismissed" (that would
+        // resurface items the landlord already dealt with).
+        errors.push({ company_id: companyId, error: `closed actions: ${(e as Error).message}` })
+        continue
+      }
       const closedKeys = new Set((recentClosed || []).map((r: any) => `${r.user_id}:${r.dedupe_key}`))
       const active = candidates.filter((c) => !closedKeys.has(`${c.user_id}:${c.dedupe_key}`))
       if (active.length === 0) continue
@@ -704,34 +768,54 @@ serve(async (req) => {
       }))
 
       // upsert by (user_id, dedupe_key) — but the unique index is partial
-      // (status='open'), so we manually clear prior open rows for these keys
-      // then insert fresh. This keeps acted/dismissed history intact.
-      for (const uid of [...new Set(active.map((c) => c.user_id))]) {
-        const userCands = active.filter((c) => c.user_id === uid)
-        const userKeys = userCands.map((c) => c.dedupe_key)
-        await admin.from('autopilot_actions')
-          .delete()
-          .eq('user_id', uid)
-          .eq('status', 'open')
-          .in('dedupe_key', userKeys)
-        // Arrears keys encode the amount owed and change as the facts change
-        // (and were fact-free before 2026-08-08), so also clear this user's
-        // open arrears rows on the same properties — otherwise stale
-        // variants of the same debt would pile up alongside the fresh one.
-        const arrearsPropIds = [...new Set(
-          userCands.filter((c) => c.kind === 'arrears' && c.property_id).map((c) => c.property_id as string),
-        )]
-        if (arrearsPropIds.length > 0) {
-          await admin.from('autopilot_actions')
-            .delete()
-            .eq('user_id', uid)
-            .eq('status', 'open')
-            .eq('kind', 'arrears')
-            .in('property_id', arrearsPropIds)
+      // (status='open'), so PostgREST cannot upsert on it. Refresh an existing
+      // open row for the same key in place, insert the rest, and only then
+      // remove open rows the fresh set supersedes. Nothing is deleted before
+      // its replacement is written, and acted/dismissed history is untouched.
+      try {
+        const uids = [...new Set(active.map((c) => c.user_id))]
+        const openNow = await fetchAllRows((from, to) => admin.from('autopilot_actions')
+          .select('id, user_id, dedupe_key, kind, property_id')
+          .in('user_id', uids).eq('status', 'open')
+          .order('id').range(from, to))
+        const openByKey = new Map<string, any>()
+        for (const r of openNow) {
+          const k = `${r.user_id}:${r.dedupe_key}`
+          if (!openByKey.has(k)) openByKey.set(k, r)
         }
+        const toInsert: typeof rows = []
+        for (const row of rows) {
+          const prev = openByKey.get(`${row.user_id}:${row.dedupe_key}`)
+          if (!prev) { toInsert.push(row); continue }
+          const { error: upErr } = await admin.from('autopilot_actions').update(row).eq('id', prev.id)
+          if (upErr) throw upErr
+        }
+        if (toInsert.length > 0) {
+          const { error: insErr } = await admin.from('autopilot_actions').insert(toInsert)
+          if (insErr) throw insErr
+        }
+        // Superseded open rows: arrears keys encode the amount owed and
+        // change as the facts change (and were fact-free before 2026-08-08),
+        // so other open arrears rows on the same properties for the same user
+        // are stale variants of the same debt; compliance rows for a
+        // certificate that has since been renewed are stale too.
+        const currentKeys = new Set(rows.map((r) => `${r.user_id}:${r.dedupe_key}`))
+        const arrearsProps = new Set(active.filter((c) => c.kind === 'arrears' && c.property_id).map((c) => `${c.user_id}:${c.property_id}`))
+        const superseded = new Set(supersededCertKeys)
+        const staleIds = openNow.filter((r: any) => !currentKeys.has(`${r.user_id}:${r.dedupe_key}`) && (
+          (r.kind === 'arrears' && r.property_id && arrearsProps.has(`${r.user_id}:${r.property_id}`))
+          || (r.kind === 'compliance' && superseded.has(r.dedupe_key))
+        )).map((r: any) => r.id)
+        for (let i = 0; i < staleIds.length; i += 100) {
+          const { error: delErr } = await admin.from('autopilot_actions')
+            .delete().eq('status', 'open').in('id', staleIds.slice(i, i + 100))
+          if (delErr) throw delErr
+        }
+      } catch (e) {
+        console.error(`autopilot: writing actions failed for company ${companyId}: ${(e as Error).message}`)
+        errors.push({ company_id: companyId, error: (e as Error).message })
+        continue
       }
-      const { error: insErr } = await admin.from('autopilot_actions').insert(rows)
-      if (insErr) throw insErr
       totalActions += rows.length
 
       // 6. One summary notification per user (group candidates by user).
@@ -762,6 +846,7 @@ serve(async (req) => {
       companies_scanned: liveCompanies.length,
       actions_written: totalActions,
       users_notified: notifiedUsers,
+      errors,
     })
   } catch (e) {
     console.error('autopilot: run failed:', e)

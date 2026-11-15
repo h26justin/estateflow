@@ -20,10 +20,12 @@ import * as api from '../lib/api'
 import { MONO, FS, SANS } from '../lib/styles'
 import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty, meesTargetLabel } from '../lib/complianceCatalogue'
-import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
+import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness, addMonths } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { isoToday } from '../lib/rentEngine'
+import { readableOn } from '../lib/contrast'
 import { Button, EmptyState } from './ui'
 
 const mono = MONO
@@ -102,7 +104,7 @@ function ReqRow({ req, status, T, onClick, property }) {
       <Icon name={iconName} size={14} color={color} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, fontSize: 12, color: T.text, overflow: 'hidden', whiteSpace: 'nowrap' }}>
         {req.short}
-        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
+        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: readableOn(EPC_BAND_COLOR[band]), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
       </span>
       <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
     </button>
@@ -277,12 +279,9 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   )
 }
 
-function addMonthsISO(iso, months) {
-  if (!iso) return ''
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1 + months, d))
-  return dt.toISOString().slice(0, 10)
-}
+// Expiry `months` after `iso` for the bulk form: the shared helper clamps to
+// month end (31 Jan + 1 month is 28/29 Feb, not 3 Mar); '' while no date.
+const addMonthsISO = (iso, months) => (iso && addMonths(iso, months)) || ''
 
 export default function CompliancePage({ user, companies = [], properties = [], companySettings = {}, showToast, openDetail }) {
   const { T } = useTheme()
@@ -334,7 +333,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
   const bulkReqs = COMPLIANCE_CATALOGUE.filter(r => r.tier <= 2 && r.group !== 'tenancy' && r.group !== 'insurance')
   const REMINDER_DAYS = { gas_safety: 30, eicr: 60, epc: 90, hmo: 90, selective_licence: 90 }
   const openBulk = () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = isoToday()
     setBulk({ building: buildings[0]?.tail || '', key: 'gas_safety', issue: today, expiry: addMonthsISO(today, 12) })
   }
   const setBulkKey = key => setBulk(b => { const req = bulkReqs.find(r => r.key === key); return { ...b, key, expiry: addMonthsISO(b.issue, req?.cycleMonths || 12) } })
@@ -354,20 +353,27 @@ export default function CompliancePage({ user, companies = [], properties = [], 
     if (!bulk || bulkTargets.length === 0) return
     const req = bulkReqs.find(r => r.key === bulk.key)
     setBulkSaving(true)
-    let done = 0
+    let done = 0, failed = 0
     const next = { ...added }
     for (const p of bulkTargets) {
       try {
         const row = await api.createCompliance(p.id, {
           cert_type: req.key, cert_name: req.label, issue_date: bulk.issue || null, expiry_date: bulk.expiry || null,
-          reminder_days: REMINDER_DAYS[req.key] || 30, notes: `Logged for the whole building (${bulk.building}) on ${new Date().toISOString().slice(0, 10)}`,
+          reminder_days: REMINDER_DAYS[req.key] || 30, notes: `Logged for the whole building (${bulk.building}) on ${isoToday()}`,
         })
         next[p.id] = [...(next[p.id] || []), row]
         done++
-      } catch (e) { showToast?.(`${p.name}: ${e.message || 'could not save'}`, 'error') }
+      } catch (e) { failed++; showToast?.(`${p.name}: ${e.message || 'could not save'}`, 'error') }
     }
-    setAdded(next); setBulkSaving(false); setBulk(null)
-    showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
+    setAdded(next); setBulkSaving(false)
+    if (done === 0) {
+      // Nothing saved: report the failure and keep the form open to retry.
+      showToast?.(`${req.short} was not logged — all ${failed} unit${failed === 1 ? '' : 's'} failed to save`, 'error')
+      return
+    }
+    setBulk(null)
+    if (failed > 0) showToast?.(`${req.short} logged for ${done} of ${done + failed} units in ${bulk.building} — ${failed} failed`, 'error')
+    else showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
   }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   const inp = { width: '100%', padding: '7px 8px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontFamily: mono, fontSize: 12 }

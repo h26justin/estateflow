@@ -148,11 +148,24 @@ export function estimateMortgageInterest({ mortgageProps = [], expenses = [], pe
 
 // Build the HMRC-shape periodic submission body from raw payments+expenses.
 //
-// payments: [{ amount, period_start, period_end, status, year?, month? }]
+// payments: [{ id, amount, period_start, period_end, status, year?, month?,
+//              rent_allocations? }]
 //            (rows carrying money received — status paid, partial or late
 //             with an amount, see RECEIVED_STATUSES — count as income;
 //             legacy rows with NULL period_start fall back to year/month,
 //             treated as the 1st of that month)
+// receipts: optional rent_receipts rows ({ received_date, rent_allocations:
+//           [{ rent_payment_id, target, amount }] }). When given, income
+//           follows the rent engine (rentEngine.js evaluatePeriod): a period
+//           that has current-rent allocations is income from those
+//           allocations, recognised on the receipt's received_date (cash
+//           basis; a bounce or refund is a negative receipt on its own date).
+//           Only a period with no allocations at all falls back to the legacy
+//           row amount on its period start. Pass every receipt received in
+//           the window, and give each payment row its own `rent_allocations`
+//           (or include its receipts) so the summary can tell which rows are
+//           allocated even when the money arrived outside the window.
+//           Omitted → the legacy row-only behaviour.
 // expenses: [{ amount, date, category }]
 // mortgageInterest: number — ESTIMATED interest for the period, for the
 //                   properties with no 'mortgage_interest' expense recorded
@@ -162,9 +175,15 @@ export function estimateMortgageInterest({ mortgageProps = [], expenses = [], pe
 //
 // Returns:
 //   {
-//     periodIncome: { premiumsOfLeaseGrant?, reversePremiums?, periodAmount, taxDeducted, otherIncome },
-//     periodExpenses: { premisesRunningCosts, repairsAndMaintenance, ... }
+//     fromDate, toDate,
+//     income: { periodAmount, taxDeducted },
+//     expenses: { premisesRunningCosts, repairsAndMaintenance, ... },
+//     totals: { income, expenses, residentialFinancialCost, net }
 //   }
+// totals.expenses and totals.net leave out residentialFinancialCost: under
+// Section 24 an individual cannot deduct mortgage interest from rental
+// profit; it is relieved as a 20% basic-rate tax credit instead, so it is
+// reported on its own line (it is still sent to HMRC in `expenses`).
 //
 // HMRC accepts a partial/zero body — empty quarters are fine and required
 // (you can't skip a quarter once you're in the regime).
@@ -173,21 +192,40 @@ export function estimateMortgageInterest({ mortgageProps = [], expenses = [], pe
 // a 'late' or 'partial' row with an amount is money in, not arrears.
 export const RECEIVED_STATUSES = ['paid', 'partial', 'late']
 
-export function buildQuarterlySummary({ payments = [], expenses = [], mortgageInterest = 0, periodFrom, periodTo } = {}) {
+export const FINANCE_COST_NOTE = 'relieved as a 20% basic-rate tax credit'
+
+export function buildQuarterlySummary({ payments = [], expenses = [], receipts = null, mortgageInterest = 0, periodFrom, periodTo } = {}) {
   const inRange = (d) => d && d >= periodFrom && d <= periodTo
 
-  // Income — sum of `amount` on payments that carry money received (paid,
-  // partial or late, the same set the rent engine treats as a receipt) and
-  // whose rental period_start falls inside the quarter. We use period_start as
-  // the cash-basis recognition date because the schema doesn't track a
-  // separate payment_date (rows are flipped status='paid' when received).
-  // Legacy rows have NULL period_start but always carry year/month — fall
-  // back to the first of that month so they aren't silently excluded.
+  // Income. With receipts, a period that has current-rent allocations is
+  // counted from those allocations on the date the money was received (the
+  // same source of truth as the Rent Tracker). Without allocations, the
+  // legacy bridge applies: `amount` on a row that carries money received
+  // (paid, partial or late), recognised on its period_start because the row
+  // itself records no receipt date. Legacy rows have NULL period_start but
+  // always carry year/month — fall back to the first of that month so they
+  // aren't silently excluded.
   const pad2 = (n) => String(n).padStart(2, '0')
   const recognitionDate = (p) =>
     p?.period_start || (p?.year && p?.month ? `${p.year}-${pad2(p.month)}-01` : null)
+  const isCurrentRent = (a) => a?.target === 'current_rent' && a?.rent_payment_id
+  const allocatedRows = new Set()
   let periodAmount = 0
+  if (Array.isArray(receipts)) {
+    for (const p of payments) {
+      for (const a of (p?.rent_allocations || [])) {
+        if (a?.target === 'current_rent') allocatedRows.add(p.id)
+      }
+    }
+    for (const r of receipts) {
+      const allocs = (r?.rent_allocations || []).filter(isCurrentRent)
+      for (const a of allocs) allocatedRows.add(a.rent_payment_id)
+      if (!inRange(r?.received_date)) continue
+      for (const a of allocs) periodAmount += Number(a.amount) || 0
+    }
+  }
   for (const p of payments) {
+    if (p?.id && allocatedRows.has(p.id)) continue
     if (!RECEIVED_STATUSES.includes(p?.status)) continue
     const paid = Number(p?.amount || 0)
     if (paid <= 0) continue
@@ -195,16 +233,19 @@ export function buildQuarterlySummary({ payments = [], expenses = [], mortgageIn
     periodAmount += paid
   }
 
-  // Expenses
+  // Expenses. A refund is a negative expense (CSV import writes it that way):
+  // it nets against the costs in its own HMRC bucket, and each bucket is then
+  // floored at zero so a refund never produces a negative HMRC expense field.
   const buckets = Object.fromEntries(HMRC_EXPENSE_CATEGORIES.map(c => [c, 0]))
   for (const e of expenses) {
     const amt = Number(e?.amount || 0)
-    if (amt <= 0) continue
+    if (!amt || !Number.isFinite(amt)) continue
     if (!inRange(e?.date)) continue
     const bucket = mapExpenseCategoryToHmrc(e?.category)
     if (!bucket) continue   // not an allowable expense (mortgage capital)
     buckets[bucket] = (buckets[bucket] || 0) + amt
   }
+  for (const k of Object.keys(buckets)) if (buckets[k] < 0) buckets[k] = 0
 
   // Layer on the estimated mortgage interest (from the mortgage record) for
   // properties that have no recorded interest in the period.
@@ -218,6 +259,10 @@ export function buildQuarterlySummary({ payments = [], expenses = [], mortgageIn
   for (const k of HMRC_EXPENSE_CATEGORIES) {
     if (buckets[k] > 0) periodExpenses[k] = round(buckets[k])
   }
+  const financeCosts = periodExpenses.residentialFinancialCost || 0
+  const deductible = Object.entries(periodExpenses)
+    .filter(([k]) => k !== 'residentialFinancialCost')
+    .reduce((s, [, v]) => s + v, 0)
 
   return {
     fromDate: periodFrom,
@@ -226,10 +271,47 @@ export function buildQuarterlySummary({ payments = [], expenses = [], mortgageIn
     expenses: periodExpenses,
     totals: {
       income: round(periodAmount),
-      expenses: round(Object.values(periodExpenses).reduce((s,v) => s+v, 0)),
-      net: round(periodAmount - Object.values(periodExpenses).reduce((s,v) => s+v, 0)),
+      expenses: round(deductible),
+      residentialFinancialCost: round(financeCosts),
+      net: round(periodAmount - deductible),
     },
   }
+}
+
+// ── QUARTER + YEAR TO DATE ──────────────────────────────────────────
+// MTD quarterly updates are cumulative: each one covers 6 April to the end
+// of the quarter. Returns the year-to-date summary (what a submission sends)
+// with this quarter's own figures alongside as `quarter`.
+//
+// Pass raw rows covering at least 6 April → quarter end (see
+// fetchMtdRawForPeriod). Estimated mortgage interest is worked out quarter
+// by quarter and added up, so a property with interest recorded in one
+// quarter is still estimated in the others, exactly as each quarter alone.
+export function buildQuarterAndYearToDate({ taxYear, quarter, payments = [], expenses = [], receipts = null, mortgageProps = [] } = {}) {
+  const qs = quartersForTaxYear(taxYear)
+  const q = qs.find(x => x.quarter === Number(quarter))
+  if (!q) return null
+  const yearFrom = qs[0].from
+  const interestFor = (x) => estimateMortgageInterest({ mortgageProps, expenses, periodFrom: x.from, periodTo: x.to })
+  const ytdInterest = Math.round(qs.filter(x => x.quarter <= q.quarter).reduce((s, x) => s + interestFor(x), 0) * 100) / 100
+  const quarterSummary = buildQuarterlySummary({ payments, expenses, receipts, mortgageInterest: interestFor(q), periodFrom: q.from, periodTo: q.to })
+  const ytd = buildQuarterlySummary({ payments, expenses, receipts, mortgageInterest: ytdInterest, periodFrom: yearFrom, periodTo: q.to })
+  return { ...ytd, cumulative: true, quarter: quarterSummary }
+}
+
+// Do two summaries carry the same figures for HMRC (period, income and
+// every expense bucket)? Used to tell whether a saved draft still matches
+// the current data before it is submitted.
+export function sameSubmissionFigures(a, b) {
+  if (!a || !b) return false
+  if (a.fromDate !== b.fromDate || a.toDate !== b.toDate) return false
+  const n = (v) => Math.round((Number(v) || 0) * 100)
+  if (n(a.income?.periodAmount) !== n(b.income?.periodAmount)) return false
+  if (n(a.income?.taxDeducted) !== n(b.income?.taxDeducted)) return false
+  for (const k of HMRC_EXPENSE_CATEGORIES) {
+    if (n(a.expenses?.[k]) !== n(b.expenses?.[k])) return false
+  }
+  return true
 }
 
 // ── STATUS HELPERS ──────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { useConfirm } from '../../lib/ConfirmContext'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '../../lib/propertyStatus'
 import { HEATING_TYPES, LICENSING_SCHEMES, canonicalCertType } from '../../lib/complianceCatalogue'
 import { showAppToast } from '../../lib/toast'
+import { isoToday } from '../../lib/rentEngine'
 import { fetchEstateAgents } from '../../lib/api/ownership'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { Button, Modal } from '../ui'
@@ -40,6 +41,20 @@ export const COMPLIANCE_PROMPTS = [
   { key:'smoke_alarm_checked',cert_type:'smoke_alarm', cert_name:'Smoke Alarm Check',       label:'Smoke alarm last checked', reminder_days:30, isCheckDate:true },
 ]
 
+// Mortgage rate is stored as a decimal (0.05125) and edited as a percent
+// (5.125). Strip float noise only — never round to 2dp, or 5.125% would be
+// re-saved as 5.13% on any unrelated edit.
+export const rateToPercent = r => (r ? String(+(Number(r) * 100).toFixed(6)) : '')
+export const percentToRate = v => +((parseFloat(v) || 0) / 100).toFixed(8)
+
+// Suggested deposit: purchase price less the mortgage (the cash put in).
+// null when there is no price to work from.
+export function suggestedDeposit(price, mortgage) {
+  const p = parseFloat(price) || 0
+  if (p <= 0) return null
+  return Math.max(0, p - (parseFloat(mortgage) || 0))
+}
+
 export default function PropertyModal({ prop, companies, onClose, onSave }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
@@ -72,7 +87,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   //      from a deal is already in percent form so no scaling needed.
   //   3. Add fresh — no prop at all; just blank.
   const initialForm = prop?.id
-    ? { ...blank, ...prop, ...compPrefill, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: prop.mortgage_rate ? (prop.mortgage_rate*100).toFixed(2) : '' }
+    ? { ...blank, ...prop, ...compPrefill, company_id: prop.company_id || prop.company?.id || '', mortgage_rate: rateToPercent(prop.mortgage_rate), deposit: prop.deposit || '' }
     : (prop ? { ...blank, ...prop } : blank)
   const [form, setForm] = useState(initialForm)
   // Managing-agent directory for the "Managed By" picker. Fees live on the
@@ -98,7 +113,7 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   // On Rental Market: the date the change takes effect. Going ON the market
   // it is the first day rent is not expected; coming OFF it (e.g. to Rented)
   // it is the tenancy start, when rent is expected again.
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = isoToday()
   const [statusDate, setStatusDate] = useState(todayIso)
   const prevStatus = prop?.id ? prop.status : null
   const marketChange = form.status !== prevStatus && (form.status === 'on_rental_market' || prevStatus === 'on_rental_market')
@@ -107,8 +122,15 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
   // Drives inline required-field highlighting — set once the user has tried
   // to save with something missing.
   const [triedSave, setTriedSave] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  function handleSave() {
+  // Deposit suggestion (price − mortgage; a hidden cash-purchase mortgage
+  // counts as nil).
+  const depositHint = suggestedDeposit(form.purchase_price, (isCash && !revealMortgage) ? 0 : form.mortgage_amount)
+  const depositBlank = form.deposit === '' || form.deposit == null
+
+  async function handleSave() {
+    if (saving) return
     // Don't silently no-op — the user clicks Save and the button looks
     // broken. Surface what's missing inline AND via the global toast.
     if (!form.name || !form.address) {
@@ -161,7 +183,9 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
     // period after the property write succeeds. Not a column.
     const _statusChange = marketChange ? { from: prevStatus, to: form.status, date: statusDate || todayIso } : null
 
-    onSave({
+    setSaving(true)
+    try {
+    await onSave({
       ...clean,
       _statusChange,
       purchase_price:parseFloat(clean.purchase_price)||0,
@@ -170,11 +194,13 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       purchase_date: clean.purchase_date || null,
       est_value:parseFloat(clean.est_value)||0,
       mortgage_amount:parseFloat(clean.mortgage_amount)||0,
-      deposit:parseFloat(clean.deposit)||0,
+      // A new property saved with Deposit left blank takes the suggested
+      // price − mortgage, so "Total capital in" isn't short by the deposit.
+      deposit: (depositBlank && !prop?.id && depositHint != null) ? depositHint : (parseFloat(clean.deposit)||0),
       stamp_duty:parseFloat(clean.stamp_duty)||0,
       legal_fees:parseFloat(clean.legal_fees)||0,
       rent_pcm:parseFloat(clean.rent_pcm)||0,
-      mortgage_rate:parseFloat(clean.mortgage_rate)/100||0,
+      mortgage_rate:percentToRate(clean.mortgage_rate),
       mortgage_term:parseInt(clean.mortgage_term)||25,
       // New mortgage fields. monthly_payment / fees default to null
       // (not 0) when blank so the calculator's "is set?" check works.
@@ -193,13 +219,14 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
       _compliance: compliancePayload,
       ...cashOverride,
     })
+    } finally { setSaving(false) }
   }
   return <Modal onClose={onClose} size="md" isDirty={isDirty} confirmFn={confirmDiscard}
       title={prop?.id ? 'Edit property' : (prop?.purchase_price ? 'Convert deal to property' : 'Add new property')}
       description={prop?.id ? 'Fill in the details below.' : (prop?.purchase_price ? 'Pre-filled from your deal. Review, adjust, and save.' : 'Fill in the details below.')}
       footer={<>
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="property-modal-form">{prop?.id?'Save changes':'Add property'}</Button>
+        <Button type="submit" form="property-modal-form" loading={saving}>{prop?.id?'Save changes':'Add property'}</Button>
       </>}>
       <form id="property-modal-form" onSubmit={e=>{e.preventDefault(); handleSave()}}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
@@ -244,6 +271,16 @@ export default function PropertyModal({ prop, companies, onClose, onSave }) {
         <Section title="Purchase & costs" T={T} />
         <div className="g2"><div><label htmlFor="pm-purchase-price">Purchase price</label><MoneyInput id="pm-purchase-price" prefix="£" value={form.purchase_price} onChange={v=>s('purchase_price',v)}/></div><div><label htmlFor="pm-est-value">Estimated value</label><MoneyInput id="pm-est-value" prefix="£" value={form.est_value} onChange={v=>s('est_value',v)}/></div></div>
         <div className="g2"><div><label htmlFor="pm-purchase-date">Completion date</label><input id="pm-purchase-date" type="date" value={form.purchase_date || ''} onChange={e=>s('purchase_date', e.target.value)}/></div><div><label>Refurb</label><div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,padding:'9px 0'}}>{prop?.id ? 'Managed on the Refurb tab and the Refurbs page' : 'Add the refurb after saving, on the Refurb tab'}</div></div></div>
+        <div className="g2">
+          <div>
+            <label htmlFor="pm-deposit">Deposit</label>
+            <MoneyInput id="pm-deposit" prefix="£" value={form.deposit} onChange={v=>s('deposit',v)} placeholder={depositHint != null ? new Intl.NumberFormat('en-GB').format(depositHint) : ''} aria-describedby="pm-deposit-hint"/>
+            <span id="pm-deposit-hint" style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,display:'block',marginTop:4,lineHeight:1.5}}>
+              Cash you put in towards the price.{depositHint != null && depositBlank && <> {prop?.id ? '' : 'Left blank, it saves as purchase price less mortgage. '}<button type="button" onClick={()=>s('deposit',depositHint)} style={{background:'none',border:'none',padding:0,color:T.blue,cursor:'pointer',font:'inherit',textDecoration:'underline'}}>Use £{new Intl.NumberFormat('en-GB').format(depositHint)}</button></>}
+            </span>
+          </div>
+          <div/>
+        </div>
         <div className="g2"><div><label htmlFor="pm-stamp-duty">Stamp duty</label><MoneyInput id="pm-stamp-duty" prefix="£" value={form.stamp_duty} onChange={v=>s('stamp_duty',v)}/></div><div><label htmlFor="pm-legal-fees">Legal fees</label><MoneyInput id="pm-legal-fees" prefix="£" value={form.legal_fees} onChange={v=>s('legal_fees',v)}/></div></div>
 
         <Section title="Financing" T={T} />

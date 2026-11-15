@@ -11,6 +11,7 @@ import {
   epcNeedsUpgrade,
   epcBelowLegalMinimum,
   meesTargetLabel,
+  MEES_DEADLINE_ISO,
 } from '../complianceCatalogue'
 import {
   certTypeStatus,
@@ -256,12 +257,16 @@ describe('catalogue integrity', () => {
   })
 })
 
-describe('meesTargetLabel — plain-English 2030 band-C deadline', () => {
-  it('reads "C needed by 2030" before the deadline (no day countdown)', () => {
-    expect(meesTargetLabel(new Date('2026-10-20T09:00:00'))).toBe('C needed by 2030')
-    expect(meesTargetLabel(new Date('2030-12-31T12:00:00'))).toBe('C needed by 2030')
+describe('meesTargetLabel — plain-English planned 1 Oct 2030 band-C date', () => {
+  it('reads "C needed by 2030 (planned)" before the date (no day countdown, not stated as law)', () => {
+    expect(meesTargetLabel(new Date('2026-10-20T09:00:00'))).toBe('C needed by 2030 (planned)')
+    expect(meesTargetLabel(new Date('2030-09-30T23:00:00'))).toBe('C needed by 2030 (planned)')
   })
-  it('says the band is short of C once the deadline has passed', () => {
+  it('says the band is short of C from 1 October 2030', () => {
+    expect(meesTargetLabel(new Date('2030-10-01T09:00:00'))).toBe('below band C')
     expect(meesTargetLabel(new Date('2031-01-01T09:00:00'))).toBe('below band C')
+  })
+  it('uses the confirmed policy date', () => {
+    expect(MEES_DEADLINE_ISO).toBe('2030-10-01')
   })
 })

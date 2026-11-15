@@ -10,7 +10,10 @@ vi.mock('../../lib/api', () => ({ saveNotice: vi.fn(async () => ({})) }))
 
 const property = {
   id: 'p1', address: '1 High St', rent_pcm: 1000,
-  tenancies: [{ tenancy_start: '2024-01-01', status: 'active', tenant_name: 'A Tenant', rent_amount: 1000, rent_frequency: 'monthly', rent_due_day: 1 }],
+  // 'rented' is the live status of a running tenancy (the DB has no 'active').
+  // The tenancy rent differs from rent_pcm so the prefill proves it came from
+  // the tenancy row, not the property fallback.
+  tenancies: [{ tenancy_start: '2024-01-01', status: 'rented', tenant_name: 'A Tenant', rent_amount: 1050, rent_frequency: 'monthly', rent_due_day: 1 }],
 }
 
 function toForm(answerAll = true) {
@@ -28,6 +31,14 @@ describe('NoticeGenerator', () => {
     expect(screen.queryByText(/Section 21/)).toBeNull()
     expect(screen.getByText(/Form 3A content/)).toBeTruthy()
     expect(screen.getByText(/Ground 8 — Serious rent arrears/)).toBeTruthy()
+  })
+
+  it('prefills tenant, start date and rent from the running (rented) tenancy', () => {
+    render(<NoticeGenerator property={property} userId="u" onClose={() => {}} />)
+    toForm()
+    expect(screen.getByLabelText('Tenant name(s)').value).toBe('A Tenant')
+    expect(screen.getByLabelText('Tenancy start date').value).toBe('2024-01-01')
+    expect(String(screen.getByLabelText('Current rent').value)).toBe('1050')
   })
 
   it('works out the earliest date from the grounds chosen', () => {

@@ -9,7 +9,7 @@ import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
-import { evaluateProperty, collectionStats, arrearsSummary } from '../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, isoToday } from '../lib/rentEngine'
 import { planProgress, activePlan, PLAN_STATUS_LABEL, PLAN_FREQUENCIES } from '../lib/paymentPlans'
 import { currentTenancy } from '../lib/tenancyUtils'
 import { SkeletonList } from '../lib/Skeleton'
@@ -43,7 +43,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
 
   function startPlan(existing) {
     setForm(existing ? { ...existing } : {
-      opening_balance: ar.balance > 0 ? ar.balance : '', start_date: new Date().toISOString().slice(0, 10),
+      opening_balance: ar.balance > 0 ? ar.balance : '', start_date: isoToday(),
       instalment_amount: '', frequency: 'monthly', due_day: tenancy?.rent_due_day || '', notes: '', document_url: '',
     })
   }
@@ -66,7 +66,7 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
     try { await api.updatePaymentPlan(p.id, { status_override }); await load() } catch (e) { showToast?.(e.message, 'error') }
   }
   async function removePlan(p) {
-    const go = await confirmDialog({ title: 'Delete this payment plan?', body: 'Receipts allocated to arrears are kept. Prefer marking the plan Completed or Paused.', confirmLabel: 'Delete', danger: true })
+    const go = await confirmDialog({ title: 'Delete this payment plan?', body: 'Receipts allocated to arrears are kept. Prefer marking the plan Completed or Paused.', confirmLabel: 'Delete', destructive: true })
     if (!go) return
     try { await api.deletePaymentPlan(p.id); await load() } catch (e) { showToast?.(e.message, 'error') }
   }

@@ -18,6 +18,25 @@ import { canWriteCompany, canAdminCompany } from '../lib/permissions'
 // Per-connection settings: toggles for what to sync, account-code
 // pickers, per-property bank account overrides, etc.
 
+// Plain-English notes for a Hostaway / Lodgify sync result (the response of
+// the sync action, see runHostawaySync / runLodgifySync). `warn` is true
+// when the run was incomplete or something was left out of rent, so the
+// result is shown as a warning rather than a success.
+function channelSyncNotes(r) {
+  if (!r) return { notes: [], warn: false }
+  const n = (v) => Number(v) || 0
+  const list = (v) => (Array.isArray(v) ? v : [])
+  const notes = []
+  if (r.partial) notes.push('sync incomplete — more bookings than one run can read; the next sync carries on from the same point')
+  if (n(r.skippedNonGbp)) notes.push(`${n(r.skippedNonGbp)} non-GBP booking${n(r.skippedNonGbp) === 1 ? ' was' : 's were'} not written as rent`)
+  if (list(r.conflicts).length) notes.push(`${list(r.conflicts).length} same-night booking clash${list(r.conflicts).length === 1 ? '' : 'es'}: only the earlier booking counts as income`)
+  if (list(r.rejectedMappings).length) notes.push(`${list(r.rejectedMappings).length} mapping${list(r.rejectedMappings).length === 1 ? '' : 's'} skipped: the property is not in this company or you can no longer edit it`)
+  if (list(r.errors).length) notes.push(`${list(r.errors).length} booking${list(r.errors).length === 1 ? '' : 's'} could not be written and will be retried`)
+  if (n(r.repaired)) notes.push(`${n(r.repaired)} booking${n(r.repaired) === 1 ? '' : 's'} missing from the Rent Tracker ${n(r.repaired) === 1 ? 'was' : 'were'} repaired`)
+  const warn = !!r.partial || n(r.skippedNonGbp) > 0 || list(r.conflicts).length > 0 || list(r.rejectedMappings).length > 0 || list(r.errors).length > 0
+  return { notes, warn }
+}
+
 export default function IntegrationsPanel({ T, mono, companies = [], properties = [], permissionsMap = null, devModeActive = false }) {
   const [connections, setConnections] = useState([])
   const [lodgifyConnections, setLodgifyConnections] = useState([])
@@ -28,8 +47,10 @@ export default function IntegrationsPanel({ T, mono, companies = [], properties 
 
   useEffect(() => { load() }, [])
 
+  // Skeleton on the first load only. Later reloads (after a sync, undo,
+  // connect…) refresh in place: swapping the tree for a skeleton unmounted
+  // the cards, discarding unsaved settings, open editors and results.
   async function load() {
-    setLoading(true)
     try {
       const [conns, lodgifyConns, lodgifyMaps, hostawayConns, hostawayMaps] = await Promise.all([
         api.fetchXeroConnections(),
@@ -199,7 +220,8 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
         r.updated ? `${r.updated} updated` : null,
         r.removed ? `${r.removed} cancelled` : null,
       ].filter(Boolean).join(', ') || 'nothing new'
-      showAppToast(`Hostaway (${company.abbr || company.name}): ${parts} (${r.bookings} reservations checked)`)
+      const { warn } = channelSyncNotes(r)
+      showAppToast(`Hostaway (${company.abbr || company.name}): ${parts} (${r.bookings} reservations checked)${warn ? ' — some bookings need attention, see the notes' : ''}`)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -316,12 +338,16 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
-          {lastSync && (
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
-              {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
-              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
-            </div>
-          )}
+          {lastSync && (() => {
+            const { notes, warn } = channelSyncNotes(lastSync)
+            return (
+              <div role={warn ? 'status' : undefined} style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.amber : T.muted, marginBottom: 8 }}>
+                {warn ? 'Sync finished with warnings: ' : ''}{lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+                {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+                {notes.length > 0 && <div style={{ marginTop: 4 }}>{notes.join('. ')}.</div>}
+              </div>
+            )
+          })()}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
             <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
@@ -450,7 +476,8 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
         r.updated ? `${r.updated} updated` : null,
         r.removed ? `${r.removed} cancelled` : null,
       ].filter(Boolean).join(', ') || 'nothing new'
-      showAppToast(`Lodgify (${company.abbr || company.name}): ${parts} (${r.bookings} bookings checked)`)
+      const { warn } = channelSyncNotes(r)
+      showAppToast(`Lodgify (${company.abbr || company.name}): ${parts} (${r.bookings} bookings checked)${warn ? ' — some bookings need attention, see the notes' : ''}`)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -558,12 +585,16 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
-          {lastSync && (
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
-              {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
-              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
-            </div>
-          )}
+          {lastSync && (() => {
+            const { notes, warn } = channelSyncNotes(lastSync)
+            return (
+              <div role={warn ? 'status' : undefined} style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.amber : T.muted, marginBottom: 8 }}>
+                {warn ? 'Sync finished with warnings: ' : ''}{lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+                {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+                {notes.length > 0 && <div style={{ marginTop: 4 }}>{notes.join('. ')}.</div>}
+              </div>
+            )
+          })()}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
             <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
@@ -618,6 +649,78 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
   )
 }
 
+// ── XERO PUSH: PREVIEW + CONFIRM ───────────────────────────────────────
+// Every manual push (whole company or one property) goes through here: the
+// server previews exactly what it would post, the user confirms, and only
+// then is 'both' (push + pull) run. Each block a confirmed run can post is
+// listed, so the dialog never under-states what lands in the ledger.
+const gbp = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const XERO_PREVIEW_BLOCKS = [
+  ['rent', 'rent receipt(s)'],
+  ['expenses', 'expense(s)'],
+  ['mortgage_interest', 'mortgage interest accrual(s)'],
+  ['deposits', 'tenancy deposit(s)'],
+  ['refurb', 'refurb cost(s)'],
+]
+
+// Resolves to { mode, pushBlocked, previewToken }: mode 'both' after a yes,
+// 'reconcile_only' when there is nothing to post or posting isn't set up;
+// null when the user cancels. previewToken binds the push to the list the
+// user reviewed: the server refuses a push whose list has changed since.
+async function previewAndConfirmXeroPush({ confirmDialog, companyId, propertyIds = null, scopeLabel = null }) {
+  const pv = await api.previewXeroSync(companyId, propertyIds)
+  const blocked = pv.blocked || []
+  if (!pv.configured) {
+    showAppToast(`Nothing will be posted to Xero until you choose ${(pv.missing || []).join(', ')} in Settings. Pulling reconciliation only.`, 'error')
+    return { mode: 'reconcile_only', pushBlocked: true }
+  }
+  const pending = XERO_PREVIEW_BLOCKS.filter(([key]) => (pv[key]?.count || 0) > 0)
+  const toPost = pending.reduce((sum, [key]) => sum + pv[key].count, 0)
+  if (toPost === 0) {
+    if (blocked.length) showAppToast(`${blocked.join(' ')} Pulling reconciliation only.`, 'error')
+    return { mode: 'reconcile_only', pushBlocked: blocked.length > 0 }
+  }
+  const lines = pending.map(([key, label]) =>
+    `${pv[key].count} ${label}, ${gbp(pv[key].total)}, earliest ${pv[key].earliest}`).join('\n')
+  const notPosted = blocked.length ? `\n\n${blocked.join('\n')}` : ''
+  const ok = await confirmDialog({
+    title: `Post ${toPost} transaction(s)${scopeLabel ? ` for ${scopeLabel}` : ''} into ${pv.org || 'Xero'}?`,
+    body: `${lines}\n\nInto bank account: ${pv.bank || '(unknown)'}, dated from ${pv.from}. These are created as approved bank transactions in Xero. Only post records that are not already in Xero from a bank feed or statement, or they will be counted twice.${notPosted}`,
+    confirmLabel: `Post ${toPost} to Xero`, destructive: true,
+  })
+  if (!ok) return null
+  return { mode: 'both', pushBlocked: false, previewToken: pv.preview_token || null }
+}
+
+// Preview → confirm → run. If the server says the list changed between the
+// review and the push (nothing was posted), say so and re-open the preview
+// so the user reviews the new list; a second change in a row stops.
+async function confirmAndRunXeroPush({ confirmDialog, companyId, propertyIds = null, scopeLabel = null, run }) {
+  for (let attempt = 0; ; attempt++) {
+    const plan = await previewAndConfirmXeroPush({ confirmDialog, companyId, propertyIds, scopeLabel })
+    if (!plan) return null
+    try {
+      return { plan, result: await run(plan) }
+    } catch (e) {
+      if (e?.code !== 'preview_changed' || attempt >= 1) throw e
+      showAppToast(`${e.message} Showing the updated list.`, 'error')
+    }
+  }
+}
+
+// Success styling only when everything asked for happened: a blocked or
+// partly skipped push, or any failure, is shown as an error.
+function showXeroSyncResult(label, r, pushBlocked) {
+  const parts = [
+    r.created ? `${r.created} new` : null,
+    r.updated ? `${r.updated} reconciliation updates` : null,
+    r.failed ? `${r.failed} failed` : null,
+  ].filter(Boolean).join(', ') || 'nothing to sync'
+  const problem = !!(pushBlocked || r.push_blocked || r.failed > 0 || r.skipped_blocks?.length)
+  const detail = problem && r.errors?.[0] ? `. ${r.errors[0]}` : ''
+  showAppToast(`${label}: ${parts}${detail}${r.stopped_early ? '. Stopped early to stay inside the time limit: run Sync now again for the rest.' : ''}`, problem ? 'error' : undefined)
+}
+
 // ── PER-COMPANY XERO CARD ──────────────────────────────────────────────
 // The server is the gate (xero-oauth-callback: owner/admin to connect;
 // xero-sync: has_company_write to push/pull). The card mirrors it so a
@@ -652,32 +755,10 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
     try {
       // Show exactly what would be posted, and post only on a yes. With
       // nothing to post (or posting not set up) run the read-only pull.
-      const pv = await api.previewXeroSync(company.id)
-      const toPost = (pv.rent?.count || 0) + (pv.expenses?.count || 0)
-      let mode = 'reconcile_only'
-      if (!pv.configured) {
-        showAppToast(`Nothing will be posted to Xero until you choose ${pv.missing.join(', ')} in Settings. Pulling reconciliation only.`, 'error')
-      } else if (toPost > 0) {
-        const gbp = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        const lines = [
-          pv.rent?.count ? `${pv.rent.count} rent receipt(s), ${gbp(pv.rent.total)}, earliest ${pv.rent.earliest}` : null,
-          pv.expenses?.count ? `${pv.expenses.count} expense(s), ${gbp(pv.expenses.total)}, earliest ${pv.expenses.earliest}` : null,
-        ].filter(Boolean).join('\n')
-        const ok = await confirmDialog({
-          title: `Post ${toPost} transaction(s) into ${pv.org || 'Xero'}?`,
-          body: `${lines}\n\nInto bank account: ${pv.bank || '(unknown)'}, dated from ${pv.from}. These are created as approved bank transactions in Xero. Only post records that are not already in Xero from a bank feed or statement, or they will be counted twice.`,
-          confirmLabel: `Post ${toPost} to Xero`, destructive: true,
-        })
-        if (!ok) { setBusy(null); return }
-        mode = 'both'
-      }
-      const r = await api.runXeroSync(company.id, mode)
-      const parts = [
-        r.created ? `${r.created} new` : null,
-        r.updated ? `${r.updated} reconciliation updates` : null,
-        r.failed ? `${r.failed} failed` : null,
-      ].filter(Boolean).join(', ') || 'nothing to sync'
-      showAppToast(`${company.abbr}: ${parts}${r.stopped_early ? '. Stopped early to stay inside the time limit: run Sync now again for the rest.' : ''}`)
+      const out = await confirmAndRunXeroPush({ confirmDialog, companyId: company.id,
+        run: plan => api.runXeroSync(company.id, plan.mode, { previewToken: plan.previewToken }) })
+      if (!out) { setBusy(null); return }
+      showXeroSyncResult(company.abbr, out.result, out.plan.pushBlocked)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -774,6 +855,34 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
   )
 }
 
+// Module scope, not inside XeroSettingsPanel: a component defined during
+// render is a new type every render, so React remounted the subtree on each
+// keystroke (inputs lost focus, <details> collapsed).
+function Toggle({ T, settings, onPatch, keyName, label, desc }) {
+  return (
+    <div style={{ display:'flex', alignItems:'flex-start', gap: 12, padding: '10px 0', borderBottom: `1px dashed ${T.border}` }}>
+      <input type="checkbox" checked={!!settings?.[keyName]}
+        onChange={e => onPatch(keyName, e.target.checked)}
+        style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer', accentColor: T.gold }}/>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{label}</div>
+        {desc && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
+      </div>
+    </div>
+  )
+}
+
+function Section({ T, mono, title, children }) {
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 // ── PER-CONNECTION SETTINGS PANEL ──────────────────────────────────────
 function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const confirmDialog = useConfirm()
@@ -781,6 +890,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [syncingProp, setSyncingProp] = useState(null)
 
   const beginLoad = useLoadGuard()
 
@@ -839,52 +949,48 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   const incomeAccounts = accounts.filter(a => ['REVENUE','SALES','OTHERINCOME'].includes(a.Type))
   const expenseAccounts = accounts.filter(a => ['EXPENSE','OVERHEADS','DIRECTCOSTS'].includes(a.Type))
 
-  const Toggle = ({ keyName, label, desc }) => (
-    <div style={{ display:'flex', alignItems:'flex-start', gap: 12, padding: '10px 0', borderBottom: `1px dashed ${T.border}` }}>
-      <input type="checkbox" checked={!!settings?.[keyName]}
-        onChange={e => patch(keyName, e.target.checked)}
-        style={{ marginTop: 3, width: 18, height: 18, cursor: 'pointer', accentColor: T.gold }}/>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{label}</div>
-        {desc && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 2, lineHeight: 1.5 }}>{desc}</div>}
-      </div>
-    </div>
-  )
+  const tp = { T, settings, onPatch: patch }   // shared Toggle props
+  const sp = { T, mono }                       // shared Section props
 
-  const Section = ({ title, children }) => (
-    <div style={{ marginTop: 18 }}>
-      <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom: 8 }}>
-        {title}
-      </div>
-      {children}
-    </div>
-  )
+  // Per-property sync: same preview + confirm as Sync now, scoped to the
+  // one property. Nothing to post → pull only.
+  async function syncOneProperty(p) {
+    setSyncingProp(p.id)
+    try {
+      const out = await confirmAndRunXeroPush({ confirmDialog, companyId: company.id, propertyIds: [p.id], scopeLabel: p.name || p.address,
+        run: plan => api.runXeroSyncForProperties(company.id, [p.id], plan.mode, { previewToken: plan.previewToken }) })
+      if (!out) return
+      showXeroSyncResult(p.name || p.address || 'Property', out.result, out.plan.pushBlocked)
+      onSaved?.()
+    } catch (e) { showAppToast(e.message, 'error') }
+    finally { setSyncingProp(null) }
+  }
 
   const selectStyle = { fontFamily: mono, fontSize: 12, padding: '7px 10px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, width: '100%', maxWidth: 340 }
 
   return (
     <div style={{ marginTop: 18, padding: '18px 0 4px', borderTop: `1px dashed ${T.border}` }}>
 
-      <Section title="What to sync (push: Properly → Xero)">
-        <Toggle keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Posts each paid rent row dated on or after the 'post from' date as an approved bank transaction (income). Leave off if rent already reaches Xero from a bank feed or agent statements: it would be counted twice." />
-        <Toggle keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Posts each expense dated on or after the 'post from' date as an approved bank transaction. Same double-counting warning as rent." />
-        <Toggle keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
-        <Toggle keyName="sync_deposits_separate"    label="Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
-        <Toggle keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts refurb spend as SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses. Note: this currently reads the legacy per-trade refurb lines; payments logged on the new Refurbs page will be pushed once the sync moves over." />
-        <Toggle keyName="sync_tracking_categories"  label="Use Xero Tracking Categories per property" desc='Creates (or reuses) a "Property" tracking category in Xero and tags every transaction with it. Lets you run P&L by property in Xero.' />
-        <Toggle keyName="sync_real_tenant_contacts" label="Use real tenant/supplier names" desc="Off: contacts appear as 'Property X — Tenant' / '— Supplier' (privacy-safe). On: uses tenant_names from tenancy_details. Update your tenant privacy notice if enabling." />
-        <Toggle keyName="sync_real_tenant_emails"   label="Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
+      <Section {...sp} title="What to sync (push: Properly → Xero)">
+        <Toggle {...tp} keyName="sync_rent"                 label="Rent payments → Xero (RECEIVE)" desc="Posts each paid rent row dated on or after the 'post from' date as an approved bank transaction (income). Leave off if rent already reaches Xero from a bank feed or agent statements: it would be counted twice." />
+        <Toggle {...tp} keyName="sync_expenses"             label="Property expenses → Xero (SPEND)" desc="Posts each expense dated on or after the 'post from' date as an approved bank transaction. Same double-counting warning as rent." />
+        <Toggle {...tp} keyName="sync_mortgage_interest"    label="Mortgage interest accruals → Xero (SPEND)" desc="Monthly: mortgage_amount × rate ÷ 12, posted as a SPEND. Useful for Section 24 prep." />
+        <Toggle {...tp} keyName="sync_deposits_separate"    label="Tenancy deposits → separate Xero account" desc="Posts deposit_amount from tenancy_details as a RECEIVE against a liability account (or whatever you pick below). Otherwise deposits don't sync at all." />
+        <Toggle {...tp} keyName="sync_refurb_separate"      label="Refurb costs → separate Xero account" desc="Posts refurb spend as SPEND against a capex/refurb account. Off by default — many landlords prefer to lump refurbs into general expenses. Note: this currently reads the legacy per-trade refurb lines; payments logged on the new Refurbs page will be pushed once the sync moves over." />
+        <Toggle {...tp} keyName="sync_tracking_categories"  label="Use Xero Tracking Categories per property" desc='Creates (or reuses) a "Property" tracking category in Xero and tags every transaction with it. Lets you run P&L by property in Xero.' />
+        <Toggle {...tp} keyName="sync_real_tenant_contacts" label="Use real tenant/supplier names" desc="Off: contacts appear as 'Property X — Tenant' / '— Supplier' (privacy-safe). On: uses tenant_names from tenancy_details. Update your tenant privacy notice if enabling." />
+        <Toggle {...tp} keyName="sync_real_tenant_emails"   label="Also push tenant email + phone to Xero contact" desc="Only meaningful if 'real names' is on. Adds email + mobile to each Xero contact. Carries higher GDPR risk — get tenant consent first." />
       </Section>
 
-      <Section title="What to pull back (Xero → Properly)">
-        <Toggle keyName="pull_expenses" label="← Pull expenses from Xero (SPEND)" desc="Mirrors every Xero bank spend that carries this company's Property tracking option into Properly's expenses, once, so the P&L stops being income-only. Needs tracking categories on. Off by default." />
-        <Toggle keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
-        <Toggle keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
+      <Section {...sp} title="What to pull back (Xero → Properly)">
+        <Toggle {...tp} keyName="pull_expenses" label="← Pull expenses from Xero (SPEND)" desc="Mirrors every Xero bank spend that carries this company's Property tracking option into Properly's expenses, once, so the P&L stops being income-only. Needs tracking categories on. Off by default." />
+        <Toggle {...tp} keyName="pull_reconciliation"  label="Pull reconciliation status back" desc="When your accountant marks a transaction reconciled in Xero, we mirror the flag onto rent_payments / property_expenses so the UI shows it." />
+        <Toggle {...tp} keyName="sync_reverse_changes" label="↔ Pull amount/date edits from Xero" desc="If your accountant edits a synced transaction's amount or date in Xero, mirror the change back to Properly. Off by default — leave off if you treat Properly as the source of truth." />
       </Section>
 
-      <Section title="Automation">
-        <Toggle keyName="enable_daily_cron" label="Daily reconciliation cron (6am UTC)" desc="Server-side daily pull of reconciliation status — no need to click Sync now. Off by default; safe to enable any time." />
-        <Toggle keyName="enable_webhook"    label="Xero webhook (push notifications)" desc="Xero pings us instantly when something changes. Requires you to also enable it in Xero's developer portal + paste the signing key below." />
+      <Section {...sp} title="Automation">
+        <Toggle {...tp} keyName="enable_daily_cron" label="Daily reconciliation cron (6am UTC)" desc="Server-side daily pull of reconciliation status — no need to click Sync now. Off by default; safe to enable any time." />
+        <Toggle {...tp} keyName="enable_webhook"    label="Xero webhook (push notifications)" desc="Xero pings us instantly when something changes. Requires you to also enable it in Xero's developer portal + paste the signing key below." />
         {settings?.enable_webhook && (
           <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '12px 14px', marginTop: 10, fontFamily: mono, fontSize: 11, color: T.muted, lineHeight: 1.55 }}>
             <div style={{ color: T.text, fontWeight: 600, marginBottom: 6 }}>Setup in Xero:</div>
@@ -900,7 +1006,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         )}
       </Section>
 
-      <Section title="Account code mapping (Chart of Accounts)">
+      <Section {...sp} title="Account code mapping (Chart of Accounts)">
         <div style={{ display:'grid', gap: 10 }}>
           <div>
             <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Rent income account</label>
@@ -952,7 +1058,7 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         </div>
       </Section>
 
-      <Section title="Bank account">
+      <Section {...sp} title="Bank account">
         <div style={{ display:'grid', gap: 10 }}>
           <div>
             <label style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, display:'block', marginBottom: 5 }}>Post to Xero from (required): nothing dated earlier is ever posted</label>
@@ -992,27 +1098,21 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
         </div>
       </Section>
 
-      <Section title="Per-property sync (override the whole-portfolio button)">
+      <Section {...sp} title="Per-property sync (override the whole-portfolio button)">
         {properties.length === 0 && <EmptyState compact icon="building" title="No properties in this company yet"/>}
         <div style={{ display:'grid', gap: 6 }}>
           {properties.map(p => (
             <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background: T.bg, borderRadius: 8 }}>
               <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text }}>{p.name || p.address}</span>
-              <Button variant="secondary" size="sm" onClick={async () => {
-                try {
-                  const r = await api.runXeroSyncForProperties(company.id, [p.id])
-                  showAppToast(`Synced ${p.name || 'property'}: ${r.created || 0} new, ${r.failed || 0} failed`)
-                  onSaved?.()
-                } catch (e) { showAppToast(e.message, 'error') }
-              }}>
-                Sync this one
+              <Button variant="secondary" size="sm" onClick={() => syncOneProperty(p)} disabled={!!syncingProp}>
+                {syncingProp === p.id ? 'Syncing…' : 'Sync this one'}
               </Button>
             </div>
           ))}
         </div>
       </Section>
 
-      <Section title="Danger zone">
+      <Section {...sp} title="Danger zone">
         <div style={{ background: T.red+'11', border: `1px solid ${T.red}44`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.text, marginBottom: 8, lineHeight: 1.5 }}>
             <strong>Undo the last push</strong> deletes from Xero the bank transactions Properly posted in its most recent push. Xero keeps any that are already reconciled; those are listed and left alone.
@@ -1020,10 +1120,15 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
           <Button variant="secondary" size="sm" onClick={async () => {
             try {
               const d = await api.undoXeroPush(company.id, { dryRun: true })
-              if (!d.count) { showAppToast('Nothing from the last push is still in Xero'); return }
+              // Only transactions Properly pushed are targeted; ones pulled
+              // from Xero, or not provably pushed, are left alone (excluded).
+              const keptNote = d.excluded
+                ? `\n\n${d.excluded} other transaction(s) in the same window are left alone: they were pulled from Xero, or Properly can't prove it posted them.`
+                : ''
+              if (!d.count) { showAppToast(`Nothing from the last push is still in Xero${d.excluded ? ` (${d.excluded} pulled or unproven transaction(s) left alone)` : ''}`); return }
               if (!await confirmDialog({
                 title: `Delete ${d.count} transaction(s) from ${d.org || 'Xero'}?`,
-                body: `Everything Properly posted since ${new Date(d.since).toLocaleString('en-GB')}: ${d.rent} rent and ${d.expenses} expense transaction(s), net £${Number(d.net_total).toLocaleString('en-GB', { minimumFractionDigits: 2 })}.\n\nThey are set to Deleted in Xero. Properly's own records are not changed.`,
+                body: `Everything Properly posted since ${new Date(d.since).toLocaleString('en-GB')}: ${d.rent} rent and ${d.expenses} expense transaction(s)${d.other ? `, plus ${d.other} mortgage interest, deposit or refurb transaction(s)` : ''}; rent less expenses net £${Number(d.net_total).toLocaleString('en-GB', { minimumFractionDigits: 2 })}.${keptNote}\n\nThey are set to Deleted in Xero. Properly's own records are not changed.`,
                 confirmLabel: `Delete ${d.count} from Xero`, destructive: true,
               })) return
               const r = await api.undoXeroPush(company.id)

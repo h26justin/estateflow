@@ -499,7 +499,15 @@ export default function PropertyMap({ properties = [], onOpenProperty, setProper
                   <button onClick={async () => {
                     try {
                       const updated = await api.resetPropertyPin(popupProp.id, popupProp.address)
-                      if (updated && setProperties) {
+                      if (!updated) {
+                        // Re-geocode found nothing: the manual flag is cleared
+                        // but the pin keeps its old position. Say so.
+                        if (setProperties) setProperties(prev => prev.map(x => x.id === popupProp.id ? { ...x, geocode_pinned: false, geocode_status: 'failed' } : x))
+                        setPopupProp(null)
+                        if (showToast) showToast('Could not locate this address automatically — the pin stays where it was. Drag it to place it.', 'error')
+                        return
+                      }
+                      if (setProperties) {
                         setProperties(prev => prev.map(x => x.id === popupProp.id ? { ...x, ...updated } : x))
                       }
                       setPopupProp(null)

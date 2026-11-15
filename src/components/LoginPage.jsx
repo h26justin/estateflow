@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import * as api from '../lib/api'
-import { looksLikeCompanyInviteCode } from '../lib/inviteUtils'
 import { logError } from '../lib/logError'
 import { revokeAllApiTokens } from '../lib/api/apiAccess'
 import { MONO, SANS, FS, STATUS } from '../lib/styles'
@@ -10,6 +8,7 @@ import { normalizeHex, readableOr, textOn } from '../lib/contrast'
 import { Icon } from '../lib/icons'
 import { setStoredDevice, clearStoredDevice, deviceLabel } from '../lib/trustedDevice'
 import FocusTrap from '../lib/FocusTrap'
+import Logo, { ChromeLogo } from './Logo'
 
 // OwnProperly redesign (design/redesign-2026) — split slate brand panel + paper
 // form. The form side follows the app theme: every colour below is a CSS
@@ -20,7 +19,6 @@ import FocusTrap from '../lib/FocusTrap'
 // (#5C6670, 5.3:1 on paper) rather than the mock's lighter #8A8E92 (2.97:1) —
 // this page is in the HMRC AA audit — and nothing is set below FS.xs (11px).
 const SLATE   = '#14202A'   // brand panel (both themes) — the "P." tile slate
-const SLATE_2 = '#22323D'   // monogram tile on the slate panel
 const ON_SLATE       = LIGHT.bg     // paper on slate
 const ON_SLATE_MUTED = '#A9B4BC'    // 7.6:1 on slate
 const ON_SLATE_SOFT  = '#E7E4DC'
@@ -39,7 +37,8 @@ const CSS = `
     --lp-bad-bg:${STATUS.dark.bad.bg};--lp-bad:${STATUS.dark.bad.text};
   }
   .lp-scope *{box-sizing:border-box;}
-  .lp-input{font-family:var(--font-sans);background:var(--surface);border:1.5px solid var(--lp-input-border);color:var(--text);border-radius:10px;padding:12px 14px;width:100%;font-size:${FS.md - 1}px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+  /* 16px: anything smaller makes iOS Safari zoom the page on focus. */
+  .lp-input{font-family:var(--font-sans);background:var(--surface);border:1.5px solid var(--lp-input-border);color:var(--text);border-radius:10px;padding:12px 14px;width:100%;font-size:16px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
   .lp-input:focus{border-color:var(--text);box-shadow:0 0 0 3px var(--gold-border);}
   .lp-input::placeholder{color:var(--faint);opacity:1;}
   .lp-label{font-family:var(--font-mono);font-size:var(--fs-xs);font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px;}
@@ -75,19 +74,11 @@ const CSS = `
   }
 `
 
-// The OwnProperly wordmark, drawn in type so it follows the theme (the
-// /logo.svg file is ink-on-light only and vanished on the dark form side).
+// The shared Properly mark (src/components/Logo.jsx), so sign-in matches the
+// marketing site and the app chrome. ChromeLogo picks the dark-theme
+// treatment, so the mark still reads on the dark form side.
 function Wordmark({ size = 22 }) {
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:10 }} role="img" aria-label="OwnProperly">
-      <div aria-hidden="true" style={{ width:size + 12, height:size + 12, borderRadius:9, background:SLATE, display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <span style={{ fontWeight:700, fontSize:size - 2, letterSpacing:'-0.04em', color:ON_SLATE }}>P<span style={{ color:GOLD_D }}>.</span></span>
-      </div>
-      <div aria-hidden="true" style={{ fontSize:size, letterSpacing:'-0.03em', color:'var(--text)' }}>
-        <span style={{ fontWeight:500 }}>Own</span><span style={{ fontWeight:700 }}>Properly</span><span style={{ color:'var(--gold)', fontWeight:700 }}>.</span>
-      </div>
-    </div>
-  )
+  return <ChromeLogo height={size + 6}/>
 }
 
 // Decorative gold circle-check used in the brand panel feature list.
@@ -99,12 +90,8 @@ function BrandPanel({ branding }) {
   ]
   return (
     <div className="lp-brandpanel">
-      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:38, height:38, borderRadius:10, background:SLATE_2, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ fontWeight:700, fontSize:21, letterSpacing:'-0.04em', color:ON_SLATE }}>P<span style={{ color:GOLD_D }}>.</span></span>
-        </div>
-        <div style={{ fontSize:21, letterSpacing:'-0.02em' }}><span style={{ fontWeight:500 }}>Own</span><span style={{ fontWeight:700 }}>Properly</span></div>
-      </div>
+      {/* The slate panel is dark in both themes: the spec's dark-chrome mark. */}
+      <Logo variant="sidebar" height={30}/>
 
       <div style={{ maxWidth:440 }}>
         <div style={{ fontFamily:MONO, fontSize:FS.sm, letterSpacing:'0.18em', textTransform:'uppercase', color:GOLD_D, marginBottom:22 }}>
@@ -193,22 +180,11 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
-      else if (inviteToken) {
-        // Handle both kinds of invite token:
-        //  - UUID-style per-email invitation token → acceptInvitation
-        //  - Code-style company invite (e.g. HMD-7K3X) → redeemCompanyInvite
-        // We sniff by shape: UUIDs always contain hyphens in fixed positions
-        // and are lowercase hex; our codes are uppercase letters/numbers
-        // with a dash but otherwise look very different.
-        try {
-          if (looksLikeCompanyInviteCode(inviteToken)) {
-            await api.redeemCompanyInvite(inviteToken)
-          } else {
-            await api.acceptInvitation(inviteToken)
-          }
-        } catch(e) { logError('signin:redeemInvite', e) /* non-fatal: surfaced on dashboard if needed */ }
-        window.history.replaceState({}, '', window.location.pathname)
-      }
+      // An ?invite= token is redeemed by App's loadData once the session
+      // lands (it reads the URL param, toasts the result and clears it).
+      // Redeeming here as well ran it twice: redeem_company_invite bumps
+      // used_count on every call, so a max_uses=1 code burned both uses and
+      // the second call surfaced an error toast.
     } else {
       // Validate required fields
       if (!firstName.trim() || !lastName.trim()) {
@@ -243,18 +219,8 @@ export default function LoginPage({ initialMode = 'login', onClose, branding = n
         if (inviteToken) {
           try { localStorage.setItem('pending_invite_token', inviteToken) } catch(e) {}
         }
-        // If signup also created a session (i.e. confirmation disabled), try
-        // to redeem right away.
-        if (signUpData?.session && inviteToken) {
-          try {
-            if (looksLikeCompanyInviteCode(inviteToken)) {
-              await api.redeemCompanyInvite(inviteToken)
-            } else {
-              await api.acceptInvitation(inviteToken)
-            }
-            try { localStorage.removeItem('pending_invite_token') } catch(e) {}
-          } catch(e) { logError('signup:immediateRedeem', e) /* non-fatal — pending_invite_token still set for retry on next signin */ }
-        }
+        // If signup also created a session (confirmation disabled), App's
+        // loadData redeems the stashed token as it boots — once, in one place.
         setSuccess('Account created! Check your email to confirm, then sign in.')
       }
     }

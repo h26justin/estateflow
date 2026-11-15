@@ -9,7 +9,8 @@ import * as api from '../lib/api'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import {
   currentTaxYear, parseTaxYear, quartersForTaxYear,
-  buildQuarterlySummary, quarterStatusLabel,
+  buildQuarterAndYearToDate, quarterStatusLabel, sameSubmissionFigures,
+  FINANCE_COST_NOTE,
 } from '../lib/mtdItsa'
 import { Button, Modal } from './ui'
 
@@ -36,6 +37,7 @@ import { Button, Modal } from './ui'
 
 export default function MtdItsaPage({ properties = [], accountType = null }) {
   const { T } = useTheme()
+  const confirmDialog = useConfirm()
   const [settings, setSettings] = useState(null)
   const [taxYear, setTaxYear] = useState(currentTaxYear())
   const [submissions, setSubmissions] = useState([])
@@ -92,16 +94,22 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Quarterly updates are cumulative: load 6 April → quarter end and build
+  // both the year-to-date summary (what a submission sends) and this
+  // quarter's own figures (summary.quarter). Estimated mortgage interest
+  // lands in residentialFinancialCost — without it, landlords lose their
+  // 20% S24 basic-rate tax credit.
+  async function buildSummary(q) {
+    const raw = await api.fetchMtdRawForPeriod({ periodFrom: quarters[0].from, periodTo: q.to })
+    const summary = buildQuarterAndYearToDate({ taxYear, quarter: q.quarter, ...raw })
+    return { summary, payments: raw.payments, expenses: raw.expenses, receipts: raw.receipts || [] }
+  }
+
   async function previewQ(q) {
     setBusy(`preview-${q.quarter}`)
     setPreviewQuarter(q)
     try {
-      const { payments, expenses, mortgageInterest } = await api.fetchMtdRawForPeriod({ periodFrom: q.from, periodTo: q.to })
-      // Pass mortgageInterest so it lands in residentialFinancialCost on the
-      // HMRC summary — without it, landlords lose their 20% S24 basic-rate
-      // tax credit on every quarterly filing.
-      const summary = buildQuarterlySummary({ payments, expenses, mortgageInterest, periodFrom: q.from, periodTo: q.to })
-      setPreviewData({ summary, payments, expenses, mortgageInterest })
+      setPreviewData(await buildSummary(q))
     } catch (e) {
       showAppToast('Preview failed: ' + e.message, 'error')
       setPreviewQuarter(null)
@@ -109,19 +117,23 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     setBusy(null)
   }
 
+  function persistDraft(q, summary) {
+    return api.upsertMtdSubmission({
+      tax_year: taxYear,
+      quarter_number: q.quarter,
+      period_from: q.from,
+      period_to: q.to,
+      deadline: q.deadline,
+      summary_json: summary,
+      status: 'draft',
+    })
+  }
+
   async function saveDraft(q) {
     if (!previewData?.summary) return
     setBusy(`save-${q.quarter}`)
     try {
-      await api.upsertMtdSubmission({
-        tax_year: taxYear,
-        quarter_number: q.quarter,
-        period_from: q.from,
-        period_to: q.to,
-        deadline: q.deadline,
-        summary_json: previewData.summary,
-        status: 'draft',
-      })
+      await persistDraft(q, previewData.summary)
       showAppToast('Quarter saved as draft')
       setPreviewQuarter(null)
       setPreviewData(null)
@@ -132,7 +144,54 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
     setBusy(null)
   }
 
-  async function submitToHmrc(submission) {
+  async function submitToHmrc(submission, q) {
+    const practice = settings?.sandbox_mode || !liveAvailable
+    const saved = submission.summary_json
+    // Re-check the draft against the data as it is now: a draft saved before
+    // a receipt, expense or reversal was recorded would send stale figures.
+    setBusy(`submit-${submission.quarter_number}`)
+    let fresh = null
+    try {
+      fresh = (await buildSummary(q)).summary
+    } catch (e) {
+      showAppToast('Could not re-check the figures before submitting: ' + e.message, 'error')
+      setBusy(null)
+      return
+    }
+    setBusy(null)
+    if (!sameSubmissionFigures(fresh, saved)) {
+      const refresh = await confirmDialog({
+        title: 'Your figures have changed since this draft was saved',
+        body: `Saved draft (${formatDate(saved?.fromDate || q.from)} to ${formatDate(saved?.toDate || q.to)}): income ${fmtMoney2dp(saved?.income?.periodAmount || 0)}, ${submissionExpenseLine(saved)}.\n`
+          + `Current data (${formatDate(fresh.fromDate)} to ${formatDate(fresh.toDate)}): income ${fmtMoney2dp(fresh.income.periodAmount)}, ${submissionExpenseLine(fresh)}.\n\n`
+          + 'Refresh the draft with the current figures and check it before submitting.',
+        confirmLabel: 'Refresh draft',
+      })
+      if (!refresh) return
+      setBusy(`save-${q.quarter}`)
+      try {
+        await persistDraft(q, fresh)
+        showAppToast('Draft refreshed with the current figures. Check it, then submit.')
+        load()
+      } catch (e) {
+        showAppToast('Could not refresh the draft: ' + e.message, 'error')
+      }
+      setBusy(null)
+      return
+    }
+    const ok = await confirmDialog({
+      title: practice ? `Rehearse the Quarter ${q.quarter} submission?` : `Submit Quarter ${q.quarter} to HMRC?`,
+      body: `Year to date, ${formatDate(saved.fromDate)} to ${formatDate(saved.toDate)}:\n`
+        + `Income ${fmtMoney2dp(saved.income?.periodAmount || 0)}\n`
+        + `Expenses ${fmtMoney2dp(saved.totals?.expenses || 0)}\n`
+        + `Mortgage interest (finance costs) ${fmtMoney2dp(saved.totals?.residentialFinancialCost || 0)}, ${FINANCE_COST_NOTE}\n\n`
+        + (practice
+          ? 'Practice mode: nothing is sent to HMRC and the quarter stays open.'
+          : 'This is sent to HMRC and cannot be undone here. The quarter will be locked; any later correction has to be made through HMRC.'),
+      confirmLabel: practice ? 'Rehearse' : 'Submit to HMRC',
+      destructive: !practice,
+    })
+    if (!ok) return
     setBusy(`submit-${submission.quarter_number}`)
     try {
       const result = await api.submitMtdQuarter(submission.id)
@@ -273,16 +332,25 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                {cached && (
-                  <>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
-                      {fmt(cached.totals?.net || 0)}
-                    </div>
-                    <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
-                      net · in {fmt(cached.totals?.income || 0)} · out {fmt(cached.totals?.expenses || 0)}
-                    </div>
-                  </>
-                )}
+                {cached && (() => {
+                  // This quarter's own figures; older drafts were quarter-only.
+                  const qt = cached.quarter?.totals || cached.totals || {}
+                  return (
+                    <>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: T.goldText }}>
+                        {fmt(qt.net || 0)}
+                      </div>
+                      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+                        net this quarter · in {fmt(qt.income || 0)} · out {fmt(qt.expenses || 0)}
+                      </div>
+                      {cached.cumulative && (
+                        <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted }}>
+                          year to date: net {fmt(cached.totals?.net || 0)}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             </div>
 
@@ -322,7 +390,7 @@ export default function MtdItsaPage({ properties = [], accountType = null }) {
                 </Button>
               )}
               {cached && !isLocked && (
-                <Button variant="primary" size="sm" onClick={() => submitToHmrc(sub)} disabled={!!busy || !sub?.id || issues.length > 0} title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')} style={{opacity: issues.length > 0 ? 0.4 : 1}}>
+                <Button variant="primary" size="sm" onClick={() => submitToHmrc(sub, q)} disabled={!!busy || !sub?.id || issues.length > 0} title={issues.length > 0 ? issues.join(' · ') : (settings?.sandbox_mode || !liveAvailable ? 'Practice run: nothing is sent to HMRC' : 'Submits to HMRC')} style={{opacity: issues.length > 0 ? 0.4 : 1}}>
                   {busy === `submit-${q.quarter}`
                     ? 'Submitting…'
                     : (settings?.sandbox_mode || !liveAvailable ? 'Rehearse (practice mode)' : 'Submit to HMRC')}
@@ -434,7 +502,9 @@ function YearEndCard({ T, taxYear, submissions }) {
   const py = parseTaxYear(taxYear)
   if (!py) return null
   const drafted = submissions.filter(s => s.summary_json?.totals)
-  const sum = (k) => drafted.reduce((acc, s) => acc + (Number(s.summary_json.totals[k]) || 0), 0)
+  // Each quarter's own figures (drafts are cumulative year to date, so
+  // adding their headline totals would count Q1 four times).
+  const sum = (k) => drafted.reduce((acc, s) => acc + (Number((s.summary_json.quarter?.totals || s.summary_json.totals)[k]) || 0), 0)
   const deadline = `31 January ${py.endYear + 1}`
   return (
     <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', marginBottom: 16 }}>
@@ -543,6 +613,7 @@ function HmrcOAuthBlock({ T, settings, onChanged }) {
 
 function PreviewModal({ T, q, data, busy, onSave, onClose }) {
   const { summary, payments, expenses } = data
+  const qs = summary.quarter || summary
   return (
     <Modal onClose={onClose} size="md" labelledBy="mtd-preview-title">
         <div style={{ padding: '22px 26px 0' }}>
@@ -554,18 +625,15 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
           </p>
         </div>
         <div style={{ padding: '0 26px 22px' }}>
-          {/* Totals */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
-            <Tile T={T} label="Income"   value={summary.totals.income}   color={T.green}/>
-            <Tile T={T} label="Expenses" value={summary.totals.expenses} color={T.amber}/>
-            <Tile T={T} label="Net"      value={summary.totals.net}      color={T.gold}/>
-          </div>
+          {/* Totals: this quarter, then year to date (what a submission sends) */}
+          <TotalsBlock T={T} title={`This quarter · ${formatDate(qs.fromDate)} → ${formatDate(qs.toDate)}`} totals={qs.totals}/>
+          <TotalsBlock T={T} title={`Year to date · ${formatDate(summary.fromDate)} → ${formatDate(summary.toDate)} · sent to HMRC`} totals={summary.totals}/>
 
           {/* Expense breakdown */}
           {Object.keys(summary.expenses).length > 0 && (
             <>
               <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                Expenses by HMRC category
+                Year to date by HMRC category
               </div>
               <div style={{ display: 'grid', gap: 4, marginBottom: 18 }}>
                 {Object.entries(summary.expenses).map(([k, v]) => (
@@ -591,6 +659,36 @@ function PreviewModal({ T, q, data, busy, onSave, onClose }) {
         </div>
       </Modal>
   )
+}
+
+// Income / expenses / net tiles plus the Section 24 finance-cost line, which
+// is not deducted from net: individuals get it back as a tax credit.
+function TotalsBlock({ T, title, totals }) {
+  const t = totals || {}
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <Tile T={T} label="Income"   value={t.income || 0}   color={T.green}/>
+        <Tile T={T} label="Expenses" value={t.expenses || 0} color={T.amber}/>
+        <Tile T={T} label="Net"      value={t.net || 0}      color={T.gold}/>
+      </div>
+      {Number(t.residentialFinancialCost) > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '6px 10px', marginTop: 6, borderRadius: 6, background: T.bg, fontFamily: SANS, fontSize: FS.sm, color: T.muted }}>
+          <span>Mortgage interest (finance costs), {FINANCE_COST_NOTE}</span>
+          <span style={{ fontFamily: MONO, color: T.text, fontWeight: 600 }}>{fmtMoney2dp(t.residentialFinancialCost)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// "expenses £x, finance costs £y" for the confirm dialogs.
+function submissionExpenseLine(s) {
+  const exp = s?.expenses || {}
+  const fin = Number(exp.residentialFinancialCost) || 0
+  const other = Object.entries(exp).filter(([k]) => k !== 'residentialFinancialCost').reduce((a, [, v]) => a + (Number(v) || 0), 0)
+  return `expenses ${fmtMoney2dp(other)}, finance costs ${fmtMoney2dp(fin)}`
 }
 
 function Tile({ T, label, value, color }) {

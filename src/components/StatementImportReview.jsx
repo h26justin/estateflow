@@ -97,7 +97,7 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
       if (sourceDoc) {
         try { await api.markStatementImported(sourceDoc.id, { batch_id: res.batchId, rent: res.receipts, fees: res.expenses, skipped: res.skipped }) } catch (e) { console.error('markStatementImported', e) }
       }
-      onDone({ ...res, learned: seen.size, summary })
+      onDone({ ...res, learned: seen.size, summary, pdfStored: !!(companyDocumentId || sourceDoc) })
     } catch (e) {
       console.error('commitStatementImport', e)
       showToast?.(e.message || 'The import could not be completed', 'error')
@@ -140,6 +140,9 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
     {bal && !bal.balances && bal.causes?.length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.muted, marginBottom: 10 }}>{bal.causes.join(' ')}</div>}
     {previous.length > 0 && <div role="alert" style={{ background: T.red + '14', border: `1px solid ${T.red}55`, color: T.text, borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: FS.base }}>
       <b>This statement has already been imported</b> ({previous.map(p => `${new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${p.filename ? `, ${p.filename}` : ''}`).join('; ')}). Lines already recorded show as Duplicate and will not be added again. Revert the earlier import from Data import → History if it was wrong.
+    </div>}
+    {sourceDoc?.extracted_fields?.reconciliation?.ok === false && <div role="alert" style={{ background: T.amber + '14', border: `1px solid ${T.amber}55`, color: T.text, borderRadius: 8, padding: '10px 12px', marginBottom: 12, fontSize: FS.base }}>
+      <b>The line items do not add up to the statement totals</b> — check before importing.
     </div>}
     {(parsed.warnings || []).filter(w => !/audit statement number/i.test(w)).length > 0 && <div style={{ fontFamily: MONO, fontSize: FS.xs, color: T.amber, marginBottom: 10 }}>{parsed.warnings.filter(w => !/audit statement number/i.test(w)).join(' ')}</div>}
     {(parsed.errors || []).length > 0 && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.red, marginBottom: 10 }}>{parsed.errors.length} {parsed.errors.length === 1 ? 'entry' : 'entries'} could not be read: {parsed.errors.map(e => `${e.property_address || 'no property'} (${e.reason})`).join('; ')}. Add them by hand in the Rent Tracker.</div>}

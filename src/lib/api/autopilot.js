@@ -32,6 +32,8 @@ export async function countOpenAutopilotActions(companyId = null) {
     .select('id', { count: 'exact', head: true })
     .eq('status', 'open')
   if (companyId) q = q.eq('company_id', companyId)
+  // Same snooze rule as listAutopilotActions, so the badge matches the list.
+  q = q.or(`snoozed_until.is.null,snoozed_until.lt.${new Date().toISOString()}`)
   const { count, error } = await q
   if (error) throw error
   return count || 0

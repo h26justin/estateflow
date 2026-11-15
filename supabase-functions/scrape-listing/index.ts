@@ -23,6 +23,31 @@ const corsHeaders = {
 
 const ALLOWED_HOSTS = ['www.rightmove.co.uk', 'rightmove.co.uk', 'www.zoopla.co.uk', 'zoopla.co.uk', 'www.onthemarket.com', 'onthemarket.com']
 const MAX_BYTES = 2_000_000
+const FETCH_TIMEOUT_MS = 15_000
+
+// Read at most `max` bytes of a response body, then stop (the rest is never
+// downloaded). Decoded as UTF-8.
+async function readCapped(res: Response, max: number): Promise<string> {
+  if (!res.body) return ''
+  const reader = res.body.getReader()
+  const parts: Uint8Array[] = []
+  let total = 0
+  try {
+    while (total < max) {
+      const { done, value } = await reader.read()
+      if (done || !value) break
+      const take = value.byteLength > max - total ? value.subarray(0, max - total) : value
+      parts.push(take)
+      total += take.byteLength
+    }
+  } finally {
+    reader.cancel().catch(() => {})
+  }
+  const buf = new Uint8Array(total)
+  let off = 0
+  for (const p of parts) { buf.set(p, off); off += p.byteLength }
+  return new TextDecoder().decode(buf)
+}
 
 // Messages safe to show the caller; anything else is logged, not returned.
 class ListingError extends Error {}
@@ -57,6 +82,7 @@ serve(async (req) => {
 
     const res = await fetch(target.toString(), {
       redirect: 'manual',
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -66,7 +92,7 @@ serve(async (req) => {
 
     if (res.status >= 300 && res.status < 400) throw new ListingError('Listing redirected; open the final listing page and paste that URL')
     if (!res.ok) throw new ListingError(`Failed to fetch listing: ${res.status}`)
-    const html = (await res.text()).slice(0, MAX_BYTES)
+    const html = await readCapped(res, MAX_BYTES)
 
     let price: number | null = null
     let propertyType: string | null = null

@@ -135,6 +135,22 @@ describe('value coercion', () => {
     expect(parseCategory('Service Charge')).toBe('service_charge')
   })
 
+  it('files interest as a finance cost and certificates as compliance', () => {
+    expect(parseCategory('Mortgage interest')).toBe('mortgage_interest')
+    expect(parseCategory('Loan interest')).toBe('mortgage_interest')
+    expect(parseCategory('Mortgage payment')).toBe('mortgage')
+    expect(parseCategory('Gas safety certificate')).toBe('compliance')
+    expect(parseCategory('EICR')).toBe('compliance')
+    expect(parseCategory('Gas')).toBe('utilities')
+  })
+
+  it('never maps an income-like label to an expense category', () => {
+    expect(parseCategory('Bank interest received')).toBeNull()
+    expect(parseCategory('Rental income')).toBeNull()
+    expect(parseCategory('Rent')).toBeNull()
+    expect(parseCategory('Ground rent')).toBe('ground_rent')
+  })
+
   it('gives a stable source ref for identical input and a different one otherwise', () => {
     expect(sourceRef('rent', ['a', 1])).toBe(sourceRef('rent', ['a', 1]))
     expect(sourceRef('rent', ['a', 1])).not.toBe(sourceRef('rent', ['a', 2]))
@@ -267,11 +283,19 @@ describe('buildExpensePlan', () => {
     expect(plan[0].amount).toBe(120.5)
   })
 
-  it('folds a bracketed negative into a positive cost and says so', () => {
+  it('keeps a negative (refund / credit note) negative so it reduces costs, and says so', () => {
+    // Flipping it to a positive cost overstated expenses.
     const { plan } = expPlan('Property,Date,Category,Description,Amount\n35 Henley Road,03/01/2025,Commission,Fee,(63.50)\n')
-    expect(plan[0].amount).toBe(63.5)
+    expect(plan[0].amount).toBe(-63.5)
     expect(plan[0].category).toBe('agent_fees')
     expect(plan[0].warnings.join(' ')).toMatch(/negative/i)
+    expect(plan[0].action).toBe('create')
+  })
+
+  it('blocks an income-like category for review instead of filing it as a cost', () => {
+    const { plan } = expPlan('Property,Date,Category,Description,Amount\n35 Henley Road,03/01/2025,Bank interest received,Int,4.20\n')
+    expect(plan[0].action).toBe('error')
+    expect(plan[0].errors.join(' ')).toMatch(/looks like income/i)
   })
 
   it('files an unrecognised category as other with a warning', () => {
@@ -400,6 +424,24 @@ describe('buildRentPlan — overlapping periods', () => {
       existing: [{ id: 'e1', property_id: 'p1', period_start: '2026-05-17', period_end: '2026-06-16', status: 'paid', amount: null }],
     })
     expect(plan[0].action).toBe('create')
+  })
+
+  it('blocks two lines in the same file whose periods overlap', () => {
+    const { plan } = buildRentPlan({
+      rows: [row('2026-05-07', '2026-06-06', 950), { ...row('2026-05-01', '2026-05-31', 870.2), __line: 3 }],
+      columns: cols, properties: PROPS, existing: [],
+    })
+    expect(plan[0].action).toBe('create')
+    expect(plan[1].action).toBe('error')
+    expect(plan[1].errors[0]).toMatch(/Overlaps line 2 in this same file/)
+  })
+
+  it('allows abutting periods in the same file', () => {
+    const { plan } = buildRentPlan({
+      rows: [row('2026-04-01', '2026-04-30', 950), { ...row('2026-05-01', '2026-05-31', 950), __line: 3 }],
+      columns: cols, properties: PROPS, existing: [],
+    })
+    expect(plan.map(p => p.action)).toEqual(['create', 'create'])
   })
 
   it('does not flag an overlap on a different property', () => {

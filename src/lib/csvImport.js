@@ -26,10 +26,16 @@ import { matchProperties, normaliseStatementName } from './statementParser'
 // at parse time rather than failing per-row against the database.
 export const RENT_STATUSES = ['paid', 'overdue', 'late', 'partial', 'void', 'refurb', 'pending']
 
-// Mirrors the category list in the expense editor (FeatureComponents.jsx).
+// Mirrors the category list in the expense editor (FeatureComponents.jsx),
+// plus the two keys the receipt scanner and bookkeeping also write and that
+// MTD treats differently from 'mortgage' / 'utilities' (see mtdItsa.js
+// mapExpenseCategoryToHmrc): 'mortgage_interest' is a finance cost
+// (residentialFinancialCost) whereas 'mortgage' is the full capital-inclusive
+// payment and is left out; 'compliance' (gas / EICR / EPC certificates) is a
+// professional fee.
 export const EXPENSE_CATEGORIES = [
   'insurance', 'agent_fees', 'repairs', 'ground_rent', 'service_charge',
-  'utilities', 'mortgage', 'legal', 'accountancy', 'other',
+  'utilities', 'mortgage', 'mortgage_interest', 'compliance', 'legal', 'accountancy', 'other',
 ]
 
 // ── CSV PARSING ─────────────────────────────────────────────────────────────
@@ -199,9 +205,14 @@ export function parseStatus(v) {
 
 // Category, accepting the display labels as well as the stored keys, plus the
 // wordings that actually turn up ("management fee", "commission").
+//
+// A label that reads as money coming IN ("Bank interest received", "Rental
+// income") is never mapped to an expense category: isIncomeLikeCategory
+// catches it and the expense planner blocks the row for review.
 export function parseCategory(v) {
   const s = canonHeader(v)
   if (!s) return null
+  if (isIncomeLikeCategory(v)) return null
   const direct = s.replace(/ /g, '_')
   if (EXPENSE_CATEGORIES.includes(direct)) return direct
   if (/(agent|management|letting|commission)/.test(s)) return 'agent_fees'
@@ -209,11 +220,23 @@ export function parseCategory(v) {
   if (/insur/.test(s)) return 'insurance'
   if (/ground\s*rent/.test(s)) return 'ground_rent'
   if (/service\s*charge/.test(s)) return 'service_charge'
+  // Before utilities: "Gas safety certificate" is compliance, not gas.
+  if (/(certificate|\bcert\b|gas\s*safe|eicr|\bepc\b|electrical\s*(safety|installation)|\bpat\b|fire\s*(risk|alarm|safety)|legionella|compliance)/.test(s)) return 'compliance'
   if (/(utility|utilities|gas|electric|water|energy)/.test(s)) return 'utilities'
-  if (/(mortgage|interest)/.test(s)) return 'mortgage'
+  // Interest (mortgage or loan) is a finance cost; a "mortgage payment"
+  // without the word interest is the capital-inclusive payment.
+  if (/interest/.test(s)) return 'mortgage_interest'
+  if (/mortgage/.test(s)) return 'mortgage'
   if (/(legal|solicitor|convey)/.test(s)) return 'legal'
   if (/(account|bookkeep|audit)/.test(s)) return 'accountancy'
   return null
+}
+
+// Category labels that describe income rather than a cost.
+export function isIncomeLikeCategory(v) {
+  const s = canonHeader(v)
+  if (!s) return false
+  return /(received|receipts?\b|income|earned|takings|rent\s*(collected|paid\s*by)|^rent$|^rental$)/.test(s)
 }
 
 // ── SOURCE REF ──────────────────────────────────────────────────────────────
@@ -300,6 +323,10 @@ export function buildRentPlan({ rows, columns, properties, aliases = [], existin
   }
 
   const seenInFile = new Map()
+  // Paid rows with an amount already planned from THIS file, per property:
+  // two lines in one file for overlapping periods would otherwise both plan as
+  // 'create' and count the same rent twice.
+  const filePaidByProperty = new Map()
   const plan = rows.map((row, i) => {
     const errors = [], warnings = []
     const label = cols.property ? row_(row, cols.property) : ''
@@ -393,6 +420,20 @@ export function buildRentPlan({ rows, columns, properties, aliases = [], existin
                 + `(${money(clash.amount)}). Importing both would count the same rent twice.`)
             }
           }
+          // Same rule as against existing rows: an earlier paid line with an
+          // amount blocks any later line with an amount over the same days.
+          if (!errors.length && action !== 'skip' && amount != null && amount > 0) {
+            const inFile = (filePaidByProperty.get(propertyId) || []).find(e =>
+              e.period_start <= period.period_end && period.period_start <= e.period_end)
+            if (inFile) {
+              errors.push(
+                `Overlaps line ${inFile.line} in this same file (${inFile.period_start} to ${inFile.period_end}). `
+                + 'Importing both would count the same rent twice.')
+            } else if (status === 'paid') {
+              if (!filePaidByProperty.has(propertyId)) filePaidByProperty.set(propertyId, [])
+              filePaidByProperty.get(propertyId).push({ line: row.__line, period_start: period.period_start, period_end: period.period_end })
+            }
+          }
         }
       }
     }
@@ -450,17 +491,19 @@ export function buildExpensePlan({ rows, columns, properties, aliases = [], exis
     const rawAmount = cols.amount ? row_(row, cols.amount) : ''
     let amount = parseAmount(rawAmount)
     if (amount === null) errors.push(rawAmount ? `"${rawAmount}" is not an amount` : 'Amount is blank')
-    // Xero writes commission as a bracketed negative against the fee account.
-    // The sign convention there is presentational; an expense is stored as a
-    // positive cost, so fold it and note that we did.
+    // A negative amount is a refund or credit note. Keep the sign so it
+    // reduces costs: flipping it to a positive cost overstated expenses (a
+    // £100 refund became £100 more spent). Warn so a file that writes every
+    // cost as a negative is caught at review.
     if (amount != null && amount < 0) {
-      warnings.push(`Amount was negative (${rawAmount}) — recorded as a positive cost of ${Math.abs(amount)}`)
-      amount = Math.abs(amount)
+      warnings.push(`Amount is negative (${rawAmount}) — imported as a refund/credit of ${Math.abs(amount)} that reduces costs. If this file shows costs as negatives, flip the sign before importing.`)
     }
     if (amount === 0) warnings.push('Zero amount')
 
     let category = cols.category ? parseCategory(row_(row, cols.category)) : null
-    if (cols.category && row_(row, cols.category) && !category) {
+    if (cols.category && isIncomeLikeCategory(row_(row, cols.category))) {
+      errors.push(`Category "${row_(row, cols.category)}" looks like income, not a cost — import it as rent or leave this row out`)
+    } else if (cols.category && row_(row, cols.category) && !category) {
       warnings.push(`Category "${row_(row, cols.category)}" not recognised — filed as Other`)
     }
     if (!category) category = 'other'

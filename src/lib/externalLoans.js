@@ -59,6 +59,17 @@ export function firstPaymentDate(loan) {
   return addMonths(loan?.received_date, 1)
 }
 
+// Due date of the i-th monthly payment (1-based). Every date is counted from
+// one anchor so it keeps the anchor's day of the month, clamped only within
+// short months: money received on 31 Jan is due 28 Feb, 31 Mar, 30 Apr...
+// (counting on from the clamped 28 Feb left every later payment on the 28th).
+// The anchor is the explicit first payment date if one is set, otherwise the
+// day the money came in (first payment one month later).
+function monthlyDueDate(loan, i) {
+  if (isISO(loan?.first_payment_date)) return addMonths(loan.first_payment_date, i - 1)
+  return addMonths(loan?.received_date, i)
+}
+
 /**
  * The regular monthly payment for a loan.
  *   repayment      P·r / (1 − (1+r)^−n), or P/n at 0%
@@ -88,8 +99,12 @@ export function buildSchedule(loan) {
   if (P <= 0 || n <= 0 || !first) return []
 
   if (type === 'rolled_up') {
+    // One payment. A rolled-up loan's "first payment" IS its repayment, so an
+    // explicit first payment date is the due date; otherwise the end of the
+    // term counted from the day the money came in.
     const interest = round2(P * (num(loan?.annual_rate) / 100) * (n / 12))
-    return [{ period: 1, due_date: addMonths(first, n - 1), payment: round2(P + interest), interest, principal: round2(P), balance: 0 }]
+    const due = isISO(loan?.first_payment_date) ? loan.first_payment_date.slice(0, 10) : addMonths(loan?.received_date, n)
+    return [{ period: 1, due_date: due, payment: round2(P + interest), interest, principal: round2(P), balance: 0 }]
   }
 
   const pay = monthlyPayment(loan)
@@ -102,7 +117,7 @@ export function buildSchedule(loan) {
     else principal = i === n ? balance : Math.min(balance, round2(pay - interest))
     principal = round2(principal)
     balance = round2(balance - principal)
-    rows.push({ period: i, due_date: addMonths(first, i - 1), payment: round2(interest + principal), interest, principal, balance })
+    rows.push({ period: i, due_date: monthlyDueDate(loan, i), payment: round2(interest + principal), interest, principal, balance })
   }
   return rows
 }

@@ -1,12 +1,11 @@
 // Tenant referencing / Right-to-Rent order request — INERT SCAFFOLD.
 //
-// Creates a referencing_checks record for a property and, if a partner
-// provider is configured (REFERENCING_PROVIDER_API_KEY set), places the
-// order with that provider and moves the row to 'ordered'. Partner-agnostic:
-// the actual POST shape is left as a clearly-marked stub because the contract
-// is provider-specific (Goodlord / RentProfile / OpenRent etc.). Without the
-// key the function is fully inert — it only creates the local 'draft' row and
-// returns inert:true so the UI can show "configure provider to enable".
+// Creates a referencing_checks record for a property as a 'draft'. No partner
+// provider is wired yet (the contract is provider-specific: Goodlord /
+// RentProfile / OpenRent etc.), so the function is fully inert: without
+// REFERENCING_PROVIDER_API_KEY it returns inert:true so the UI can show
+// "configure provider to enable"; with the key set it fails closed (422) and
+// never marks a check 'ordered' when no order was placed.
 //
 // Body shape:
 //   {
@@ -115,33 +114,16 @@ serve(async (req) => {
     })
   }
 
-  // Provider is configured — place the order. The exact request/response
-  // contract is provider-specific; this is a partner-agnostic stub that
-  // records the order intent and moves the row to 'ordered'. Wire the real
-  // POST to the chosen partner's API here, then map provider_ref + result.
-  try {
-    // const resp = await fetch('<PROVIDER_ORDER_ENDPOINT>', {
-    //   method: 'POST',
-    //   headers: { 'Authorization': `Bearer ${PROVIDER_API_KEY}`, 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ applicant_name, applicant_email, check_type, property_ref: property_id }),
-    // })
-    // const data = await resp.json()
-    const orderedAt = new Date().toISOString()
-    const { data: updated, error: updErr } = await admin
-      .from('referencing_checks')
-      .update({
-        status: 'ordered',
-        ordered_at: orderedAt,
-        // provider_ref: data.reference,
-      })
-      .eq('id', row.id)
-      .select()
-      .single()
-    if (updErr) throw updErr
-    return json({ ok: true, inert: false, check: updated })
-  } catch (e) {
-    console.error('provider order failed', e)
-    await admin.from('referencing_checks').update({ status: 'failed' }).eq('id', row.id)
-    return json({ error: 'Provider order failed' }, 502)
-  }
+  // A key is configured, but no provider integration is wired yet. Fail
+  // closed (as esign-envelope does): never mark the check 'ordered' or stamp
+  // ordered_at when no order has been placed with anyone. The check stays a
+  // draft. Wire the chosen partner's order POST here, and only move the row
+  // to 'ordered' (with provider_ref) once that call has succeeded.
+  console.error('referencing-request: REFERENCING_PROVIDER_API_KEY is set but no provider integration is wired')
+  return json({
+    error: 'Referencing provider integration not wired yet',
+    detail: 'The check was saved as a draft. No order has been placed.',
+    inert: true,
+    check: row,
+  }, 422)
 })

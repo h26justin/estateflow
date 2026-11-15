@@ -1,5 +1,15 @@
 // Runs daily via pg_cron. Finds compliance items that have reached a new
-// reminder stage (see ./reminderStages.ts) and emails the property owner.
+// reminder stage (see ./reminderStages.ts) and emails the people who
+// currently look after the property.
+//
+// Recipients are resolved from CURRENT access, never from who created the
+// row: the company owner (companies.owner_id) plus every member with a
+// user_company_access row whose role still lets them view compliance. Each
+// must have compliance_expiry reminders switched on, not be unsubscribed or
+// banned, and the email goes only to their verified auth address. Companies
+// that are not live (public.company_is_live) are skipped. Only the latest
+// row per property + certificate type (alias-aware) can trigger a reminder,
+// so a renewed certificate silences its expired predecessor.
 //
 // Email provider: Gmail API via Google Workspace service account with
 // Domain-Wide Delegation. See ./gmail.ts for the helper. Justin: set
@@ -29,6 +39,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
+
+const validEmail = (e: string) => /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/.test(e)
+const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+
+// Legacy cert_type spellings → canonical catalogue key
+// (src/lib/complianceCatalogue.js ALIAS_TO_KEY). Unknown types unchanged.
+const CERT_ALIASES: Record<string, string> = {
+  gas: 'gas_safety', gas_cert: 'gas_safety',
+  alarm: 'smoke_alarm',
+  hmo_licence: 'hmo',
+  fire_risk_assessment: 'fire',
+}
+function canonicalCertType(t: string | null | undefined): string {
+  const k = String(t || '').toLowerCase()
+  return CERT_ALIASES[k] || k
+}
+
+// Catalogue keys (src/lib/complianceCatalogue.js CATALOGUE). A type outside
+// the catalogue is a custom certificate: every one is saved as cert_type
+// 'other' with a free-text cert_name, so those are told apart by name too
+// (as buildComplianceReport / src/lib/complianceStatus.js do) — otherwise a
+// Legionella check expiring next week and a PAT test expiring next year
+// collapsed into one and only the later one was ever reminded.
+const CATALOGUE_KEYS = new Set([
+  'gas_safety', 'eicr', 'epc', 'smoke_alarm', 'co_alarm', 'tenancy_agreement', 'deposit_protection',
+  'right_to_rent', 'rra_info_sheet', 'hmo', 'selective_licence', 'fire', 'fire_alarm_service', 'emergency_lighting',
+  'legionella', 'insurance', 'pat', 'boiler_service', 'chimney_sweep', 'inventory',
+])
+function certCollapseKey(c: any): string {
+  const key = canonicalCertType(c?.cert_type || c?.item_type)
+  return CATALOGUE_KEYS.has(key) ? key : `${key}|${String(c?.cert_name || '').trim().toLowerCase()}`
+}
+
+// Every row of a query, past PostgREST's 1,000-row page. The builder must
+// apply a stable .order().
+async function fetchAllRows(build: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>): Promise<any[]> {
+  const rows: any[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build(from, from + 999)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < 1000) return rows
+  }
+}
+const chunks = <T,>(xs: T[], n: number): T[][] => { const out: T[][] = []; for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out }
 
 function daysUntil(dateStr: string): number {
   const now = new Date()
@@ -122,106 +177,182 @@ serve(async (req) => {
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+    const now = new Date()
 
-    // Fetch all active (non-deleted) compliance items with expiry dates
-    const { data: items, error } = await admin
+    // Non-deleted compliance items with an expiry, paged past the 1,000-row
+    // cap. Lower bound only: anything that expired more than 30 days ago can
+    // never remind (OVERDUE_CUTOFF) and, being earlier, can never supersede a
+    // row that can. There is no safe upper bound — reminder_days is per item
+    // and a far-future renewal must still be read so it supersedes the old
+    // row it replaced.
+    const cutoff = new Date(now)
+    cutoff.setUTCDate(cutoff.getUTCDate() - 31)
+    const cutoffIso = cutoff.toISOString().slice(0, 10)
+    const items = await fetchAllRows((from, to) => admin
       .from('compliance_items')
       // NB: the column is `cert_type` — there was an older `item_type` reference
       // that's been removed (the column doesn't exist in this schema). The
       // `|| i.item_type` fallbacks elsewhere in this file are belt-and-braces
       // for forward compatibility if the column ever gets re-added.
-      .select('id, cert_type, cert_name, expiry_date, reminder_days, user_id, property_id, property:properties(id, name, address, deleted_at), last_reminder_sent_at')
+      .select('id, cert_type, cert_name, expiry_date, reminder_days, user_id, property_id, property:properties(id, name, address, deleted_at, company_id), last_reminder_sent_at')
       .is('deleted_at', null)
       .not('expiry_date', 'is', null)
+      .gte('expiry_date', cutoffIso)
+      .order('id')
+      .range(from, to))
 
-    if (error) throw error
+    // Collapse superseded certificates: only the latest expiry per property +
+    // canonical certificate type (custom types: type + name) can trigger a
+    // reminder (same rule as src/lib/weeklySummary.js complianceSection).
+    const latest = new Map<string, any>()
+    for (const item of items) {
+      if (!item.property || item.property.deleted_at || !item.property.company_id) continue
+      const k = `${item.property_id}|${certCollapseKey(item)}`
+      const cur = latest.get(k)
+      if (!cur || String(item.expiry_date) > String(cur.expiry_date)) latest.set(k, item)
+    }
 
-    const now = new Date()
-    const eligibleItems = (items || []).filter(item => {
-      // Skip if property was deleted
-      if (item.property?.deleted_at) return false
+    const eligibleItems = [...latest.values()].filter(item =>
       // Staged: reminder_days, then 90/60/30/7/0 inside that window, then
       // weekly for 30 days after expiry. See ./reminderStages.ts.
-      return shouldRemind({
+      shouldRemind({
         days: daysUntil(item.expiry_date),
         reminderDays: item.reminder_days || 30, // 0/null → default window, as before
         lastSentAt: item.last_reminder_sent_at,
         now,
-      })
-    })
+      }))
 
-    // Group by user_id
-    const byUser: Record<string, any[]> = {}
+    // Group by the property's company.
+    const byCompany: Record<string, any[]> = {}
     for (const item of eligibleItems) {
-      if (!byUser[item.user_id]) byUser[item.user_id] = []
-      byUser[item.user_id].push(item)
+      const cid = item.property.company_id
+      if (!byCompany[cid]) byCompany[cid] = []
+      byCompany[cid].push(item)
     }
 
-    // Fetch user profiles for email + notification preferences
-    const userIds = Object.keys(byUser)
-    if (userIds.length === 0) {
+    const companyIds = Object.keys(byCompany)
+    if (companyIds.length === 0) {
       return new Response(JSON.stringify({ processed: 0, message: 'No reminders due' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const { data: profiles } = await admin
-      .from('user_profiles')
-      .select('user_id, email, full_name, first_name, notifications')
-      .in('user_id', userIds)
-
-    const profileMap: Record<string, any> = {}
-    ;(profiles || []).forEach(p => { profileMap[p.user_id] = p })
-
     const results: any[] = []
-    for (const userId of userIds) {
-      const profile = profileMap[userId]
-      if (!profile?.email) {
-        results.push({ user_id: userId, status: 'skipped', reason: 'no email' })
-        continue
+
+    // Recipients from CURRENT access. Safety reminders matter more than
+    // billing state: the OWNER is reminded even when the company is not live
+    // (e.g. a lapsed trial — they used to get gas-safety expiry emails and
+    // then silently stopped); members who may view compliance are added only
+    // while the company is live.
+    const companies: any[] = []
+    for (const ids of chunks(companyIds, 100)) {
+      companies.push(...await fetchAllRows((from, to) => admin.from('companies')
+        .select('id, owner_id, deleted_at').in('id', ids).is('deleted_at', null).order('id').range(from, to)))
+    }
+    const members: any[] = []
+    for (const ids of chunks(companyIds, 100)) {
+      members.push(...await fetchAllRows((from, to) => admin.from('user_company_access')
+        .select('*').in('company_id', ids).order('company_id').order('user_id').range(from, to)))
+    }
+    const byRecipient: Record<string, any[]> = {}
+    for (const co of companies) {
+      const { data: live, error: liveErr } = await admin.rpc('company_is_live', { p_company_id: co.id })
+      if (liveErr) { results.push({ company_id: co.id, status: 'error', error: `company_is_live: ${liveErr.message}` }); continue }
+      const recips = new Set<string>()
+      if (co.owner_id) recips.add(String(co.owner_id))
+      if (live !== true) results.push({ company_id: co.id, status: 'owner_only', reason: 'company not live: members not reminded' })
+      for (const m of (live === true ? members : [])) {
+        // Pending email-only invitations (no user_id) do not count.
+        if (m.company_id !== co.id || !m.user_id) continue
+        if (m.permissions && m.permissions.view_compliance === false) continue
+        recips.add(String(m.user_id))
       }
+      for (const uid of recips) {
+        if (!byRecipient[uid]) byRecipient[uid] = []
+        byRecipient[uid].push(...byCompany[co.id])
+      }
+    }
+
+    // Fetch user profiles for notification preferences
+    const userIds = Object.keys(byRecipient)
+    const profileMap: Record<string, any> = {}
+    for (const ids of chunks(userIds, 200)) {
+      const { data: profiles, error: profErr } = await admin
+        .from('user_profiles')
+        .select('user_id, full_name, first_name, notifications, email_unsubscribed')
+        .in('user_id', ids)
+      if (profErr) throw profErr
+      ;(profiles || []).forEach(p => { profileMap[p.user_id] = p })
+    }
+
+    // Items already marked reminded in this run (one recipient's successful
+    // send is enough; the stage dedupe in ./reminderStages.ts then stops a
+    // repeat tomorrow).
+    const marked = new Set<string>()
+
+    for (const userId of userIds) {
+      const profile = profileMap[userId] || {}
       // Respect notification preferences (if user has opted out of compliance_expiry)
       const prefs = profile.notifications || {}
       if (prefs.compliance_expiry === false) {
         results.push({ user_id: userId, status: 'skipped', reason: 'opted out' })
         continue
       }
+      if (profile.email_unsubscribed === true) {
+        results.push({ user_id: userId, status: 'skipped', reason: 'unsubscribed' })
+        continue
+      }
 
-      const userItems = byUser[userId]
-      // Sort by urgency (expired first, then soonest)
+      // De-duplicate (a user can reach the same item through one company only,
+      // but be defensive) and sort by urgency (expired first, then soonest).
+      const userItems = [...new Map(byRecipient[userId].map((i: any) => [i.id, i] as [string, any])).values()]
       userItems.sort((a: any, b: any) => daysUntil(a.expiry_date) - daysUntil(b.expiry_date))
 
-      const itemRows = userItems.map((i: any) => {
-        const days = daysUntil(i.expiry_date)
-        const urgency = days < 0 ? `<span style="color:#DC2626;font-weight:700">EXPIRED ${Math.abs(days)} days ago</span>`
-          : days === 0 ? `<span style="color:#DC2626;font-weight:700">EXPIRES TODAY</span>`
-          : days <= 7 ? `<span style="color:#E0943A;font-weight:700">${days} days</span>`
-          : `<span style="color:#5A6A7A">${days} days</span>`
-        const booking = renewalBookingUrl(i.cert_type || i.item_type, i.property?.postcode)
-        const bookingLink = booking
-          ? `<br><a href="${booking.url}" target="_blank" rel="noreferrer" style="color:#C8A84B;font-size:11px;text-decoration:underline">${booking.label} →</a>`
-          : ''
-        return `
+      try {
+        // Only ever the verified auth address, never the user-editable
+        // profile email.
+        const { data: au, error: auErr } = await admin.auth.admin.getUserById(userId)
+        if (auErr) throw new Error(auErr.message)
+        const user = au?.user
+        const email = String(user?.email || '').trim()
+        if (!user || !validEmail(email)) { results.push({ user_id: userId, status: 'skipped', reason: 'no email' }); continue }
+        if (user.banned_until && new Date(user.banned_until).getTime() > now.getTime()) {
+          results.push({ user_id: userId, status: 'skipped', reason: 'banned' })
+          continue
+        }
+
+        const itemRows = userItems.map((i: any) => {
+          const days = daysUntil(i.expiry_date)
+          const urgency = days < 0 ? `<span style="color:#DC2626;font-weight:700">EXPIRED ${Math.abs(days)} days ago</span>`
+            : days === 0 ? `<span style="color:#DC2626;font-weight:700">EXPIRES TODAY</span>`
+            : days <= 7 ? `<span style="color:#E0943A;font-weight:700">${days} days</span>`
+            : `<span style="color:#5A6A7A">${days} days</span>`
+          const booking = renewalBookingUrl(i.cert_type || i.item_type, i.property?.postcode)
+          const bookingLink = booking
+            ? `<br><a href="${esc(booking.url)}" target="_blank" rel="noreferrer" style="color:#C8A84B;font-size:11px;text-decoration:underline">${esc(booking.label)} →</a>`
+            : ''
+          return `
           <tr style="border-bottom:1px solid #E5E7EB">
-            <td style="padding:10px 6px;font-size:13px">${certTypeLabel(i.cert_type || i.item_type)}${bookingLink}</td>
-            <td style="padding:10px 6px;font-size:13px">${i.property?.name || i.property?.address || '—'}</td>
-            <td style="padding:10px 6px;font-size:13px">${new Date(i.expiry_date).toLocaleDateString('en-GB')}</td>
+            <td style="padding:10px 6px;font-size:13px">${esc(certTypeLabel(i.cert_type || i.item_type))}${bookingLink}</td>
+            <td style="padding:10px 6px;font-size:13px">${esc(i.property?.name || i.property?.address || '—')}</td>
+            <td style="padding:10px 6px;font-size:13px">${esc(new Date(i.expiry_date).toLocaleDateString('en-GB'))}</td>
             <td style="padding:10px 6px;font-size:13px;text-align:right">${urgency}</td>
           </tr>`
-      }).join('')
+        }).join('')
 
-      const firstName = profile.first_name || profile.full_name?.split(' ')[0] || 'there'
+        const firstName = profile.first_name || profile.full_name?.split(' ')[0] || 'there'
 
-      const subject = userItems.length === 1
-        ? `⚠ ${certTypeLabel(userItems[0].cert_type || userItems[0].item_type)} expiring soon`
-        : `⚠ ${userItems.length} compliance certificates need attention`
+        // Subject is a header: no CR/LF from a free-text cert_type.
+        const subject = (userItems.length === 1
+          ? `⚠ ${certTypeLabel(userItems[0].cert_type || userItems[0].item_type)} expiring soon`
+          : `⚠ ${userItems.length} compliance certificates need attention`).replace(/[\r\n]+/g, ' ')
 
-      const html = `
+        const html = `
               <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 640px; margin: 0 auto; padding: 32px 24px; color: #1A2530;">
                 <div style="text-align:center;margin-bottom:24px">
                   <img src="https://www.ownproperly.com/brand/email-lockup.png" alt="Properly" style="height:40px;width:auto"/>
                 </div>
-                <h2 style="margin:0 0 8px;font-size:22px">Hi ${firstName},</h2>
+                <h2 style="margin:0 0 8px;font-size:22px">Hi ${esc(firstName)},</h2>
                 <p style="color:#5A6A7A;line-height:1.6;margin-top:0">
                   ${userItems.length === 1 ? 'One of your compliance certificates' : `${userItems.length} of your compliance certificates`} ${userItems.length === 1 ? 'is' : 'are'} approaching expiry or already overdue. Non-compliance can result in fines of up to £30,000 and invalidates your insurance.
                 </p>
@@ -250,16 +381,15 @@ serve(async (req) => {
               </div>
             `
 
-      try {
         // In test mode: log the recipient + skip the actual send. Used during
         // staging / dry-runs so we don't email real users while testing.
         if (EMAIL_TEST_MODE) {
-          console.log(`[EMAIL_TEST_MODE] Would send "${subject}" to ${profile.email}`)
+          console.log(`[EMAIL_TEST_MODE] Would send "${subject}" to user ${userId}`)
         } else if (Deno.env.get('GOOGLE_SA_KEY')) {
           // Primary path — Gmail API via Workspace service account
           await sendGmail({
             from: `Properly <${GMAIL_SENDER}>`,
-            to: profile.email,
+            to: email,
             subject,
             html,
           })
@@ -270,7 +400,7 @@ serve(async (req) => {
             headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               from: `Properly <${GMAIL_SENDER}>`,
-              to: [profile.email],
+              to: [email],
               subject,
               html,
             }),
@@ -314,9 +444,15 @@ serve(async (req) => {
           if (rows.length > 0) await admin.from('notifications').insert(rows)
         } catch (_) { /* non-fatal — email still went out */ }
 
-        // Mark items as reminded
+        // Mark items as reminded (once per item per run, however many
+        // recipients it went to).
         const ids = userItems.map((i: any) => i.id)
-        await admin.from('compliance_items').update({ last_reminder_sent_at: now.toISOString() }).in('id', ids)
+        const toMark = ids.filter((id: string) => !marked.has(id))
+        for (const part of chunks(toMark, 100)) {
+          const { error: markErr } = await admin.from('compliance_items').update({ last_reminder_sent_at: now.toISOString() }).in('id', part)
+          if (markErr) console.error('[compliance-reminders] mark failed:', markErr.message)
+          else part.forEach((id: string) => marked.add(id))
+        }
 
         // Log in audit_log
         await admin.from('audit_log').insert({

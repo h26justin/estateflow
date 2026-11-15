@@ -259,6 +259,15 @@ export interface CallClaudeOptions {
   timeoutMs?: number
   /** Retries on the same model for 429 / 5xx / 529 / network. Default 2. */
   maxRetries?: number
+  /**
+   * Absolute deadline (epoch ms) for the whole call, retries and escalation
+   * included. Each attempt's timeout is capped to the time left, and a retry
+   * or escalation that could not get MIN_ATTEMPT_MS is not started (the call
+   * fails with kind 'timeout' instead). Unset = no overall limit.
+   */
+  deadlineMs?: number
+  /** Test seam for the clock. */
+  nowImpl?: () => number
   apiKey?: string
   /** Test seams. */
   fetchImpl?: typeof fetch
@@ -282,6 +291,9 @@ export interface ClaudeResult<T = unknown> {
 
 const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
+// Shortest attempt worth starting against an overall deadline.
+export const MIN_ATTEMPT_MS = 10_000
+
 function retryDelayMs(attempt: number, retryAfter: string | null): number {
   const ra = retryAfter ? Number(retryAfter) : NaN
   if (Number.isFinite(ra) && ra >= 0) return Math.min(ra * 1000, 10_000)
@@ -297,6 +309,10 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
   const sleep = opts.sleepImpl ?? defaultSleep
   const timeoutMs = opts.timeoutMs ?? 60_000
   const maxRetries = opts.maxRetries ?? 2
+  const now = opts.nowImpl ?? Date.now
+  const deadline = typeof opts.deadlineMs === 'number' && Number.isFinite(opts.deadlineMs) ? opts.deadlineMs : Infinity
+  const outOfTime = (what: string) =>
+    new ClaudeError('timeout', `Anthropic ${model}: not enough time left to ${what} before the deadline`, { model })
 
   // deno-lint-ignore no-explicit-any
   const body: Record<string, any> = {
@@ -328,18 +344,27 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
   // deno-lint-ignore no-explicit-any
   let data: any
   let attempts = 0
+  // Room for another attempt after waiting `delay` ms?
+  const canRetryAfter = (delay: number) => now() + delay + MIN_ATTEMPT_MS <= deadline
   for (let attempt = 0; ; attempt++) {
     attempts = attempt + 1
+    const remaining = deadline - now()
+    if (remaining < MIN_ATTEMPT_MS) throw outOfTime(attempt === 0 ? 'start the call' : 'retry')
+    const attemptTimeout = Math.min(timeoutMs, remaining)
     let res: Response
     try {
-      res = await doFetch(API_URL, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(timeoutMs) })
+      res = await doFetch(API_URL, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(attemptTimeout) })
     } catch (e) {
       const name = (e as Error)?.name
       if (name === 'TimeoutError' || name === 'AbortError') {
         // Not retried: a retry would double an edge function's wall-clock.
-        throw new ClaudeError('timeout', `Anthropic ${model} timed out after ${Math.round(timeoutMs / 1000)}s`, { model })
+        throw new ClaudeError('timeout', `Anthropic ${model} timed out after ${Math.round(attemptTimeout / 1000)}s`, { model })
       }
-      if (attempt < maxRetries) { await sleep(retryDelayMs(attempt, null)); continue }
+      if (attempt < maxRetries) {
+        const delay = retryDelayMs(attempt, null)
+        if (!canRetryAfter(delay)) throw new ClaudeError('network', `Anthropic ${model} unreachable: ${(e as Error)?.message || e}`, { model })
+        await sleep(delay); continue
+      }
       throw new ClaudeError('network', `Anthropic ${model} unreachable: ${(e as Error)?.message || e}`, { model })
     }
     if (!res.ok) {
@@ -347,8 +372,11 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
       const retryable = status === 429 || status >= 500 // 500/502/503/504 and 529 overloaded
       const errText = (await res.text().catch(() => '')).slice(0, 300)
       if (retryable && attempt < maxRetries) {
-        await sleep(retryDelayMs(attempt, res.headers.get('retry-after')))
-        continue
+        const delay = retryDelayMs(attempt, res.headers.get('retry-after'))
+        if (canRetryAfter(delay)) {
+          await sleep(delay)
+          continue
+        }
       }
       throw new ClaudeError('http', `Anthropic ${model} ${status}: ${errText}`, { status, model })
     }
@@ -405,7 +433,8 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
 }
 
 // One call on the requested tier; if — and only if — the answer failed to
-// parse or failed the schema, one more call on the escalate tier.
+// parse or failed the schema, one more call on the escalate tier (not started
+// when opts.deadlineMs leaves no room for it; the first error is thrown).
 export async function callClaudeWithEscalation<T = unknown>(
   opts: CallClaudeOptions & { escalateEffort?: Effort },
 ): Promise<ClaudeResult<T>> {
@@ -413,6 +442,8 @@ export async function callClaudeWithEscalation<T = unknown>(
     return await callClaude<T>(opts)
   } catch (e) {
     if (!isEscalatable(e) || opts.tier === 'escalate') throw e
+    const now = opts.nowImpl ?? Date.now
+    if (typeof opts.deadlineMs === 'number' && opts.deadlineMs - now() < MIN_ATTEMPT_MS) throw e
     console.warn(`[anthropic] ${opts.tier} answer unusable (${(e as Error).message}) — escalating`)
     const r = await callClaude<T>({ ...opts, tier: 'escalate', model: undefined, effort: opts.escalateEffort })
     const first = (e as ClaudeError).usage
@@ -438,7 +469,10 @@ function isMissingTable(err: any): boolean {
 }
 
 // Count the caller's recent calls to `functionName`; if under the caps,
-// reserve a row (counted immediately, so concurrent bursts are capped too).
+// reserve a row so later calls count it. This is count-then-insert, NOT
+// atomic: requests that arrive together can all pass the count before any
+// of them inserts, so a concurrent burst can exceed the cap by the number of
+// requests in flight. Sequential calls are capped exactly.
 // `admin` must be a service-role client. Fails OPEN only when the ai_usage
 // table does not exist yet (migration pending); any other DB error fails
 // closed so a broken counter cannot become an unlimited budget.

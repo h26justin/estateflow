@@ -2,6 +2,7 @@
 import { supabase } from '../supabase'
 import { revokeAllApiTokens } from './apiAccess'
 import { logError } from '../logError'
+import { ensureAal2 } from '../mfaStepUp'
 
 // ── USER PROFILE ──────────────────────────────────────────────────────────────
 export async function fetchUserProfile(userId) {
@@ -18,14 +19,25 @@ export async function upsertUserProfile(userId, email, updates) {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-export async function updateUserEmail(newEmail) {
+// Supabase Auth refuses updateUser on an aal1 session when the account has a
+// verified 2FA factor. A session is aal1 after a password re-auth (it replaces
+// the session) or on a remembered device, so step up first. askCode prompts
+// for the TOTP code (mfaStepUp.totpPrompt); 'none' = no factor, carry on.
+async function stepUpOrThrow(askCode, what) {
+  const step = await ensureAal2(askCode || (() => null))
+  if (step === 'cancelled') throw new Error(`Two-factor verification is required to change your ${what}`)
+}
+
+export async function updateUserEmail(newEmail, askCode = null) {
+  await stepUpOrThrow(askCode, 'email')
   const { error } = await supabase.auth.updateUser({ email: newEmail })
   if (error) throw error
 }
 
-export async function updateUserPassword(currentPassword, newPassword, email) {
+export async function updateUserPassword(currentPassword, newPassword, email, askCode = null) {
   const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword })
   if (signInErr) throw new Error('Current password is incorrect')
+  await stepUpOrThrow(askCode, 'password')
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   if (error) throw error
   // New password: any API token minted under the old one stops working.
@@ -50,14 +62,17 @@ export async function markOnboardingComplete(userId, email) {
   if (error) throw error
 }
 
+// Throws on a read error (App treats a failure as "onboarded", so a blip
+// doesn't pop the tour); a missing profile row is genuinely not onboarded.
+// .single() never threw — it returned { error } — so every error used to read
+// as "not onboarded" and showed the tour.
 export async function fetchOnboardingStatus(userId) {
-  try {
-    const { data } = await supabase.from('user_profiles')
-      .select('onboarding_completed')
-      .eq('user_id', userId)
-      .single()
-    return data?.onboarding_completed === true
-  } catch(e) { return false }
+  const { data, error } = await supabase.from('user_profiles')
+    .select('onboarding_completed')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.onboarding_completed === true
 }
 
 // ── REFERRALS ─────────────────────────────────────────────────────────────────

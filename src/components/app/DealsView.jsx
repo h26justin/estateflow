@@ -1,4 +1,4 @@
-import * as api from '../../lib/api'
+import { stampDuty, depositPercent } from '../../lib/dealMetrics'
 import { canUseInvestorFeatures } from '../../lib/tierGating'
 import { DealsPage } from './lazyViews'
 
@@ -29,7 +29,7 @@ export function DealsView({
           // Cash deals get mortgage_amount=0, deposit=full price.
           const num = (v) => Number(v) || 0
           const price = num(deal.purchase_price)
-          const depPct = num(deal.deposit_percent) || 25
+          const depPct = depositPercent(deal)
           const isCash = deal.purchase_type === 'cash'
           const mortgageAmount = isCash ? 0 : Math.round(price * (1 - depPct / 100))
           const depositAmount  = isCash ? price : Math.round(price * depPct / 100)
@@ -37,9 +37,7 @@ export function DealsView({
           // the SDLT calculator on the deal's flags. (There is no
           // stamp_duty column on deals — the previous fallback read one
           // and silently converted every non-overridden deal with £0.)
-          const sd = deal.stamp_duty_override != null
-            ? num(deal.stamp_duty_override)
-            : api.calcStampDuty(price, deal.is_additional_property, deal.is_first_time_buyer)
+          const sd = stampDuty(deal)
           const prefill = {
             // UI hint — lets PropertyModal start with the mortgage block
             // hidden for cash deals. Stripped before save (no column).

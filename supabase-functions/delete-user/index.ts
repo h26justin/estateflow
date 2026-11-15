@@ -80,6 +80,40 @@ serve(async (req) => {
   if (targetErr || !targetData?.user) return jsonError(404, 'User not found')
   const targetEmail = targetData.user.email || null
 
+  // Billing guard: deleting the user cascades their companies and
+  // subscription rows, but NOT the Stripe subscription — it would keep
+  // charging with no account behind it. Cancelling is a billing action we
+  // don't take in code, so refuse until it has been cancelled in Stripe.
+  // Fails closed if either lookup errors.
+  const { data: owned, error: ownedErr } = await admin
+    .from('companies').select('id, name').eq('owner_id', targetUserId)
+  if (ownedErr) {
+    console.error('[delete-user] owned companies lookup failed:', ownedErr.message)
+    return jsonError(500, 'Could not check billing before deletion')
+  }
+  const ownedIds = (owned || []).map((c: any) => c.id)
+  if (ownedIds.length) {
+    const { data: liveSubs, error: subsErr } = await admin
+      .from('subscriptions')
+      .select('company_id, status')
+      .in('company_id', ownedIds)
+      .in('status', ['active', 'trialing', 'past_due', 'unpaid'])
+      .not('stripe_subscription_id', 'is', null)
+    if (subsErr) {
+      console.error('[delete-user] subscription lookup failed:', subsErr.message)
+      return jsonError(500, 'Could not check billing before deletion')
+    }
+    if (liveSubs && liveSubs.length) {
+      const names = liveSubs
+        .map((s: any) => (owned || []).find((c: any) => c.id === s.company_id)?.name || s.company_id)
+        .join(', ')
+      return jsonResp(409, {
+        error: `This user still has a live Stripe subscription (${names}). Cancel it in Stripe first, then delete the user.`,
+        code: 'live_subscription',
+      })
+    }
+  }
+
   const { error: delErr } = await admin.auth.admin.deleteUser(targetUserId)
   if (delErr) {
     console.error('[delete-user] deletion failed:', delErr.message)

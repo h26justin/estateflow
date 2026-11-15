@@ -16,7 +16,7 @@
 // companies whose role allows it (view_rent, view_compliance, view_tenancies).
 // No tenant names, notes, values or mortgage figures are ever included.
 
-import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE } from './rentEngine'
+import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE, missedOwed } from './rentEngine'
 import { getEffectivePermissions } from './api/roles'
 import { CATALOGUE_BY_KEY, canonicalCertType } from './complianceCatalogue'
 import { subscriptionGrantsLive } from './subscriptionLive'
@@ -127,7 +127,7 @@ function rentSection(properties, { asOf, lastWeek, monthFrom }) {
         out.monthToDate.expected = round2(out.monthToDate.expected + e.expected)
         out.monthToDate.received = round2(out.monthToDate.received + collectedOf(e))
       }
-      if (e.state === STATE.MISSED && e.outstanding > 0) missed = round2(missed + e.outstanding)
+      missed = round2(missed + missedOwed(e, asOf))
     }
     const historic = Math.max(0, arrearsSummary(p).balance)
     const owed = round2(missed + historic)
@@ -156,7 +156,9 @@ function complianceSection(properties, items, { asOf }) {
     const req = CATALOGUE_BY_KEY[key]
     const date = effectiveExpiry(it, req)
     if (!date) continue
-    const k = `${p.id}|${key}`
+    // Custom certificates are all cert_type 'other' with a free-text name:
+    // told apart by name, as buildComplianceReport does.
+    const k = req ? `${p.id}|${key}` : `${p.id}|${key}|${String(it.cert_name || '').trim().toLowerCase()}`
     const cur = latest.get(k)
     if (!cur || date > cur.date) latest.set(k, { propertyId: p.id, property: p.name || 'Property', label: req?.label || it.cert_name || String(it.cert_type || 'Certificate'), date })
   }

@@ -93,12 +93,19 @@ export default function InspectionsPanel({ propertyId, canEdit = true, user }) {
   }
 
   async function save() {
+    // Date columns reject '' — a blank date means "not set" (null).
+    const payload = {
+      ...form,
+      scheduled_date: form.scheduled_date || null,
+      completed_date: form.completed_date || null,
+      overall_condition: form.overall_condition || null,
+    }
     try {
       if (editingId) {
-        const updated = await api.updateInspection(editingId, form)
+        const updated = await api.updateInspection(editingId, payload)
         setItems(prev => prev.map(x => x.id === editingId ? updated : x))
       } else {
-        const created = await api.createInspection(propertyId, form)
+        const created = await api.createInspection(propertyId, payload)
         setItems(prev => [created, ...prev])
       }
       cancel()

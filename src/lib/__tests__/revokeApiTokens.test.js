@@ -7,6 +7,8 @@ vi.mock('../supabase', () => ({
       getUser: async () => ({ data: { user: { id: 'u1' } } }),
       signInWithPassword: async () => ({ error: null }),
       updateUser: calls.updateUser,
+      // No 2FA factor: the step-up after the password re-auth is a no-op.
+      mfa: { getAuthenticatorAssuranceLevel: async () => ({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null }) },
     },
     from: (table) => ({
       delete: () => ({ eq: async (col, val) => { calls.deletes.push([table, col, val]); return { error: null } } }),

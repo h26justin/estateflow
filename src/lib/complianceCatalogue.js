@@ -165,27 +165,29 @@ export const isOptedOut = (property, key) => (property?.compliance_optout || {})
 
 // ── EPC / MEES helpers ───────────────────────────────────────────────────────
 // properties.epc_rating is the register-synced band (epc-sync edge function,
-// 2026-08-08_epc_register_sync.sql). MEES: the proposed minimum for the PRS
-// rises to band C by end of 2030 — the same target/deadline EpcPlanner and
-// the epc-planner edge function use. Band colours mirror the certificate.
+// 2026-08-08_epc_register_sync.sql). MEES: the planned minimum for the PRS
+// rises to band C from 1 October 2030 (government response, January 2026;
+// still subject to Parliamentary approval, so surfaces say "planned").
+// Band colours mirror the certificate.
 export const EPC_BAND_COLOR = {
   A: '#1a8a3c', B: '#3aa655', C: '#8dc63f',
   D: '#f0c419', E: '#f39c12', F: '#e8770c', G: '#d0021b',
 }
 export const MEES_TARGET_BAND = 'C'
-export const MEES_DEADLINE_ISO = '2030-12-31'
+export const MEES_DEADLINE_ISO = '2030-10-01'
 // The CURRENT legal minimum to let (MEES, in force since April 2020): band E.
 // F/G properties cannot legally be let today — that's a live breach, not a
 // 2030 problem, so surfaces treat it as red rather than an amber countdown.
 export const MEES_MIN_LEGAL_BAND = 'E'
-// Plain-English MEES deadline for an EPC chip: "C needed by 2030". Replaces
-// the old "1,533d to C" day countdown, which read like a code. Once the
-// deadline has passed the band is simply short of the target.
+// Plain-English MEES deadline for an EPC chip: "C needed by 2030 (planned)".
+// Replaces the old "1,533d to C" day countdown, which read like a code. The
+// date is not yet law, hence "planned". From the date itself the band is
+// simply short of the target.
 export function meesTargetLabel(today = new Date()) {
-  const deadline = new Date(MEES_DEADLINE_ISO + 'T23:59:59')
-  return today > deadline
+  const deadline = new Date(MEES_DEADLINE_ISO + 'T00:00:00')
+  return today >= deadline
     ? `below band ${MEES_TARGET_BAND}`
-    : `${MEES_TARGET_BAND} needed by ${MEES_DEADLINE_ISO.slice(0, 4)}`
+    : `${MEES_TARGET_BAND} needed by ${MEES_DEADLINE_ISO.slice(0, 4)} (planned)`
 }
 // Normalised band letter for a property, or null when unknown/unsynced.
 export function epcBand(property) {

@@ -8,6 +8,8 @@
 //                 epc_certificates table and the property's compliance row.
 
 import { supabase } from '../supabase'
+import { fetchAllPages } from '../paginate'
+import { fetchAccessibleCompanyIds } from './access'
 
 // Fetch the most recent saved EPC retrofit plan for a property, or null if none
 // has been generated yet.
@@ -69,13 +71,19 @@ export async function fetchEpcCertificate(propertyId) {
 // raw (suggested_improvements + the numeric SAP score) rather than the
 // whole certificate blob, and keeps just the newest certificate per
 // property (history can leave several rows).
+//
+// Scoped by the properties of the companies the user can access, not by who
+// ran the sync: `.eq('user_id')` hid the owner's synced certificates from
+// team-mates. Paginated (stable order) past the row cap.
 export async function fetchAllEpcCertificates(userId) {
-  const { data, error } = await supabase
+  const companyIds = await fetchAccessibleCompanyIds(userId)
+  if (companyIds.length === 0) return []
+  const data = await fetchAllPages(() => supabase
     .from('epc_certificates')
-    .select('id, property_id, certificate_number, register_address, current_rating, potential_rating, lodgement_date, expiry_date, certificate_url, sap_score:raw->energy_rating_current, improvements:raw->suggested_improvements, property:properties(id,name,address,company_id,status,company:companies(name,abbr,color))')
-    .eq('user_id', userId)
+    .select('id, property_id, certificate_number, register_address, current_rating, potential_rating, lodgement_date, expiry_date, certificate_url, sap_score:raw->energy_rating_current, improvements:raw->suggested_improvements, property:properties!inner(id,name,address,company_id,status,company:companies(name,abbr,color))')
+    .in('property.company_id', companyIds)
     .order('lodgement_date', { ascending: false, nullsFirst: false })
-  if (error) throw error
+    .order('id'))
   const latest = new Map()
   for (const row of data || []) {
     if (!latest.has(row.property_id)) latest.set(row.property_id, row)

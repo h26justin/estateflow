@@ -1,10 +1,11 @@
 // Staged reminder schedule for compliance items.
 //
 // The cron runs daily, but an item should only email at milestones, not
-// every day of its window. Marketing / onboarding / trial emails promise
-// alerts "at 90, 60, 30 and 7 days"; previously the function emailed
-// every 24h from reminder_days out until 30 days past expiry (up to ~60
-// emails per certificate).
+// every day of its window (previously the function emailed every 24h from
+// reminder_days out until 30 days past expiry, up to ~60 emails per
+// certificate). With the default reminder_days of 30 that is 30 days, 7
+// days and the day itself, then weekly once expired; the trial-emails day-3
+// copy describes exactly this, so keep the two in step.
 //
 // Stages, most distant first:
 //   reminder_days (the item's own "remind me N days before")

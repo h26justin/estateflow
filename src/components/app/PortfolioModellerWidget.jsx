@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { MONO, FS, SANS } from '../../lib/styles'
 import { Icon } from '../../lib/icons'
+import { isPropertyEarningRent } from '../../lib/propertyStatus'
+import { propValue } from '../../lib/propertyValue'
 
 export function PortfolioModellerWidget({ properties = [] }) {
   const { T } = useTheme()
@@ -11,8 +13,12 @@ export function PortfolioModellerWidget({ properties = [] }) {
   const [years, setYears] = useState(10)
   const [growthRate, setGrowthRate] = useState(3)
   const mono = MONO
-  const currentIncome = properties.reduce((s,p) => s + (p.rent_pcm||0)*12, 0)
-  const currentValue  = properties.reduce((s,p) => s + (p.current_value||p.est_value||0), 0)
+  // "Today" counts only what the portfolio holds and earns now: no sold,
+  // archived or deleted properties, and income only from properties
+  // actually earning rent (not vacant, on the market or in refurb).
+  const held = properties.filter(p => !p.deleted_at && !p.archived_at && p.status !== 'sold' && p.status !== 'archived')
+  const currentIncome = held.filter(p => isPropertyEarningRent(p.status)).reduce((s,p) => s + (p.rent_pcm||0)*12, 0)
+  const currentValue  = held.reduce((s,p) => s + propValue(p), 0)
   const newIncome = extraProps * avgPrice * (avgYield/100)
   const totalIncome = currentIncome + newIncome
   const totalValue  = currentValue + (extraProps * avgPrice)

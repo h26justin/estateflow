@@ -43,23 +43,44 @@ export async function disconnectXero(companyId) {
   if (error) throw error
 }
 
-export async function runXeroSync(companyId, direction = 'to_xero') {
-  if (!companyId) throw new Error('companyId required')
-  const { data, error } = await supabase.functions.invoke('xero-sync', {
-    body: { direction, company_id: companyId }
-  })
-  if (error) throw error
-  if (data?.error) throw new Error(data.error)
+// A run that can post must carry the preview_token from the preview the user
+// confirmed (the server refuses otherwise). When the list changed since the
+// review the server answers 409 { code: 'preview_changed' }: that surfaces
+// as an Error with code 'preview_changed' so the UI can re-open the preview.
+async function invokeSync(body) {
+  const { data, error } = await supabase.functions.invoke('xero-sync', { body })
+  if (error) {
+    let ctx = null
+    try { ctx = await error.context?.json?.() } catch { /* ignore */ }
+    if (!ctx?.error) throw error
+    const e = new Error(ctx.error)
+    if (ctx.code) e.code = ctx.code
+    e.cause = error
+    throw e
+  }
+  if (data?.error) {
+    const e = new Error(data.error)
+    if (data.code) e.code = data.code
+    throw e
+  }
   return data
+}
+
+export async function runXeroSync(companyId, direction = 'to_xero', { previewToken = null } = {}) {
+  if (!companyId) throw new Error('companyId required')
+  const body = { direction, company_id: companyId }
+  if (previewToken) body.preview_token = previewToken
+  return invokeSync(body)
 }
 
 // What a push would post (counts, totals, bank, start date) without
 // posting. The UI shows it in a confirm dialog before every manual push.
-export async function previewXeroSync(companyId) {
+// propertyIds narrows it to the same subset a per-property sync posts.
+export async function previewXeroSync(companyId, propertyIds = null) {
   if (!companyId) throw new Error('companyId required')
-  const { data, error } = await supabase.functions.invoke('xero-sync', {
-    body: { action: 'preview', company_id: companyId }
-  })
+  const body = { action: 'preview', company_id: companyId }
+  if (Array.isArray(propertyIds) && propertyIds.length > 0) body.property_ids = propertyIds
+  const { data, error } = await supabase.functions.invoke('xero-sync', { body })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
   return data
@@ -120,15 +141,15 @@ export async function fetchXeroAccounts(companyId) {
 }
 
 // Sync only specific properties (per-property "Sync just this one" button).
-export async function runXeroSyncForProperties(companyId, propertyIds) {
+// Posting ('both') is only ever asked for after the user has confirmed a
+// preview scoped to the same propertyIds; anything else pulls only.
+export async function runXeroSyncForProperties(companyId, propertyIds, mode = 'reconcile_only', { previewToken = null } = {}) {
   if (!companyId) throw new Error('companyId required')
   if (!Array.isArray(propertyIds) || propertyIds.length === 0) throw new Error('propertyIds required')
-  const { data, error } = await supabase.functions.invoke('xero-sync', {
-    body: { action: 'both', company_id: companyId, property_ids: propertyIds }
-  })
-  if (error) throw error
-  if (data?.error) throw new Error(data.error)
-  return data
+  const action = mode === 'both' ? 'both' : 'reconcile_only'
+  const body = { action, company_id: companyId, property_ids: propertyIds }
+  if (action === 'both' && previewToken) body.preview_token = previewToken
+  return invokeSync(body)
 }
 
 // Wipe the sync map for this (user, company). After this, the next

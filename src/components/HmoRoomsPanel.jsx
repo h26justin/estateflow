@@ -108,13 +108,15 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
 
   async function saveRoom() {
     if (!roomForm.room_name.trim()) { setTriedRoomSave(true); showAppToast('Room name is required', 'error'); return }
+    // Blank dates are allowed: date columns take null, never ''.
+    const roomPayload = { ...roomForm, tenancy_start: roomForm.tenancy_start || null, tenancy_end: roomForm.tenancy_end || null }
     setSavingRoom(true)
     try {
       if (editingRoomId) {
-        const updated = await updateRoom(editingRoomId, roomForm)
+        const updated = await updateRoom(editingRoomId, roomPayload)
         setRooms(prev => prev.map(x => x.id === editingRoomId ? updated : x))
       } else {
-        const created = await createRoom(propertyId, roomForm)
+        const created = await createRoom(propertyId, roomPayload)
         setRooms(prev => [...prev, created].sort((a, b) => naturalCompare(a.room_name, b.room_name)))
       }
       cancelRoom()
@@ -144,13 +146,15 @@ export default function HmoRoomsPanel({ propertyId, isHmo = true, onHmoChange, c
   function cancelLic() { setAddingLic(false); setEditingLicId(null); setLicForm(blankLic) }
 
   async function saveLic() {
+    // Blank dates are allowed: date columns take null, never ''.
+    const licPayload = { ...licForm, issued_date: licForm.issued_date || null, expiry_date: licForm.expiry_date || null }
     setSavingLic(true)
     try {
       if (editingLicId) {
-        const updated = await updateLicence(editingLicId, licForm)
+        const updated = await updateLicence(editingLicId, licPayload)
         setLicences(prev => prev.map(x => x.id === editingLicId ? updated : x))
       } else {
-        const created = await createLicence(propertyId, licForm)
+        const created = await createLicence(propertyId, licPayload)
         setLicences(prev => [...prev, created])
       }
       cancelLic()

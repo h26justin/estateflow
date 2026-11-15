@@ -11,7 +11,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Icon } from '../lib/icons'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
-import { NON_CHARGEABLE_REASONS, NON_CHARGEABLE_REASON_LABEL } from '../lib/rentEngine'
+import { NON_CHARGEABLE_REASONS, NON_CHARGEABLE_REASON_LABEL, isoToday } from '../lib/rentEngine'
 import {
   TENANCY_STATUSES, PAYMENT_SOURCES, RENT_FREQUENCIES, BENEFIT_FREQUENCIES, DEFAULT_PAYMENT_WINDOW_DAYS,
   usesBenefit, benefitSplitCheck, tenancyDraftFromProperty, currentTenancy,
@@ -95,14 +95,14 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
     catch (e) { showToast?.(e.message, 'error') }
   }
   async function endNow(t) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = isoToday()
     const go = await confirmDialog({ title: 'End this tenancy?', body: `Sets the tenancy end to today (${fmtDate(today)}) and its status to Ended. Rent stops being expected after today.`, confirmLabel: 'End tenancy' })
     if (!go) return
     try { await api.updateTenancy(t.id, { tenancy_end: t.tenancy_end && t.tenancy_end < today ? t.tenancy_end : today, status: 'ended' }); await load() }
     catch (e) { showToast?.(e.message, 'error') }
   }
   async function remove(t) {
-    const go = await confirmDialog({ title: 'Delete this tenancy record?', body: 'Receipts and periods linked to it stay, but lose their tenancy link. Prefer "End tenancy" for a tenant who has left.', confirmLabel: 'Delete', danger: true })
+    const go = await confirmDialog({ title: 'Delete this tenancy record?', body: 'Receipts and periods linked to it stay, but lose their tenancy link. Prefer "End tenancy" for a tenant who has left.', confirmLabel: 'Delete', destructive: true })
     if (!go) return
     try { await api.deleteTenancy(t.id); await load() } catch (e) { showToast?.(e.message, 'error') }
   }
@@ -116,7 +116,7 @@ export default function TenancyPanel({ property, showToast, canEdit = true, canV
     } catch (e) { showToast?.(e.message, 'error') }
   }
   async function removePeriod(p) {
-    const go = await confirmDialog({ title: 'Remove this non-chargeable period?', body: 'The months it covered will count as collectible again.', confirmLabel: 'Remove', danger: true })
+    const go = await confirmDialog({ title: 'Remove this non-chargeable period?', body: 'The months it covered will count as collectible again.', confirmLabel: 'Remove', destructive: true })
     if (!go) return
     try { await api.deleteNonChargeablePeriod(p.id); await load() } catch (e) { showToast?.(e.message, 'error') }
   }

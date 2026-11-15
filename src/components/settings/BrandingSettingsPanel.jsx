@@ -19,10 +19,10 @@ export function BrandingSettingsPanel({ companies, setCompanies, companySettings
   const co = companies.find(c => c.id === selectedCo)
   const cs = companySettings[selectedCo] || {}
 
+  // Reset on every company: a company with no settings row used to keep the
+  // previous company's logo in the preview.
   useEffect(() => {
-    if (selectedCo && companySettings[selectedCo]) {
-      setLogoPreview(companySettings[selectedCo].logo_url || null)
-    }
+    setLogoPreview(companySettings[selectedCo]?.logo_url || null)
   }, [selectedCo, companySettings])
 
   useEffect(() => {

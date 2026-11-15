@@ -90,6 +90,14 @@ describe('mirrorFields (client copy of the DB trigger)', () => {
 
 describe('summariseProjects', () => {
   const today = new Date('2026-09-02T10:00:00')
+  it('includeComplete sums completed projects too, for a view that lists them', () => {
+    const done = [
+      project({ id: 'd', stage: 'complete', agreed_price: 27000, refurb_lines: [line('payment', 27000)] }),
+      project({ id: 'e', stage: 'complete', agreed_price: 10000, refurb_lines: [line('payment', 9000)] }),
+    ]
+    expect(summariseProjects(done, today)).toMatchObject({ active: 0, complete: 2, agreed: 0, paid: 0 })
+    expect(summariseProjects(done, today, { includeComplete: true })).toMatchObject({ active: 0, complete: 2, agreed: 37000, paid: 36000, remaining: 1000, overdue: 0, noPrice: 0, total: 2 })
+  })
   it('totals active projects only and counts the alerts', () => {
     const s = summariseProjects([
       project({ id: 'a', agreed_price: 30000, refurb_lines: [line('payment', 21000), line('extra', 1800)], target_end_date: '2026-10-14' }),

@@ -56,13 +56,33 @@ export function ukCorporationTax(profit, { associatedCompanies = 1, periodDays =
   return { tax, effectiveRate: tax / p, band, lowerLimit: lower, upperLimit: upper }
 }
 
-// ── Dividend tax (2024/25 onwards rates) ───────────────────────────────────
+// ── Dividend tax ───────────────────────────────────────────────────────────
+// From 6 April 2026 the ordinary and upper dividend rates are 10.75% and
+// 35.75% (additional unchanged at 39.35%); before that 8.75% / 33.75%. The
+// rate follows the tax year of the date passed (for a P&L, the end of the
+// period being reported); no date means the current rates.
 
-export const DIVIDEND_TAX_RATES = { basic: 0.0875, higher: 0.3375, additional: 0.3935 }
-export const TAX_BAND_LABELS = { basic: 'Basic rate (8.75%)', higher: 'Higher rate (33.75%)', additional: 'Additional rate (39.35%)' }
+export const DIVIDEND_RATE_CHANGE_DATE = '2026-04-06'
+export const DIVIDEND_TAX_RATES_BEFORE_2026 = { basic: 0.0875, higher: 0.3375, additional: 0.3935 }
+export const DIVIDEND_TAX_RATES = { basic: 0.1075, higher: 0.3575, additional: 0.3935 }
+export const TAX_BAND_LABELS = { basic: 'Basic rate (10.75%)', higher: 'Higher rate (35.75%)', additional: 'Additional rate (39.35%)' }
 
-export function dividendTax(amount, band) {
-  const rate = DIVIDEND_TAX_RATES[band]
+// yyyy-mm-dd for a Date (local calendar date) or a date string; null if unusable.
+function isoDateOf(v) {
+  if (!v) return null
+  if (typeof v === 'string') { const m = v.match(/^\d{4}-\d{2}-\d{2}/); if (m) return m[0] }
+  const d = v instanceof Date ? v : new Date(v)
+  if (isNaN(d)) return null
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function dividendTaxRatesFor(date = null) {
+  const iso = isoDateOf(date)
+  return iso && iso < DIVIDEND_RATE_CHANGE_DATE ? DIVIDEND_TAX_RATES_BEFORE_2026 : DIVIDEND_TAX_RATES
+}
+
+export function dividendTax(amount, band, date = null) {
+  const rate = dividendTaxRatesFor(date)[band]
   if (rate == null) return null
   const a = Math.max(0, Number(amount) || 0)
   return Math.round(a * rate * 100) / 100
@@ -96,6 +116,39 @@ export function isRentReceived(r) {
   if (r?.status === 'paid') return true
   return (r?.status === 'partial' || r?.status === 'late') && Number(r?.amount) > 0
 }
+
+// Receipts → Map(rent_payment_id → net current-rent allocated to that period;
+// reversals are negative allocations). null when no receipts were supplied,
+// which keeps the legacy row-only behaviour for callers that don't load them.
+export function indexRentAllocations(receipts) {
+  if (!Array.isArray(receipts)) return null
+  const m = new Map()
+  for (const r of receipts) for (const a of (r?.rent_allocations || [])) {
+    if (a?.target !== 'current_rent' || !a.rent_payment_id) continue
+    m.set(a.rent_payment_id, (m.get(a.rent_payment_id) || 0) + (Number(a.amount) || 0))
+  }
+  return m
+}
+
+// Rent received on one period, by the rent engine's compatibility bridge
+// (rentEngine.js evaluatePeriod): the sum of its allocations when it has
+// any, otherwise the legacy rent_payments.amount on a received row.
+export function rentReceivedOnRow(r, allocIndex = null) {
+  if (allocIndex && allocIndex.has(r?.id)) return Math.round(allocIndex.get(r.id) * 100) / 100
+  return isRentReceived(r) ? (Number(r?.amount) || 0) : 0
+}
+
+// Does this period carry receipt records at all (allocations, or a received
+// legacy row)? Decides whether a portfolio has payment data or falls back to
+// expected rent.
+function hasRentRecord(r, allocIndex) {
+  return isRentReceived(r) || !!(allocIndex && allocIndex.has(r?.id))
+}
+
+// The 'mortgage' category is the whole payment, capital included, with no
+// split recorded. Capital repayments are never deductible, so it is left out
+// of the corporation-tax base (interest recorded separately stays in).
+export const CT_MORTGAGE_NOTE = 'Mortgage payments recorded including capital are not deducted in the corporation tax estimate (capital is not deductible); record the interest separately to claim it.'
 
 // Days in a P&L period of `months` months, for pro-rating the CT limits.
 // 12 months is exactly 365 days, so a full year keeps the annual limits.
@@ -145,6 +198,10 @@ export const EXPENSE_CATEGORY_LABELS = {
   // records carry no split, so it is shown as such rather than as interest.
   mortgage: 'Mortgage Payment (incl. capital)', legal: 'Legal Fees',
   accountancy: 'Accountancy', other: 'Other',
+  // Written by CSV import and the receipt scanner.
+  mortgage_interest: 'Mortgage interest', compliance: 'Compliance certificates',
+  maintenance: 'Maintenance / Repairs', professional: 'Professional Fees',
+  cleaning: 'Cleaning', garden: 'Garden / Outside Maintenance',
 }
 
 export function expenseCategoryLabel(cat) {
@@ -387,8 +444,16 @@ export function buildPortfolioPnl({
   include = {},
   fullOccupancy = false,
   rentEstimates = null,
+  receipts = null,
+  // Optional column placement for monthKeys: (row) => { y, m } | null. The
+  // Reports page passes these on the tax-year (6 April) basis, where a
+  // column is a tax month (see reportBuilders PERIOD RULE). Default: the
+  // calendar month, as before.
+  rentMonthOf = null,
+  expenseMonthOf = null,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
+  const allocIdx = indexRentAllocations(receipts)
   const agentById = new Map(agents.map(a => [a.id, a]))
   const nMonths = monthKeys ? monthKeys.length : months
   const forecastOn = !!(forecast?.now && monthKeys)
@@ -409,7 +474,7 @@ export function buildPortfolioPnl({
     const cPays = payments.filter(r => propIds.has(r.property_id))
     const cExps = expenses.filter(e => propIds.has(e.property_id))
 
-    const hasPaid = cPays.some(isRentReceived)
+    const hasPaid = cPays.some(r => hasRentRecord(r, allocIdx))
 
     // Properties carrying a real logged agent-fee cost. An actual invoiced fee
     // beats a percentage estimate, so for these the calculated line is
@@ -448,10 +513,16 @@ export function buildPortfolioPnl({
     // period_start for legacy rows that predate them.
     const paidByProp = new Map(), paidByPropMonth = new Map()
     for (const r of cPays) {
-      if (!isRentReceived(r)) continue
-      const amt = Number(r.amount) || 0
+      if (!hasRentRecord(r, allocIdx)) continue
+      const amt = rentReceivedOnRow(r, allocIdx)
       paidByProp.set(r.property_id, (paidByProp.get(r.property_id) || 0) + amt)
-      if (monthKeys) {
+      if (monthKeys && rentMonthOf) {
+        const mk = rentMonthOf(r)
+        if (mk) {
+          const k = `${r.property_id}|${mk.y}-${mk.m}`
+          paidByPropMonth.set(k, (paidByPropMonth.get(k) || 0) + amt)
+        }
+      } else if (monthKeys) {
         let y = r.year, m0 = r.month ? r.month - 1 : null
         if ((y == null || m0 == null) && r.period_start) {
           const d = new Date(r.period_start)
@@ -465,12 +536,13 @@ export function buildPortfolioPnl({
     }
     let excludedAgentFeeExpenses = 0
     let actualAgentFeeExpenses = 0
-    const expByProp = new Map(), expByPropMonth = new Map()
+    const expByProp = new Map(), expByPropMonth = new Map(), mortByProp = new Map()
     for (const e of cExps) {
       const amt = Number(e?.amount) || 0
       if (!amt || !inc.expenses) continue
       const cat = e?.category || 'other'
       if (!inc.mortgage && cat === 'mortgage') continue
+      if (cat === 'mortgage') mortByProp.set(e.property_id, (mortByProp.get(e.property_id) || 0) + amt)
       if (cat === 'agent_fees') {
         // Fees toggled off drops logged agent-fee costs too. With fees on, a
         // logged fee is now kept and its property's calculated rate is
@@ -480,7 +552,13 @@ export function buildPortfolioPnl({
         actualAgentFeeExpenses += amt
       }
       expByProp.set(e.property_id, (expByProp.get(e.property_id) || 0) + amt)
-      if (monthKeys && e.date) {
+      if (monthKeys && e.date && expenseMonthOf) {
+        const mk = expenseMonthOf(e)
+        if (mk) {
+          const k = `${e.property_id}|${mk.y}-${mk.m}`
+          expByPropMonth.set(k, (expByPropMonth.get(k) || 0) + amt)
+        }
+      } else if (monthKeys && e.date) {
         const d = new Date(e.date)
         if (!isNaN(d)) {
           const k = `${e.property_id}|${d.getFullYear()}-${d.getMonth()}`
@@ -530,20 +608,23 @@ export function buildPortfolioPnl({
       }
       const fees = income * feeRate
       const pretax = income - exp - fees
-      return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly, rentEstimated: estRent > 0 }
+      return { id: p.id, name: p.name, income, expenses: exp, fees, pretax, monthly, rentEstimated: estRent > 0, ctBase: pretax + (mortByProp.get(p.id) || 0) }
     })
 
     const tIncome = rows.reduce((s, r) => s + r.income, 0)
     const tExp = rows.reduce((s, r) => s + r.expenses, 0)
     const tFees = rows.reduce((s, r) => s + r.fees, 0)
     const tPretax = tIncome - tExp - tFees
-    const ct = (entry.personal || !inc.corporationTax) ? null : ukCorporationTax(Math.max(0, tPretax), { associatedCompanies, periodDays: periodDaysForMonths(nMonths) })
+    // Mortgage payments (capital included) are not deductible for CT.
+    const tMortgage = rows.reduce((s, r) => s + (r.ctBase - r.pretax), 0)
+    const ct = (entry.personal || !inc.corporationTax) ? null : ukCorporationTax(Math.max(0, tPretax + tMortgage), { associatedCompanies, periodDays: periodDaysForMonths(nMonths) })
     const ctTax = ct ? ct.tax : 0
 
-    // Apportion CT to properties pro-rata on positive pre-tax profit.
-    const sumPositive = rows.reduce((s, r) => s + Math.max(0, r.pretax), 0)
+    // Apportion CT to properties pro-rata on their positive taxable profit.
+    const sumPositive = rows.reduce((s, r) => s + Math.max(0, r.ctBase), 0)
     for (const r of rows) {
-      r.ctShare = round2(sumPositive > 0 ? ctTax * (Math.max(0, r.pretax) / sumPositive) : 0)
+      r.ctShare = round2(sumPositive > 0 ? ctTax * (Math.max(0, r.ctBase) / sumPositive) : 0)
+      delete r.ctBase
       r.posttax = round2(r.pretax - r.ctShare)
       r.income = round2(r.income); r.expenses = round2(r.expenses)
       r.fees = round2(r.fees); r.pretax = round2(r.pretax)
@@ -556,6 +637,8 @@ export function buildPortfolioPnl({
       // percentage, so the report can say which basis it used.
       actualAgentFeeExpenses: round2(actualAgentFeeExpenses),
       actualFeePropertyCount: propsWithActualFees.size,
+      // Mortgage payments (incl. capital) left out of the CT base; see CT_MORTGAGE_NOTE.
+      mortgageExcludedFromCt: ct ? round2(tMortgage) : 0,
       rows,
       totals: {
         income: round2(tIncome), expenses: round2(tExp), fees: round2(tFees),
@@ -656,7 +739,7 @@ export function estimateMissingRents(properties = []) {
 // as row.dividendTax / totals.dividendTax / grand.dividendTax. Companies
 // with no band entry (and the personally-held bucket) are left untaxed.
 // Without the option, post-tax figures are before personal dividend tax.
-export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent = 100, dividendTaxBands = null } = {}) {
+export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent = 100, dividendTaxBands = null, periodEnd = null } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const companies = []
   for (const b of result.companies) {
@@ -679,7 +762,7 @@ export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent
       monthly: b.totals.monthly ? b.totals.monthly.map(v => round2(v * f)) : null,
     }
     const band = !b.personal && dividendTaxBands ? dividendTaxBands[b.id] : null
-    const dt = band ? dividendTax(Math.max(0, totals.posttax), band) : 0
+    const dt = band ? dividendTax(Math.max(0, totals.posttax), band, periodEnd) : 0
     if (dt > 0) {
       const pos = rows.reduce((s, r) => s + Math.max(0, r.posttax), 0)
       for (const r of rows) {
@@ -722,24 +805,33 @@ export function scalePortfolioPnl(result, pctByCompanyId = {}, { personalPercent
 //   months       — months the period spans (for monthly averages)
 //   associatedCompanies — total companies under common control (CT limits)
 //   isEarningRent — predicate for the fallback (defaults to status check)
+//   receipts     — optional rent_receipts with rent_allocations. When given,
+//                  a period's rent is its allocations (as the Rent Tracker
+//                  counts it), falling back to the row amount only for a
+//                  period with none. Omitted → row amounts only.
+//   periodEnd    — optional end of the reporting period (Date or yyyy-mm-dd):
+//                  picks the dividend tax rates for that tax year. Omitted →
+//                  current rates.
 export function buildCompanyPnl({
   properties = [], payments = [], expenses = [], agents = [],
   shareholders = [], months = 12, associatedCompanies = 1,
   isEarningRent = (p) => p?.status === 'rented',
+  receipts = null, periodEnd = null,
 } = {}) {
   // Income — actually-collected rent; expected-rent fallback only when the
   // portfolio has no paid payment rows at all (same posture as ReportPnL).
-  const hasPaid = payments.some(isRentReceived)
+  const allocIdx = indexRentAllocations(receipts)
+  const hasPaid = payments.some(r => hasRentRecord(r, allocIdx))
   const rentCollected = hasPaid
-    ? payments.filter(isRentReceived).reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    ? payments.reduce((s, r) => s + rentReceivedOnRow(r, allocIdx), 0)
     : properties.filter(p => isEarningRent(p)).reduce((s, p) => s + (Number(p.rent_pcm) || 0) * months, 0)
 
   // Per-property rent, for attributing income to each managing agent.
   const paidByProperty = {}
   if (hasPaid) {
     for (const r of payments) {
-      if (!isRentReceived(r)) continue
-      paidByProperty[r.property_id] = (paidByProperty[r.property_id] || 0) + (Number(r.amount) || 0)
+      if (!hasRentRecord(r, allocIdx)) continue
+      paidByProperty[r.property_id] = (paidByProperty[r.property_id] || 0) + rentReceivedOnRow(r, allocIdx)
     }
   }
   const rentForProperty = (p) => hasPaid
@@ -814,8 +906,12 @@ export function buildCompanyPnl({
   const totalExpenses = totalOperatingExpenses + totalManagementFees
   const operatingProfit = rentCollected - totalExpenses
 
-  // Corporation tax — only on positive profit.
-  const ct = ukCorporationTax(Math.max(0, operatingProfit), { associatedCompanies, periodDays: periodDaysForMonths(months) })
+  // Corporation tax — only on positive profit. Mortgage payments (the
+  // 'mortgage' category, capital included) are added back: capital is not
+  // deductible. Separately recorded interest stays deducted.
+  const mortgageExcludedFromCt = byCategory.mortgage || 0
+  const ctBase = operatingProfit + mortgageExcludedFromCt
+  const ct = ukCorporationTax(Math.max(0, ctBase), { associatedCompanies, periodDays: periodDaysForMonths(months) })
   const profitAfterTax = operatingProfit - ct.tax
 
   // Shareholder split of profit after tax. Corporate shareholders (holding
@@ -826,7 +922,7 @@ export function buildCompanyPnl({
     const corporate = isCorporateShareholder(s)
     const pct = Number(s.percentage) || 0
     const share = profitAfterTax * (pct / 100)
-    const divTax = !corporate && s.tax_band ? dividendTax(share, s.tax_band) : null
+    const divTax = !corporate && s.tax_band ? dividendTax(share, s.tax_band, periodEnd) : null
     const net = share - (divTax || 0)
     return {
       id: s.id, name: s.name, email: s.email || null, userId: s.user_id || null,
@@ -852,6 +948,9 @@ export function buildCompanyPnl({
     totalExpenses,
     operatingProfit,
     corporationTax: ct,
+    ctBase,
+    mortgageExcludedFromCt,
+    ctNote: mortgageExcludedFromCt > 0 ? CT_MORTGAGE_NOTE : null,
     profitAfterTax,
     shareholders: shareholderRows,
     ownershipTotal,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/ThemeContext'
 import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
+import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { openPlaidLink } from '../lib/plaidLink'
 import { Button, EmptyState, Modal } from './ui'
@@ -36,6 +37,7 @@ const STATUS_TONE = {
 
 export default function BankConnectionsModal({ onClose }) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const mono = MONO
 
   const [rows, setRows]                 = useState([])
@@ -118,6 +120,12 @@ export default function BankConnectionsModal({ onClose }) {
   }
 
   async function remove(id) {
+    const row = rows.find(r => r.id === id)
+    if (!(await confirm({
+      title: `Remove ${row?.institution_name || 'this bank connection'}?`,
+      body: 'This deletes the connection and the bank transactions imported through it, including any matches to rent. It cannot be undone; you would need to reconnect the bank to import them again.',
+      confirmLabel: 'Remove connection', destructive: true,
+    }))) return
     try {
       await api.deleteBankConnection(id)
       setRows(prev => prev.filter(r => r.id !== id))
@@ -276,7 +284,7 @@ export default function BankConnectionsModal({ onClose }) {
                     )}
                   </div>
                   <button onClick={() => remove(r.id)}
-                    aria-label="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 14, padding: 8, margin: -4 }}>×</button>
+                    aria-label={`Remove ${r.institution_name || 'bank connection'}`} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.muted, fontSize: 14, padding: 8, margin: -4 }}>×</button>
                 </div>
               ))}
             </div>

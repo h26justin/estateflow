@@ -30,21 +30,49 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// PostgREST returns at most 1,000 rows per request, so every table is read
+// in pages with a stable order. Any page error fails the whole user's backup
+// (thrown) — a truncated backup must never be stored and counted as complete.
+// optional = the table may not exist in this database (older schema); only
+// a missing-table error is tolerated for those, nothing else.
+const PAGE = 1000
+
+function isMissingTable(error: any): boolean {
+  return error?.code === '42P01' || error?.code === 'PGRST205'
+    || /does not exist|could not find the table/i.test(String(error?.message || ''))
+}
+
+async function allRows(admin: any, table: string, cols: string, ownerCol: string, userId: string, optional = false, orderCol = 'id'): Promise<any[]> {
+  const out: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await admin.from(table).select(cols).eq(ownerCol, userId)
+      .order(orderCol, { ascending: true }).range(from, from + PAGE - 1)
+    if (error) {
+      if (optional && from === 0 && isMissingTable(error)) return []
+      throw new Error(`${table}: ${error.message}`)
+    }
+    const rows = data || []
+    out.push(...rows)
+    if (rows.length < PAGE) return out
+  }
+}
+
 async function backupOneUser(admin: any, userId: string, userEmail: string, triggerSource: string) {
   // Pull all user data
   const [companies, properties, compliance, maintenance, expenses, rentPayments, tenancies, deals, rightToRent, depositProtection, legalNotices, documents] = await Promise.all([
-    admin.from('companies').select('*').eq('owner_id', userId).then((r: any) => r.data || []),
-    admin.from('properties').select('*').eq('user_id', userId).then((r: any) => r.data || []),
-    admin.from('compliance_items').select('*').eq('user_id', userId).then((r: any) => r.data || []),
-    admin.from('maintenance_jobs').select('*').eq('user_id', userId).then((r: any) => r.data || []),
-    admin.from('property_expenses').select('*').eq('user_id', userId).then((r: any) => r.data || []),
-    admin.from('rent_payments').select('*').eq('user_id', userId).then((r: any) => r.data || []),
-    admin.from('tenancy_details').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('deals').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('right_to_rent').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('deposit_protection').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('legal_notices').select('*').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
-    admin.from('property_documents').select('id,name,file_url,file_path,file_type,file_size,category,created_at').eq('user_id', userId).then((r: any) => r.data || []).catch(() => []),
+    allRows(admin, 'companies', '*', 'owner_id', userId),
+    allRows(admin, 'properties', '*', 'user_id', userId),
+    allRows(admin, 'compliance_items', '*', 'user_id', userId),
+    allRows(admin, 'maintenance_jobs', '*', 'user_id', userId),
+    allRows(admin, 'property_expenses', '*', 'user_id', userId),
+    allRows(admin, 'rent_payments', '*', 'user_id', userId),
+    // tenancy_details is one row per property (upserted on property_id).
+    allRows(admin, 'tenancy_details', '*', 'user_id', userId, true, 'property_id'),
+    allRows(admin, 'deals', '*', 'user_id', userId, true),
+    allRows(admin, 'right_to_rent', '*', 'user_id', userId, true),
+    allRows(admin, 'deposit_protection', '*', 'user_id', userId, true),
+    allRows(admin, 'legal_notices', '*', 'user_id', userId, true),
+    allRows(admin, 'property_documents', 'id,name,file_url,file_path,file_type,file_size,category,created_at', 'user_id', userId, true),
   ])
 
   const counts = {
@@ -170,8 +198,15 @@ serve(async (req) => {
       const { data } = await admin.from('user_profiles').select('user_id, email').eq('user_id', targetUserId).single()
       if (data) profiles = [data]
     } else {
-      const { data } = await admin.from('user_profiles').select('user_id, email')
-      profiles = data || []
+      // Every user, paged (a single select stops at 1,000 rows). A page error
+      // aborts the run rather than silently backing up only some users.
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await admin.from('user_profiles').select('user_id, email')
+          .order('user_id', { ascending: true }).range(from, from + PAGE - 1)
+        if (error) throw new Error(`user_profiles: ${error.message}`)
+        profiles.push(...(data || []))
+        if ((data || []).length < PAGE) break
+      }
     }
 
     if (profiles.length === 0) {

@@ -104,8 +104,8 @@ export default function TenantReferenceModal({ property, onClose }) {
 
   const inp = {
     fontFamily: mono, fontSize: 13,
-    background: T.bg, border: `1px solid ${T.border}`, color: T.text,
-    borderRadius: 8, padding: '10px 12px', outline: 'none', width: '100%', boxSizing: 'border-box',
+    background: T.bg, border: '1px solid var(--input-border)', color: T.text,
+    borderRadius: 8, padding: '10px 12px', width: '100%', boxSizing: 'border-box',
   }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 5 }
 

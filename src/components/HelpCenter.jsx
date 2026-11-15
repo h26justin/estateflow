@@ -287,7 +287,7 @@ const GUIDES = [
     steps: [
       "Gas Safety Certificate (CP12): Required annually for all properties with gas appliances. Must be carried out by a Gas Safe registered engineer. You must give a copy to tenants within 28 days.",
       "EICR (Electrical Installation Condition Report): Required every 5 years for rented properties. Must be carried out by a qualified electrician. Any C1 (danger present) or C2 (potentially dangerous) issues must be remediated within 28 days.",
-      "EPC (Energy Performance Certificate): Required when letting a property. Must be rated E or above (with some exemptions). Valid for 10 years. The government plans to require a C rating for new tenancies from 2030.",
+      "EPC (Energy Performance Certificate): Required when letting a property. Must be rated E or above (with some exemptions). Valid for 10 years. The government plans to require a C rating for new and existing tenancies from 1 October 2030 (subject to Parliamentary approval).",
       "Track all three in the Compliance tab of each property. Set expiry dates and Properly will alert you before they are due.",
     ]},
   { id: 30, cat: 'compliance', title: 'HMO licensing requirements', tags: ['compliance','hmo','licence','licensing'],
@@ -355,7 +355,7 @@ const GUIDES = [
       "Open the property, go to Notice Tracker and click \u201cPrepare Form 3A\u201d. The generator checks your dates against each ground\u2019s notice period.",
       "Ground 8 (serious arrears) needs at least 3 months\u2019 rent owed (13 weeks if paid weekly or fortnightly), both when you serve and at the hearing. Notice period: 4 weeks.",
       "Grounds 10 and 11 (some or persistent arrears): 4 weeks. Grounds 12, 13, 15 and 17: 2 weeks. Grounds 7A and 14 (antisocial behaviour): proceedings can begin straight away.",
-      "Grounds 1, 1A, 2, 6 and 6A: 4 months. If you use several grounds, the longest notice period applies.",
+      "Grounds 1, 1A, 2, 6 and 6B: 4 months. If you use several grounds, the longest notice period applies.",
       "Copy the content onto the current Form 3A from GOV.UK. The notice is normally valid for 12 months from service.",
       "Track the case through: Draft, Served, Court Filed, Hearing Set, Possession Granted or Withdrawn.",
       "This is a drafting aid, not legal advice. Have the notice checked by a housing solicitor before serving.",

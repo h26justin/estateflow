@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, stlPaymentIds } from '../../lib/rentStats'
-import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE, propertyArrears } from '../../lib/rentEngine'
 import * as api from '../../lib/api'
 import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { NotesTimeline, ReceiptsPanel, ArrearsPanel } from './lazyViews'
@@ -22,6 +22,12 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
   // income reflects the amounts actually logged.
   const { paid, missed, late, refurb, voidM, income: totalIncome } = getMonthlyRentStats(payments, filterYear, selected.rent_pcm)
   const lateIncome = late * (selected.rent_pcm||0)
+  // Arrears from the rent engine (overdue rent periods + unpaid historic
+  // opening balance), not the hand-typed properties.arrears — a property
+  // months overdue with nothing typed must still show arrears. The typed
+  // figure is kept only as a labelled manual note.
+  const engineArrears = propertyArrears(selected)
+  const manualArrears = Number(selected.arrears) || 0
 
   return (
     <div>
@@ -31,11 +37,12 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
           {l:'Monthly Rent', v:fmt(selected.rent_pcm), accent:T.green},
           {l:'Rent Due',     v:selected.rent_due_day||'-'},
           {l:'Tenancy End',  v:selected.tenancy_end||'-'},
-          {l:'Arrears',      v:fmt(selected.arrears||0), accent:selected.arrears>0?T.red:T.green},
+          {l:'Arrears',      v:fmt(engineArrears), accent:engineArrears>0?T.red:T.green, sub: manualArrears>0 ? `Manual note: ${fmt(manualArrears)}` : ''},
         ].map((item,i)=>(
           <div key={i} style={{background:T.bg,borderRadius:10,padding:'14px 16px'}}>
             <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{item.l}</div>
             <div style={{fontFamily:MONO,fontSize:18,fontWeight:700,color:item.accent||T.text}}>{item.v}</div>
+            {item.sub && <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,marginTop:3}}>{item.sub}</div>}
           </div>
         ))}
       </div>

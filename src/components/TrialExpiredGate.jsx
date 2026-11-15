@@ -4,6 +4,8 @@ import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { ChromeLogo } from './Logo'
 import { Button } from './ui'
+import { calcMonthlyPrice, billingTierFor, billablePropertyCount } from '../lib/tierGating'
+import { companyNeedsSubscription } from '../lib/subscriptionLive'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
@@ -40,6 +42,11 @@ import { Button } from './ui'
 //   2. subscription.status='active'           → no gate (paying)
 //   3. trial_ends_at > now                    → no gate (still in trial)
 //   4. trial_ends_at <= now AND not paid/free → GATED  (the overdue case)
+//   5. trial_ends_at NULL AND not paid/free   → GATED  (no trial was given,
+//      e.g. an owner's second company: company_is_live() is false, so every
+//      save would fail — offer Checkout instead)
+// "Paid" means a live subscription (subscriptionGrantsLive), as
+// company_is_live() counts it; past_due is still gated so the card is fixed.
 
 export function getOverdueCompanies({ companies = [], subs = [], userId = null }) {
   const now = Date.now()
@@ -57,9 +64,9 @@ export function getOverdueCompanies({ companies = [], subs = [], userId = null }
         // them so they fix payment.
         return sub.status === 'past_due'
       }
-      // No sub or trialing — gate when trial has expired.
-      const trialEnd = c.trial_ends_at ? new Date(c.trial_ends_at).getTime() : 0
-      return trialEnd > 0 && trialEnd <= now
+      // No live subscription — gate when the trial has expired or there
+      // never was one (trial_ends_at NULL).
+      return companyNeedsSubscription(c, sub, new Date(now))
     })
 }
 
@@ -76,14 +83,22 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
   // we already have client-side. Previously we tried co.real_property_count
   // which is only populated by the admin-only fetchAllCompaniesAdmin.
   function propsFor(coId) {
-    return properties.filter(p => p.company_id === coId).length
+    return billablePropertyCount(properties, coId)
   }
+  const subFor = coId => subs?.find(s => s.company_id === coId)
+  // A company that never had an in-app trial (an owner's second company)
+  // is not "trial ended": it needs a subscription to be activated.
+  const noTrial = co => !co.trial_ends_at && subFor(co.id)?.status !== 'past_due'
+  const noTrialOnly = companies.length > 0 && companies.every(noTrial)
 
   async function payNow(companyId) {
     setWorkingCoId(companyId)
     setError(null)
     try {
-      const url = await api.createCheckoutSession(companyId, 'checkout')
+      // past_due already has a Stripe subscription — fix the card in the
+      // billing portal. A second checkout would open a second subscription.
+      const action = subFor(companyId)?.status === 'past_due' ? 'portal' : 'checkout'
+      const url = await api.createCheckoutSession(companyId, action)
       if (!url) throw new Error('Checkout returned no URL')
       window.location.href = url
     } catch (e) {
@@ -113,11 +128,11 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           borderRadius:14, padding:'24px 26px', marginBottom:18,
         }}>
           <div style={{ fontSize:18, fontWeight:700, color:T.text, marginBottom:8 }}>
-            Your free trial has ended
+            {noTrialOnly ? (companies.length === 1 ? 'Subscribe to activate this company' : 'Subscribe to activate these companies') : 'Your free trial has ended'}
           </div>
           <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.text, lineHeight:1.7 }}>
             To keep using Properly, please add a payment method. Just <strong>£2 per
-            property per month</strong> — no setup fees, cancel any time. Your data is
+            property per month</strong> (£10/month minimum) — no setup fees, cancel any time. Your data is
             safe; nothing is deleted while access is paused.
           </div>
         </div>
@@ -142,8 +157,10 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           {companies.map(co => {
             // Property count derived from the loaded properties list,
             // not from any field on the company row (those are admin-only).
+            // Priced exactly as checkout bills it: live billable count on
+            // the tier that will be charged, with the £10/month minimum.
             const props = propsFor(co.id)
-            const monthly = props * 2
+            const monthly = calcMonthlyPrice(props, billingTierFor(subFor(co.id)))
             const isWorking = workingCoId === co.id
             return (
               <div key={co.id} style={{
@@ -166,6 +183,11 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
                   <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted }}>
                     {props} {props===1?'property':'properties'} · £{monthly}/month
                   </div>
+                  {noTrial(co) && (
+                    <div style={{ fontFamily:SANS, fontSize:FS.xs, color:T.muted, marginTop:2 }}>
+                      No free trial on this company — subscribe to activate it.
+                    </div>
+                  )}
                 </div>
                 <Button variant="primary" size="sm" onClick={()=>payNow(co.id)} disabled={!!workingCoId}>
                   {isWorking ? 'Redirecting…' : 'Add payment'}

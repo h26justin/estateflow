@@ -73,10 +73,14 @@ export async function fetchCompanyBySubdomain(subdomain) {
   return data
 }
 
+// tenant_notification_email is selected too: Tenant Portal settings showed it
+// blank and its Save then wrote '' over the stored address. A company with no
+// settings row yet reads as {}; a real error throws.
 export async function fetchCompanyBankDetails(companyId) {
-  const { data } = await supabase.from('company_settings')
-    .select('bank_name, bank_sort_code, bank_account_no, bank_reference_prefix, logo_url')
-    .eq('company_id', companyId).single()
+  const { data, error } = await supabase.from('company_settings')
+    .select('bank_name, bank_sort_code, bank_account_no, bank_reference_prefix, logo_url, tenant_notification_email')
+    .eq('company_id', companyId).maybeSingle()
+  if (error) throw error
   return data || {}
 }
 
@@ -85,7 +89,9 @@ export async function saveCompanyBankDetails(companyId, details) {
 }
 
 export async function saveCompanySubdomain(companyId, subdomain) {
-  const { error } = await supabase.from('companies')
-    .update({ subdomain: subdomain.toLowerCase() }).eq('id', companyId)
+  const { data, error } = await supabase.from('companies')
+    .update({ subdomain: subdomain.toLowerCase() }).eq('id', companyId).select('id')
   if (error) throw error
+  // companies_update RLS: only the owner may write the row — zero rows is a refusal.
+  if (!data || data.length === 0) throw new Error('Subdomain not saved — only the company owner can change it')
 }

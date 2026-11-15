@@ -55,9 +55,12 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
         {canEdit && <Button variant="primary" size="sm" onClick={()=>setEditing(v=>!v)}>{editing?'Cancel':'Edit Details'}</Button>}
       </div>
 
+      {/* Since 1 May 2026 tenancies in England are periodic: the end of a
+          fixed term is not an expiry and needs no renewal, so this is a
+          neutral note, not an alarm. */}
       {renewalDays!==null && renewalDays<=60 && (
-        <div style={{display:'flex',alignItems:'center',gap:9,background:T.amber+'1A',border:`1px solid ${T.amber}44`,borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:MONO,fontSize:12,color:T.amber}}>
-          <Icon name="alert-triangle" size={15}/> Tenancy {renewalDays<0?`expired ${Math.abs(renewalDays)} days ago`:`expires in ${renewalDays} days`} — consider renewal action
+        <div style={{display:'flex',alignItems:'center',gap:9,background:T.bg,border:`1px solid ${T.border}`,borderRadius:10,padding:'12px 16px',marginBottom:14,fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
+          <Icon name="calendar" size={15}/> {renewalDays<0?'Fixed term ended':renewalDays===0?'Fixed term ends today':`Fixed term ends in ${renewalDays} days`} — tenancy continues as periodic
         </div>
       )}
 
@@ -73,7 +76,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
             <div><label>Tenancy start</label><input type="date" value={form.tenancy_start||''} onChange={e=>s('tenancy_start',e.target.value)}/></div>
             <div><label>Tenancy end</label><input type="date" value={form.tenancy_end||''} onChange={e=>s('tenancy_end',e.target.value)}/></div>
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))',gap:12,marginBottom:12}}>
             <div><label>Deposit amount</label><MoneyInput prefix="£" value={form.deposit_amount} onChange={v=>s('deposit_amount',v)}/></div>
             <div><label>Deposit scheme</label><select value={form.deposit_scheme||''} onChange={e=>s('deposit_scheme',e.target.value)}><option value="">Select…</option>{DEPOSIT_SCHEMES.map(x=><option key={x}>{x}</option>)}</select></div>
             <div><label>Deposit reference</label><input value={form.deposit_ref||''} onChange={e=>s('deposit_ref',e.target.value)}/></div>
@@ -93,7 +96,7 @@ export function TenancyTab({propertyId, showToast, fmt, isAdmin, user, canEdit =
             {l:'Phone',           v: canViewPersonal ? (details.tenant_phone||'—') : 'Hidden'},
             {l:'Email',           v: canViewPersonal ? (details.tenant_email||'—') : 'Hidden'},
             {l:'Tenancy Start',   v:formatDate(details.tenancy_start)},
-            {l:'Tenancy End',     v:formatDate(details.tenancy_end), alert:renewalDays!==null&&renewalDays<=60},
+            {l:'Tenancy End',     v:formatDate(details.tenancy_end), sub: renewalDays!==null&&renewalDays<0 ? 'Fixed term ended — now periodic' : undefined},
             {l:'Deposit',         v:fmt(details.deposit_amount), sub:details.deposit_scheme},
             {l:'Deposit Ref',     v:details.deposit_ref||'—'},
             {l:'Rent Review',     v:formatDate(details.rent_review_date)},

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
+import { useConfirm } from '../../lib/ConfirmContext'
 import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { supabase } from '../../lib/supabase'
@@ -13,6 +14,7 @@ import { Button, EmptyState } from '../ui'
 // `onSaved(note)` lets that host add the new note to its own list.
 export function NotesTimeline({propertyId, isAdmin, user, showToast, category, compact, composerOnly = false, onSaved}) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const [notes, setNotes] = useState([])
   const [newNote, setNewNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -44,10 +46,13 @@ export function NotesTimeline({propertyId, isAdmin, user, showToast, category, c
   }
 
   async function handleDelete(id) {
+    if (!await confirm({ title:'Delete this note?', body:'The note is permanently deleted. This cannot be undone.', confirmLabel:'Delete note', destructive:true })) return
     try {
       await api.deleteNote(id)
       setNotes(prev=>prev.filter(n=>n.id!==id))
-    } catch(e) {}
+    } catch(e) {
+      if (showToast) showToast(`Could not delete note: ${e?.message || 'unknown error'}`, 'error')
+    }
   }
 
   function formatDate(ts) {

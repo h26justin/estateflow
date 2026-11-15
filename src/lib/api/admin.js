@@ -16,6 +16,12 @@ export async function adminCreateCompanyForUser(userId, userEmail, name, abbr, c
 }
 
 // ── ADMIN: MERGE TWO COMPANIES (move all properties from source to target, delete source) ──
+// NOT atomic: several client round-trips. It should become a single
+// SECURITY DEFINER RPC (one transaction). Until then every step's error is
+// checked and the irreversible hard delete of the source runs only if every
+// earlier step succeeded. Access rows keep their role / is_admin /
+// permissions when moved (they used to be re-created as bare rows, which
+// made every Viewer an Editor and demoted every Admin).
 export async function adminMergeCompanies(sourceCompanyId, targetCompanyId) {
   // Move all properties from source to target
   const { error: pErr } = await supabase
@@ -25,16 +31,22 @@ export async function adminMergeCompanies(sourceCompanyId, targetCompanyId) {
   if (pErr) throw pErr
 
   // Move access rows
-  const { data: existingTarget } = await supabase.from('user_company_access').select('user_id').eq('company_id', targetCompanyId)
+  const { data: existingTarget, error: tErr } = await supabase.from('user_company_access').select('user_id').eq('company_id', targetCompanyId)
+  if (tErr) throw tErr
   const existingIds = new Set((existingTarget || []).map(r => r.user_id))
-  const { data: sourceAccess } = await supabase.from('user_company_access').select('*').eq('company_id', sourceCompanyId)
-  if (sourceAccess) {
-    for (const row of sourceAccess) {
-      if (!existingIds.has(row.user_id)) {
-        await supabase.from('user_company_access').insert({ user_id: row.user_id, company_id: targetCompanyId, email: row.email })
-      }
-    }
-    await supabase.from('user_company_access').delete().eq('company_id', sourceCompanyId)
+  const { data: sourceAccess, error: sErr } = await supabase.from('user_company_access').select('*').eq('company_id', sourceCompanyId)
+  if (sErr) throw sErr
+  const toMove = (sourceAccess || []).filter(row => !existingIds.has(row.user_id))
+  if (toMove.length > 0) {
+    const { error: iErr } = await supabase.from('user_company_access').insert(toMove.map(row => ({
+      user_id: row.user_id, company_id: targetCompanyId, email: row.email,
+      role: row.role, is_admin: row.is_admin, permissions: row.permissions,
+    })))
+    if (iErr) throw new Error(`Merge stopped before deleting the source company: could not move team access (${iErr.message})`)
+  }
+  if ((sourceAccess || []).length > 0) {
+    const { error: aErr } = await supabase.from('user_company_access').delete().eq('company_id', sourceCompanyId)
+    if (aErr) throw new Error(`Merge stopped before deleting the source company: could not remove old team access (${aErr.message})`)
   }
 
   // Delete the source company

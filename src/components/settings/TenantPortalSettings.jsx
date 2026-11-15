@@ -26,6 +26,10 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
   const [inviteProperty, setInviteProperty] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [properties, setProperties] = useState([])
+  // Which company the bank / notification fields were loaded for. Saving is
+  // refused until they match the selected company, so switching company
+  // quickly can never save company A's sort code under company B.
+  const [bankLoadedFor, setBankLoadedFor] = useState(null)
 
   const co = companies.find(c => c.id === selectedCo)
 
@@ -49,17 +53,27 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
     // Auto-generate subdomain if not already set
     setSubdomain(c?.subdomain || generateSubdomain(c?.name || ''))
     setInviteLink('')
+    // Responses for a company the user has since switched away from are dropped.
+    let cancelled = false
+    // Live properties only — no trashed or archived ones in the invite list.
     supabase.from('properties').select('id,name,address').eq('company_id', selectedCo)
+      .is('deleted_at', null).is('archived_at', null)
       .then(({data}) => {
+        if (cancelled) return
         const sorted = (data||[]).sort((a,b)=>naturalCompare(a.name||a.address, b.name||b.address))
         setProperties(sorted); setInviteProperty(sorted[0]?.id||'')
       })
-    // Load bank details
+    // Load bank details — clear the previous company's first.
+    setBankLoadedFor(null)
+    setBankName(''); setBankSort(''); setBankAccount(''); setBankRef('RENT'); setNotifyEmail('')
     api.fetchCompanyBankDetails(selectedCo).then(b => {
+      if (cancelled) return
       setBankName(b.bank_name||''); setBankSort(b.bank_sort_code||'')
       setBankAccount(b.bank_account_no||''); setBankRef(b.bank_reference_prefix||'RENT')
       setNotifyEmail(b.tenant_notification_email||'')
-    }).catch(()=>{})
+      setBankLoadedFor(selectedCo)
+    }).catch(e => { if (!cancelled) showToast('Could not load the bank details: ' + (e?.message || 'unknown error'), 'error') })
+    return () => { cancelled = true }
     // Seed the drafts only when switching company: a refreshed `companies`
     // prop (e.g. after a save) must not overwrite fields being edited.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,6 +90,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
   }
 
   async function saveBank() {
+    if (bankLoadedFor !== selectedCo) { showToast('Still loading this company’s bank details — try again in a moment', 'error'); return }
     setSavingBank(true)
     try {
       await api.saveCompanyBankDetails(selectedCo, { bank_name:bankName, bank_sort_code:bankSort, bank_account_no:bankAccount, bank_reference_prefix:bankRef })
@@ -85,6 +100,7 @@ export function TenantPortalSettings({ companies, companySettings, setCompanySet
   }
 
   async function saveNotifyEmail() {
+    if (bankLoadedFor !== selectedCo) { showToast('Still loading this company’s settings — try again in a moment', 'error'); return }
     setSavingNotify(true)
     try {
       await api.saveTenantNotificationEmail(selectedCo, notifyEmail)

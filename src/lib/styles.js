@@ -154,15 +154,17 @@ export const well = (T) => ({
 // ── FORM FIELDS ───────────────────────────────────────────────────────────
 
 // Text input / textarea / select. Spread on top: `style={{...inp(T), width: 200}}`.
+// No `outline` here: an inline outline beats the stylesheet's :focus-visible
+// ring and focused fields looked identical to unfocused ones. The border is
+// --input-border (3:1 against the surface, WCAG 1.4.11), not the card hairline.
 export const inp = (T) => ({
   fontFamily: SANS,
   fontSize: FS.base,
   background: T.bg,
-  border: `1px solid ${T.border}`,
+  border: '1px solid var(--input-border)',
   color: T.text,
   borderRadius: R.sm,
   padding: '10px 14px',
-  outline: 'none',
   width: '100%',
   boxSizing: 'border-box',
 })

@@ -76,3 +76,35 @@ describe('trusted-device storage', () => {
     expect(getStoredDevice()).toBeNull()
   })
 })
+
+describe('trusted-device storage is per user', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  function withMemoryStorage() {
+    const store = new Map()
+    vi.stubGlobal('localStorage', {
+      getItem: k => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => { store.set(k, String(v)) },
+      removeItem: k => { store.delete(k) },
+    })
+    return store
+  }
+
+  it("a second user's sign-in does not clear the first user's device", () => {
+    withMemoryStorage()
+    setStoredDevice({ token: 'tok-a', id: 'dev-a' }, 'user-a')
+    setStoredDevice({ token: 'tok-b', id: 'dev-b' }, 'user-b')
+    clearStoredDevice('user-b')
+    expect(getStoredDevice('user-a')).toEqual({ token: 'tok-a', id: 'dev-a' })
+    expect(getStoredDevice('user-b')).toBeNull()
+  })
+
+  it('migrates the legacy global key to the first user who reads it', () => {
+    const store = withMemoryStorage()
+    store.set(TRUSTED_DEVICE_KEY, JSON.stringify({ token: 'old', id: 'dev-old' }))
+    expect(getStoredDevice('user-a')).toEqual({ token: 'old', id: 'dev-old' })
+    expect(store.has(TRUSTED_DEVICE_KEY)).toBe(false)
+    expect(getStoredDevice('user-b')).toBeNull()
+    expect(getStoredDevice('user-a')).toEqual({ token: 'old', id: 'dev-old' })
+  })
+})

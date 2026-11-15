@@ -33,6 +33,7 @@
 // with no rent rows for the month counts as let when a tenancy covers it.
 
 import { evaluateProperty, monthBounds, isoToday, STATE, rateContribution } from './rentEngine'
+import { tenancyCoverEnd } from './tenancyUtils'
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const round2 = n => Math.round((Number(n) || 0) * 100) / 100
@@ -160,12 +161,14 @@ function ownedDuring(p, mo) {
 }
 
 // A tenancy record overlaps the month (used only when there are no rent rows).
+// Same end rule as the rent engine (tenancyCoverEnd): a tenancy that has not
+// ended runs on past an old fixed-term tenancy_end.
 function tenancyCovers(p, mo) {
   const { start, end } = monthBounds(mo.year, mo.month)
   return (p.tenancies || []).some(t => {
     const from = dateOnly(t.tenancy_start)
     if (!from || from > end) return false
-    const to = dateOnly(t.expected_move_out) || dateOnly(t.tenancy_end)
+    const to = tenancyCoverEnd(t)
     return !to || to >= start
   })
 }
