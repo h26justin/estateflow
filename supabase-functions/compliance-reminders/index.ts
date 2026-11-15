@@ -56,6 +56,22 @@ function canonicalCertType(t: string | null | undefined): string {
   return CERT_ALIASES[k] || k
 }
 
+// Catalogue keys (src/lib/complianceCatalogue.js CATALOGUE). A type outside
+// the catalogue is a custom certificate: every one is saved as cert_type
+// 'other' with a free-text cert_name, so those are told apart by name too
+// (as buildComplianceReport / src/lib/complianceStatus.js do) — otherwise a
+// Legionella check expiring next week and a PAT test expiring next year
+// collapsed into one and only the later one was ever reminded.
+const CATALOGUE_KEYS = new Set([
+  'gas_safety', 'eicr', 'epc', 'smoke_alarm', 'co_alarm', 'tenancy_agreement', 'deposit_protection',
+  'right_to_rent', 'rra_info_sheet', 'hmo', 'selective_licence', 'fire', 'fire_alarm_service', 'emergency_lighting',
+  'legionella', 'insurance', 'pat', 'boiler_service', 'chimney_sweep', 'inventory',
+])
+function certCollapseKey(c: any): string {
+  const key = canonicalCertType(c?.cert_type || c?.item_type)
+  return CATALOGUE_KEYS.has(key) ? key : `${key}|${String(c?.cert_name || '').trim().toLowerCase()}`
+}
+
 // Every row of a query, past PostgREST's 1,000-row page. The builder must
 // apply a stable .order().
 async function fetchAllRows(build: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>): Promise<any[]> {
@@ -186,12 +202,12 @@ serve(async (req) => {
       .range(from, to))
 
     // Collapse superseded certificates: only the latest expiry per property +
-    // canonical certificate type can trigger a reminder (same rule as
-    // src/lib/weeklySummary.js complianceSection).
+    // canonical certificate type (custom types: type + name) can trigger a
+    // reminder (same rule as src/lib/weeklySummary.js complianceSection).
     const latest = new Map<string, any>()
     for (const item of items) {
       if (!item.property || item.property.deleted_at || !item.property.company_id) continue
-      const k = `${item.property_id}|${canonicalCertType(item.cert_type || item.item_type)}`
+      const k = `${item.property_id}|${certCollapseKey(item)}`
       const cur = latest.get(k)
       if (!cur || String(item.expiry_date) > String(cur.expiry_date)) latest.set(k, item)
     }
@@ -223,8 +239,11 @@ serve(async (req) => {
 
     const results: any[] = []
 
-    // Recipients from CURRENT access: owner + members who may view compliance,
-    // for live companies only.
+    // Recipients from CURRENT access. Safety reminders matter more than
+    // billing state: the OWNER is reminded even when the company is not live
+    // (e.g. a lapsed trial — they used to get gas-safety expiry emails and
+    // then silently stopped); members who may view compliance are added only
+    // while the company is live.
     const companies: any[] = []
     for (const ids of chunks(companyIds, 100)) {
       companies.push(...await fetchAllRows((from, to) => admin.from('companies')
@@ -239,10 +258,10 @@ serve(async (req) => {
     for (const co of companies) {
       const { data: live, error: liveErr } = await admin.rpc('company_is_live', { p_company_id: co.id })
       if (liveErr) { results.push({ company_id: co.id, status: 'error', error: `company_is_live: ${liveErr.message}` }); continue }
-      if (live !== true) { results.push({ company_id: co.id, status: 'skipped', reason: 'company not live' }); continue }
       const recips = new Set<string>()
       if (co.owner_id) recips.add(String(co.owner_id))
-      for (const m of members) {
+      if (live !== true) results.push({ company_id: co.id, status: 'owner_only', reason: 'company not live: members not reminded' })
+      for (const m of (live === true ? members : [])) {
         // Pending email-only invitations (no user_id) do not count.
         if (m.company_id !== co.id || !m.user_id) continue
         if (m.permissions && m.permissions.view_compliance === false) continue

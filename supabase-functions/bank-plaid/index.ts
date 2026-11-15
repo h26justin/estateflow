@@ -230,7 +230,11 @@ serve(async (req) => {
             && await canWriteCompany(await companyOfProperty(rp.property_id))) {
           await admin.from('bank_transactions')
             .update({ matched_rent_payment_id: null, matched_at: null, match_confidence: null }).eq('id', row.id)
-          await admin.from('rent_payments').update({ status: 'void' }).eq('id', rp.id).eq('status', 'paid')
+          // Clear the amount too, as the client's unmatch does for an empty
+          // slot: a 'void' row left carrying the bank figure was later read
+          // as money (and re-selected by amount by this matcher).
+          await admin.from('rent_payments').update({ status: 'void', amount: null }).eq('id', rp.id).eq('status', 'paid')
+            .like('notes', `${AUTO_NOTE}%`)
         }
         await admin.from('notifications').insert({
           user_id: caller.id,
@@ -388,7 +392,8 @@ serve(async (req) => {
               .select('id, amount, property_id, period_start, year, month')
               .eq('user_id', caller.id)
               .in('status', ['void','overdue'])
-              .is('deleted_at', null)
+              // (no deleted_at filter: rent_payments has no such column, and
+              // the filter failed this whole query.)
               .or(`and(period_start.gte.${from},period_start.lte.${winTo}),and(period_start.is.null,year.eq.${txY},month.eq.${txM}),and(period_start.is.null,year.eq.${prevY},month.eq.${prevM})`)
               .gte('amount', amount - 5)
               .lte('amount', amount + 5)

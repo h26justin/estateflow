@@ -41,15 +41,81 @@ beforeEach(() => {
 })
 
 describe('planBankMatch / planBankUnmatch', () => {
-  it('adds to an amount already recorded instead of replacing it, and keeps notes', () => {
-    expect(planBankMatch({ amount: 300, notes: 'cash' }, { amount: 350, counterparty: 'J' }))
-      .toEqual({ status: 'paid', amount: 650, notes: 'cash\nMatched from bank · J' })
+  const tx = (amount, id = 't1') => ({ id, amount, counterparty: 'J' })
+  // Apply a plan to a row the way the database update does.
+  const apply = (row, patch) => ({ ...row, ...patch })
+  const roundTrip = (row, t) => {
+    const matched = apply(row, planBankMatch(row, t))
+    const unmatched = apply(matched, planBankUnmatch(matched, t))
+    return { matched, unmatched }
+  }
+
+  it('adds to money already received (partial) and keeps notes', () => {
+    const p = planBankMatch({ status: 'partial', amount: 300, notes: 'cash' }, tx(350))
+    expect(p).toMatchObject({ status: 'paid', amount: 650 })
+    expect(p.notes.split('\n')[0]).toBe('cash')
+    expect(p.notes.split('\n')[1]).toMatch(/^Matched from bank · J \[bm .*mode=add/)
   })
-  it('unmatch takes the bank amount back off and removes only its note', () => {
+
+  it('a void row carrying a stale amount is SET to the bank amount, not added to (reported repro)', () => {
+    const p = planBankMatch({ status: 'void', amount: 1000, notes: null }, tx(1000))
+    expect(p).toMatchObject({ status: 'paid', amount: 1000 })
+  })
+
+  it.each(['void', 'overdue', 'pending', null])('status %s: the match sets the amount', (status) => {
+    expect(planBankMatch({ status, amount: 800 }, tx(650))).toMatchObject({ status: 'paid', amount: 650 })
+  })
+
+  it.each(['paid', 'late'])('%s row already recording the full amount: link only, nothing doubled', (status) => {
+    const p = planBankMatch({ status, amount: 1000, notes: null }, tx(1000.4))
+    expect(p.amount).toBeUndefined()
+    expect(p.status).toBeUndefined()
+    expect(p.notes).toMatch(/mode=link/)
+    const over = planBankMatch({ status, amount: 1200 }, tx(1000))
+    expect(over.amount).toBeUndefined()
+  })
+
+  it('a paid row recording less than the bank amount (by more than 50p) has the bank amount added', () => {
+    expect(planBankMatch({ status: 'paid', amount: 400 }, tx(600))).toMatchObject({ status: 'paid', amount: 1000 })
+  })
+
+  it('unmatch is the exact inverse in all three cases, and re-match returns to the same numbers', () => {
+    const cases = [
+      { row: { status: 'void', amount: 1000, notes: null }, t: tx(1000) },           // set
+      { row: { status: 'overdue', amount: null, notes: 'chased' }, t: tx(650) },     // set
+      { row: { status: 'partial', amount: 300, notes: 'cash' }, t: tx(350) },        // add
+      { row: { status: 'late', amount: 650, notes: null }, t: tx(650) },             // link
+      { row: { status: 'paid', amount: 650, notes: 'x' }, t: tx(649.6) },            // link
+    ]
+    for (const { row, t } of cases) {
+      const first = roundTrip(row, t)
+      expect(first.unmatched).toEqual(row)
+      const second = roundTrip(first.unmatched, t)
+      expect(second.matched).toEqual(first.matched)
+      expect(second.unmatched).toEqual(row)
+    }
+  })
+
+  it('unmatch of a set-mode match restores the prior status and amount', () => {
+    const matched = apply({ status: 'void', amount: 1000 }, planBankMatch({ status: 'void', amount: 1000 }, tx(900)))
+    expect(matched).toMatchObject({ status: 'paid', amount: 900 })
+    expect(planBankUnmatch(matched, tx(900))).toEqual({ status: 'void', amount: 1000, notes: null })
+  })
+
+  it('with two matches on one row, unmatching finds each by transaction id', () => {
+    let row = { status: 'partial', amount: 100, notes: null }
+    row = apply(row, planBankMatch(row, tx(200, 'a')))
+    row = apply(row, planBankMatch(row, tx(500, 'b')))
+    expect(row.amount).toBe(800)
+    row = apply(row, planBankUnmatch(row, tx(500, 'b')))
+    expect(row).toMatchObject({ status: 'paid', amount: 300 })
+    row = apply(row, planBankUnmatch(row, tx(200, 'a')))
+    expect(row).toEqual({ status: 'partial', amount: 100, notes: null })
+  })
+
+  it('a note written before markers existed: the bank amount comes off and its line is removed', () => {
     expect(planBankUnmatch({ status: 'paid', amount: 650, notes: 'cash\nMatched from bank · J' }, { amount: 350, counterparty: 'J' }))
       .toEqual({ amount: 300, notes: 'cash' })
-  })
-  it('unmatch returns an empty slot to void with no bank amount or note left on it', () => {
     expect(planBankUnmatch({ status: 'paid', amount: 650, notes: 'Matched from bank · J' }, { amount: 650, counterparty: 'J' }))
       .toEqual({ status: 'void', amount: null, notes: null })
   })
@@ -61,6 +127,15 @@ describe('matchTransactionToRentPayment', () => {
     const rentUpdate = db.updates.find(u => u.table === 'rent_payments')
     expect(rentUpdate.filters).toEqual({ id: 'rp1' })
     expect(db.rows.rent_payments.rp1).toMatchObject({ status: 'paid', amount: 650 })
+    expect(db.rows.rent_payments.rp1.notes).toMatch(/tx=tx1/)
+  })
+
+  it('a void row with a leftover amount becomes paid at the bank amount, not double', async () => {
+    db.rows.rent_payments.rp1.amount = 650
+    await matchTransactionToRentPayment('tx1', 'rp1')
+    expect(db.rows.rent_payments.rp1).toMatchObject({ status: 'paid', amount: 650 })
+    await unmatchTransaction('tx1')
+    expect(db.rows.rent_payments.rp1).toMatchObject({ status: 'void', amount: 650, notes: null })
   })
 
   it('throws (and un-links the transaction) when the rent update hits zero rows', async () => {

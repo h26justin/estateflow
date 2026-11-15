@@ -93,6 +93,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
       past_due:  { bg: T.amber+'22', color: T.amber,  label: 'Payment due' },
       canceled:  { bg: T.red+'22',   color: T.red,    label: 'Cancelled' },
       free_tier: { bg: T.gold+'22',  color: T.goldText,   label: 'Free tier' },
+      needs_subscription: { bg: T.amber+'22', color: T.amber, label: 'Not active' },
     }[status] || { bg: T.border, color: T.muted, label: status }
     return <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
   }
@@ -180,6 +181,11 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                     Trial ends in {trialDaysLeft} day{trialDaysLeft!==1?'s':''}. Add a payment method to keep access.
                   </div>
                 )}
+                {status === 'needs_subscription' && (
+                  <div style={{ background: T.amber+'22', border: `1px solid ${T.amber}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: SANS, fontSize: FS.sm, color: T.amber }}>
+                    {trialEnd ? 'Trial ended.' : 'No free trial on this company.'} Subscribe to activate it — until then it is read-only.
+                  </div>
+                )}
                 {status === 'past_due' && (
                   <div style={{ background: T.red+'22', border: `1px solid ${T.red}44`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontFamily: SANS, fontSize: FS.sm, color: T.red }}>
                     Payment failed. Update your payment method to restore full access.
@@ -189,7 +195,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                 {periodEnd && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14 }}>Next billing date: {periodEnd}</div>}
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {status === 'trialing' && !hasLiveStripeSub && (
+                  {(status === 'trialing' || status === 'needs_subscription') && !hasLiveStripeSub && (
                     <Button variant="primary" size="sm" onClick={() => handleCheckout(co.id, 'checkout')} disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Add payment method'}
                     </Button>
@@ -204,7 +210,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                       {working===co.id ? 'Redirecting…' : 'Manage subscription'}
                     </Button>
                   )}
-                  {(status === 'active' || status === 'trialing') && tierKey !== 'investor' && !investorUnavailable && (
+                  {(status === 'active' || status === 'trialing' || status === 'needs_subscription') && tierKey !== 'investor' && !investorUnavailable && (
                     <Button variant="secondary" size="sm" onClick={() => hasLiveStripeSub ? handleCheckout(co.id, 'portal') : handleCheckout(co.id, 'subscribe', 'investor')} disabled={!!working} style={{color: TIERS.investor.color, borderColor: TIERS.investor.color}}>
                       {working===co.id ? 'Redirecting…' : <><Icon name="star" size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>{`Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}</>}
                     </Button>

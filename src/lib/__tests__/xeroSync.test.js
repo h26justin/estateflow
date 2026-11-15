@@ -11,7 +11,7 @@ vi.mock('../supabase', () => ({
   },
 }))
 
-import { previewXeroSync, runXeroSyncForProperties } from '../api/xero'
+import { previewXeroSync, runXeroSync, runXeroSyncForProperties } from '../api/xero'
 
 beforeEach(() => invoke.mockClear())
 
@@ -30,6 +30,39 @@ describe('Xero client API', () => {
     expect(invoke.mock.calls.at(-1)[1].body.action).toBe('reconcile_only')
     await runXeroSyncForProperties('co1', ['p1'], 'both')
     expect(invoke.mock.calls.at(-1)[1].body.action).toBe('both')
+  })
+
+  it('a push carries the preview token it was confirmed with', async () => {
+    await runXeroSync('co1', 'both', { previewToken: 'abc' })
+    expect(invoke).toHaveBeenLastCalledWith('xero-sync', { body: { direction: 'both', company_id: 'co1', preview_token: 'abc' } })
+    await runXeroSyncForProperties('co1', ['p1'], 'both', { previewToken: 'abc' })
+    expect(invoke.mock.calls.at(-1)[1].body).toEqual({ action: 'both', company_id: 'co1', property_ids: ['p1'], preview_token: 'abc' })
+    // A pull-only run needs (and sends) no token.
+    await runXeroSyncForProperties('co1', ['p1'], 'reconcile_only', { previewToken: 'abc' })
+    expect(invoke.mock.calls.at(-1)[1].body).toEqual({ action: 'reconcile_only', company_id: 'co1', property_ids: ['p1'] })
+  })
+
+  it('a "list changed" refusal surfaces as an error with code preview_changed', async () => {
+    const context = { json: async () => ({ error: 'The list of transactions to post to Xero changed since you reviewed it — review again. Nothing was posted.', code: 'preview_changed' }) }
+    invoke.mockResolvedValueOnce({ data: null, error: Object.assign(new Error('Edge Function returned a non-2xx status code'), { context }) })
+    await expect(runXeroSync('co1', 'both', { previewToken: 'old' })).rejects.toMatchObject({ code: 'preview_changed', message: expect.stringMatching(/changed since you reviewed it/) })
+  })
+})
+
+describe('xero-sync preview binding (source)', () => {
+  it('the preview returns a SHA-256 token over the counted items, company and scope', () => {
+    expect(src).toContain('preview_token: await previewTokenFor(keys)')
+    expect(src).toMatch(/const material = `\$\{companyId\}\|\$\{previewScope\}\|\$\{\[\.\.\.keys\]\.sort\(\)\.join\(','\)\}`/)
+    expect(src).toContain("crypto.subtle.digest('SHA-256'")
+    for (const k of ['`rent_payment:${p.id}`', '`expense:${e.id}`', '`mortgage_interest:${localIdUuid}`', '`deposit:${t.id}`', '`refurb:${r.id}`']) expect(src).toContain(k)
+  })
+  it('every run that can post recomputes the list and refuses a missing or stale token before the sync lock', () => {
+    const gate = src.slice(src.indexOf('// ── Preview binding ──'), src.indexOf('Concurrency guard'))
+    expect(gate).toContain("if (action !== 'reconcile_only')")
+    expect(gate).toContain('await previewTokenFor((await computePushPreview()).keys)')
+    expect(gate).toContain("if (!given || given !== currentToken)")
+    expect(gate).toContain("code: 'preview_changed'")
+    expect(src.indexOf('// ── Preview binding ──')).toBeLessThan(src.indexOf("rpc('acquire_xero_sync_lock', { p_user_id: caller.id, p_company_id: companyId, p_ttl_seconds: 600 })\n  if (lockErr)"))
   })
 })
 

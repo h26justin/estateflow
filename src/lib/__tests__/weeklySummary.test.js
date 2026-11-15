@@ -130,6 +130,17 @@ describe('buildWeeklySummary', () => {
     expect(m.compliance.dueSoon.map(c => [c.label, c.date])).toEqual([['Smoke alarms', '2026-11-01'], ['Gas Safety (CP12)', '2026-11-05']])
   })
 
+  it('custom certificates (type other) are told apart by name, so a near expiry is not hidden by a later one', () => {
+    const items = [
+      { id: 1, property_id: 'a', cert_type: 'other', cert_name: 'Legionella ', expiry_date: '2026-10-26' },  // 7 days
+      { id: 2, property_id: 'a', cert_type: 'other', cert_name: 'PAT', expiry_date: '2027-05-07' },          // 200 days
+      { id: 3, property_id: 'a', cert_type: 'other', cert_name: 'legionella', expiry_date: '2026-09-01' },   // superseded by id 1
+    ]
+    const m = buildWeeklySummary({ asOf: AS_OF, companies, properties: [prop('a')], complianceItems: items })
+    expect(m.compliance.overdue).toEqual([])
+    expect(m.compliance.dueSoon.map(c => [c.label, c.date])).toEqual([['Legionella ', '2026-10-26']])
+  })
+
   it('lists tenancies ending in the next 60 days and counts empty properties', () => {
     const props = [
       prop('a', { tenancies: [{ id: 't1', tenancy_start: '2025-01-01', tenancy_end: '2026-12-01', status: 'rented', rent_amount: 1000 }] }),

@@ -287,7 +287,7 @@ const GUIDES = [
     steps: [
       "Gas Safety Certificate (CP12): Required annually for all properties with gas appliances. Must be carried out by a Gas Safe registered engineer. You must give a copy to tenants within 28 days.",
       "EICR (Electrical Installation Condition Report): Required every 5 years for rented properties. Must be carried out by a qualified electrician. Any C1 (danger present) or C2 (potentially dangerous) issues must be remediated within 28 days.",
-      "EPC (Energy Performance Certificate): Required when letting a property. Must be rated E or above (with some exemptions). Valid for 10 years. The government plans to require a C rating for new tenancies from 1 October 2030 (subject to Parliamentary approval).",
+      "EPC (Energy Performance Certificate): Required when letting a property. Must be rated E or above (with some exemptions). Valid for 10 years. The government plans to require a C rating for new and existing tenancies from 1 October 2030 (subject to Parliamentary approval).",
       "Track all three in the Compliance tab of each property. Set expiry dates and Properly will alert you before they are due.",
     ]},
   { id: 30, cat: 'compliance', title: 'HMO licensing requirements', tags: ['compliance','hmo','licence','licensing'],

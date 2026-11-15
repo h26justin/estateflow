@@ -122,6 +122,22 @@ describe('tenancy dates', () => {
     expect(tenancyCoverEnd({ ...holding, status: 'notice_given', tenancy_end: '2026-12-01' })).toBe('2026-12-01')
     expect(tenancyCoverEnd({ ...holding, status: 'notice_given', tenancy_end: '2026-12-01', expected_move_out: '2026-12-15' })).toBe('2026-12-15')
   })
+  it('holding over applies only to status rented; every other status ends cover at tenancy_end', () => {
+    const base = { tenancy_start: '2025-06-01', tenancy_end: '2026-05-31' }
+    // rented: runs past tenancy_end, until expected_move_out if set.
+    expect(tenancyCoverEnd({ ...base, status: 'rented' })).toBeNull()
+    expect(tenancyCoversDate({ ...base, status: 'rented' }, '2026-09-01')).toBe(true)
+    expect(tenancyCoverEnd({ ...base, status: 'rented', expected_move_out: '2026-08-15' })).toBe('2026-08-15')
+    // A missing status is the DB default, 'rented'.
+    expect(tenancyCoverEnd(base)).toBeNull()
+    for (const status of ['notice_given', 'vacant', 'refurbishment', 'ended']) {
+      expect(tenancyCoverEnd({ ...base, status })).toBe('2026-05-31')
+      expect(tenancyCoversDate({ ...base, status }, '2026-05-31')).toBe(true)
+      expect(tenancyCoversDate({ ...base, status }, '2026-09-01')).toBe(false)
+      // expected_move_out first when set.
+      expect(tenancyCoverEnd({ ...base, status, expected_move_out: '2026-06-14' })).toBe('2026-06-14')
+    }
+  })
   it('currentTenancy takes today from the local calendar date, not UTC', () => {
     const a = { id: 'a', tenancy_start: '2026-01-01', tenancy_end: '2026-06-30', status: 'ended' }
     const b = { id: 'b', tenancy_start: '2026-07-01', status: 'rented' }

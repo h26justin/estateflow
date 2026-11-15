@@ -1,6 +1,7 @@
 // User company access: access rows, role updates, grants / revokes and
 // per-company admin rights.
 import { supabase } from '../supabase'
+import { fetchAllPages } from '../paginate'
 
 // ── USER COMPANY ACCESS ────────────────────────────────────────────────────
 export async function fetchUserAccessByEmail(email) {
@@ -87,10 +88,9 @@ export async function fetchAllUsers() {
   return users
 }
 
+// Every access row RLS lets the caller see, paged past the 1,000-row cap.
 export async function fetchAllAccessRows() {
-  const { data, error } = await supabase.from('user_company_access').select('*')
-  if (error) throw error
-  return data || []
+  return fetchAllPages(() => supabase.from('user_company_access').select('*').order('id'))
 }
 
 export async function grantCompanyAccess(userId, companyId, email) {

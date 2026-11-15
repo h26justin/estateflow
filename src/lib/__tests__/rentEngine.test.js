@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   evaluatePeriod, evaluateProperty, collapseMonth, groupByMonth, collectionStats, arrearsSummary,
   dueDateFor, benefitDueOnOrAfter, collectibleDays, monthlyRent, fallbackTenancyFromProperty, STATE,
-  periodBreakdown, propertyArrears,
+  periodBreakdown, propertyArrears, missedOwed,
 } from '../rentEngine'
 
 // Scenario tests from the client pack (Prompt 5), plus the decisions ruled on
@@ -435,6 +435,15 @@ describe('non-monthly rent is charged per due date', () => {
     expect(e.expected).toBe(600)          // 140 x 2/7 + 4 x 140
     expect(e.dueDate).toBe('2026-03-04'); expect(e.windowEnd).toBe('2026-04-01')   // last due date 27 Mar + 5
   })
+  it('an anchor several cycles after the start is stepped back: only a part-cycle is charged on the start date', () => {
+    // Weekly £100 from Wed 7 Jan, anchor Fri 20 Feb: due every Friday from 9 Jan.
+    const t = T({ tenancy_start: '2026-01-07', rent_due_anchor: '2026-02-20', rent_amount: 100, rent_frequency: 'weekly' })
+    const jan = evaluatePeriod(month('m1', 2026, 1, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
+    expect(jan.instalments.map(x => [x.date, x.amount])).toEqual([['2026-01-07', 28.57], ['2026-01-09', 100], ['2026-01-16', 100], ['2026-01-23', 100], ['2026-01-30', 100]])
+    expect(jan.expected).toBe(428.57)
+    const feb = evaluatePeriod(month('m2', 2026, 2, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
+    expect(feb.instalments.map(x => x.date)).toEqual(['2026-02-06', '2026-02-13', '2026-02-20', '2026-02-27'])
+  })
   it('a tenancy ending mid-cycle is charged only the days it ran in its last cycle', () => {
     const t = T({ rent_amount: 140, rent_frequency: 'weekly', tenancy_end: '2026-05-10', status: 'ended' })
     const may = evaluatePeriod(month('m5', 2026, 5, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
@@ -452,8 +461,29 @@ describe('non-monthly rent is charged per due date', () => {
     expect(periodBreakdown(ok, '2026-01-16')).toEqual({ bucket: 'notYetDue', owed: 240, needsInfo: 0, notYetDue: 240 })
     const behind = evaluatePeriod(month('m1', 2026, 1, 'void'), ctx({ tenancies: [t], receipts: paidToDate.slice(0, 1), today: '2026-01-16' }))
     expect(behind.state).toBe(STATE.MISSED)  // 8 Jan rent unpaid after its window
-    expect(collectionStats([behind], { asOf: '2026-01-16' }).overdue).toBe(240)   // 8 and 15 Jan; 22 and 29 Jan not yet due
-    expect(periodBreakdown(behind, '2026-01-16')).toEqual({ bucket: 'overdue', owed: 240, needsInfo: 0, notYetDue: 240 })
+    // 8 Jan is overdue (window closed 13 Jan); 15 Jan is still inside its own
+    // window (to 20 Jan); 22 and 29 Jan are not yet due.
+    const behindStats = collectionStats([behind], { asOf: '2026-01-16' })
+    expect(behindStats.overdue).toBe(120); expect(behindStats.inWindow).toBe(120); expect(behindStats.notYetDue).toBe(240)
+    expect(periodBreakdown(behind, '2026-01-16')).toEqual({ bucket: 'overdue', owed: 240, needsInfo: 0, split: { overdue: 120, inWindow: 120 }, notYetDue: 240 })
+    expect(missedOwed(behind, '2026-01-16')).toBe(120)
+  })
+  it('an instalment inside its own window is not overdue because an earlier one that month is late (reported repro)', () => {
+    // Weekly £100 from Wed 7 Jan; February unpaid; as of Thu 12 Feb.
+    const t = T({ tenancy_start: '2026-01-07', rent_amount: 100, rent_frequency: 'weekly' })
+    const feb = evaluatePeriod(month('m2', 2026, 2, 'void'), ctx({ tenancies: [t], today: '2026-02-12' }))
+    expect(feb.state).toBe(STATE.MISSED)   // 4 Feb unpaid, window closed 9 Feb
+    const st = collectionStats([feb], { asOf: '2026-02-12' })
+    expect(st.overdue).toBe(100)            // 4 Feb only
+    expect(st.inWindow).toBe(100)           // 11 Feb, window runs to 16 Feb
+    expect(st.notYetDue).toBe(200)          // 18 and 25 Feb
+    expect(st.outstanding).toBe(200)
+    const b = periodBreakdown(feb, '2026-02-12')
+    expect(b.split).toEqual({ overdue: 100, inWindow: 100 }); expect(b.owed).toBe(200)
+    expect(missedOwed(feb, '2026-02-12')).toBe(100)
+    // Once 11 Feb's window has passed, both are overdue.
+    const later = evaluatePeriod(month('m2', 2026, 2, 'void'), ctx({ tenancies: [t], today: '2026-02-17' }))
+    expect(collectionStats([later], { asOf: '2026-02-17' }).overdue).toBe(200)
   })
   it('monthly rent is untouched by the per-due-date rule', () => {
     const e = evaluatePeriod(month('m5', 2026, 5, 'void'), ctx({ today: '2026-05-07' }))
@@ -471,6 +501,12 @@ describe('holding over past an old fixed-term end (E3)', () => {
     const t = T({ tenancy_start: '2025-06-01', tenancy_end: '2026-05-31', expected_move_out: '2026-08-31', status: 'rented' })
     const e = evaluatePeriod(month('m9', 2026, 9, 'void'), ctx({ tenancies: [t], today: '2026-11-15' }))
     expect(e.state).toBe(STATE.NOT_COLLECTIBLE); expect(e.reasons[0]).toMatch(/After tenancy end/)
+  })
+  it.each(['vacant', 'refurbishment', 'notice_given', 'ended'])('a %s tenancy past its tenancy_end is not charged (only rented holds over)', (status) => {
+    const t = T({ tenancy_start: '2025-06-01', tenancy_end: '2026-05-31', status, rent_amount: 800 })
+    const e = evaluatePeriod(month('m9', 2026, 9, 'void'), ctx({ tenancies: [t], today: '2026-11-15' }))
+    expect(e.state).toBe(STATE.NOT_COLLECTIBLE)
+    expect(e.expected || 0).toBe(0)
   })
 })
 

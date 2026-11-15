@@ -124,6 +124,22 @@ function canonicalCertType(t: string | null | undefined): string {
   return CERT_ALIASES[k] || k
 }
 
+// Catalogue keys (src/lib/complianceCatalogue.js CATALOGUE). A type outside
+// the catalogue is a custom certificate: every one is saved as cert_type
+// 'other' with a free-text cert_name, so those are told apart by name too
+// (as buildComplianceReport / src/lib/complianceStatus.js do) — otherwise a
+// Legionella check expiring next week and a PAT test expiring next year
+// collapsed into one and only the later one was ever reminded.
+const CATALOGUE_KEYS = new Set([
+  'gas_safety', 'eicr', 'epc', 'smoke_alarm', 'co_alarm', 'tenancy_agreement', 'deposit_protection',
+  'right_to_rent', 'rra_info_sheet', 'hmo', 'selective_licence', 'fire', 'fire_alarm_service', 'emergency_lighting',
+  'legionella', 'insurance', 'pat', 'boiler_service', 'chimney_sweep', 'inventory',
+])
+function certCollapseKey(c: any): string {
+  const key = canonicalCertType(c?.cert_type || c?.item_type)
+  return CATALOGUE_KEYS.has(key) ? key : `${key}|${String(c?.cert_name || '').trim().toLowerCase()}`
+}
+
 // Subscription half of public.company_is_live (2026-10-15 hardening; client
 // mirror src/lib/subscriptionLive.js): active / past_due, or trialing backed
 // by a Stripe subscription (or a billing period still running).
@@ -418,7 +434,7 @@ serve(async (req) => {
       const latestCert = new Map<string, any>()
       for (const c of (compliance || [])) {
         if (!c.expiry_date || c.deleted_at) continue
-        const k = `${c.property_id}|${canonicalCertType(c.cert_type)}`
+        const k = `${c.property_id}|${certCollapseKey(c)}`
         const cur = latestCert.get(k)
         if (!cur || String(c.expiry_date) > String(cur.expiry_date)) latestCert.set(k, c)
       }

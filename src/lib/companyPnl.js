@@ -200,6 +200,8 @@ export const EXPENSE_CATEGORY_LABELS = {
   accountancy: 'Accountancy', other: 'Other',
   // Written by CSV import and the receipt scanner.
   mortgage_interest: 'Mortgage interest', compliance: 'Compliance certificates',
+  maintenance: 'Maintenance / Repairs', professional: 'Professional Fees',
+  cleaning: 'Cleaning', garden: 'Garden / Outside Maintenance',
 }
 
 export function expenseCategoryLabel(cat) {
@@ -443,6 +445,12 @@ export function buildPortfolioPnl({
   fullOccupancy = false,
   rentEstimates = null,
   receipts = null,
+  // Optional column placement for monthKeys: (row) => { y, m } | null. The
+  // Reports page passes these on the tax-year (6 April) basis, where a
+  // column is a tax month (see reportBuilders PERIOD RULE). Default: the
+  // calendar month, as before.
+  rentMonthOf = null,
+  expenseMonthOf = null,
 } = {}) {
   const round2 = n => Math.round(n * 100) / 100
   const allocIdx = indexRentAllocations(receipts)
@@ -508,7 +516,13 @@ export function buildPortfolioPnl({
       if (!hasRentRecord(r, allocIdx)) continue
       const amt = rentReceivedOnRow(r, allocIdx)
       paidByProp.set(r.property_id, (paidByProp.get(r.property_id) || 0) + amt)
-      if (monthKeys) {
+      if (monthKeys && rentMonthOf) {
+        const mk = rentMonthOf(r)
+        if (mk) {
+          const k = `${r.property_id}|${mk.y}-${mk.m}`
+          paidByPropMonth.set(k, (paidByPropMonth.get(k) || 0) + amt)
+        }
+      } else if (monthKeys) {
         let y = r.year, m0 = r.month ? r.month - 1 : null
         if ((y == null || m0 == null) && r.period_start) {
           const d = new Date(r.period_start)
@@ -538,7 +552,13 @@ export function buildPortfolioPnl({
         actualAgentFeeExpenses += amt
       }
       expByProp.set(e.property_id, (expByProp.get(e.property_id) || 0) + amt)
-      if (monthKeys && e.date) {
+      if (monthKeys && e.date && expenseMonthOf) {
+        const mk = expenseMonthOf(e)
+        if (mk) {
+          const k = `${e.property_id}|${mk.y}-${mk.m}`
+          expByPropMonth.set(k, (expByPropMonth.get(k) || 0) + amt)
+        }
+      } else if (monthKeys && e.date) {
         const d = new Date(e.date)
         if (!isNaN(d)) {
           const k = `${e.property_id}|${d.getFullYear()}-${d.getMonth()}`

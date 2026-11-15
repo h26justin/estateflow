@@ -80,10 +80,11 @@ export async function getCompanyDeletionPreview(companyId) {
   const propIds = (propRows || []).map(p => p.id)
   let tenancies = 0, documents = 0
   if (propIds.length > 0) {
+    // tenancy_details has no deleted_at column; a filter on it failed the
+    // count and the preview always said 0 tenancies.
     const { count: tCount } = await supabase.from('tenancy_details')
       .select('*', { count: 'exact', head: true })
       .in('property_id', propIds)
-      .is('deleted_at', null)
     tenancies = tCount || 0
     const { count: dCount } = await supabase.from('property_documents')
       .select('*', { count: 'exact', head: true })
@@ -234,10 +235,11 @@ export async function removeStorageFiles(paths) {
 //              (an !inner embed filtered on the alias, so no long id lists)
 //   owner    — companies the user owns (only an owner deletes a company)
 //   creator  — deals keep creator scoping (company_id may be null on a deal)
+// tenancy_details is not listed: it has no deleted_at column (tenancies are
+// removed with their property, not soft-deleted on their own).
 const TRASH_TABLES = [
   { table: 'properties',         scope: 'company' },
   { table: 'companies',          scope: 'owner' },
-  { table: 'tenancy_details',    scope: 'property' },
   { table: 'compliance_items',   scope: 'property' },
   { table: 'maintenance_jobs',   scope: 'property' },
   { table: 'property_expenses',  scope: 'property' },
@@ -309,7 +311,9 @@ export async function fetchAllDeleted(userId) {
   const [props, companies, tenancies, compliance, maintenance, expenses, deals, documents] = await Promise.all([
     query('properties', 'id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)', 'company'),
     query('companies', 'id, name, abbr, color, deleted_at, deleted_by', 'owner'),
-    query('tenancy_details', `id, tenant_name, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
+    // tenancy_details has no deleted_at column, so it has nothing in Trash
+    // (querying it would now fail the whole page, errors being surfaced).
+    Promise.resolve([]),
     query('compliance_items', `id, cert_type, cert_name, expiry_date, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
     query('maintenance_jobs', `id, title, description, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
     query('property_expenses', `id, description, amount, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),

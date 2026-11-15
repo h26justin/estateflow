@@ -168,14 +168,29 @@ function toIso(unixSeconds: number | null | undefined): string | null {
 // payload, read the subscription's CURRENT state from Stripe (read-only)
 // and apply that — Stripe's recommended pattern. Returns null when the
 // secret isn't configured; throws on a Stripe error so the event is retried.
-async function fetchLiveSubscription(subId: string | null | undefined): Promise<any | null> {
+async function fetchLiveSubscription(subId: string | null | undefined, allowMissing = false): Promise<any | null> {
   if (!STRIPE_SECRET_KEY || !subId) return null
   const res = await fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(subId)}`, {
     headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
   })
   const data = await res.json().catch(() => ({}))
+  // A stored id Stripe no longer knows is not live (and must not make every
+  // retry fail forever).
+  if (allowMissing && res.status === 404) return null
   if (!res.ok) throw new Error(`stripe subscription read: ${data?.error?.message || res.status}`)
   return data
+}
+
+// Every subscription on a Stripe customer (read-only), or null when the
+// secret isn't configured. Throws on a Stripe error so the event is retried.
+async function listCustomerSubscriptions(customerId: string | null | undefined): Promise<any[] | null> {
+  if (!STRIPE_SECRET_KEY || !customerId) return null
+  const res = await fetch(`https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`, {
+    headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(`stripe subscription list: ${data?.error?.message || res.status}`)
+  return Array.isArray(data?.data) ? data.data : []
 }
 
 // Statuses under which a subscription is still the customer's billing
@@ -195,15 +210,45 @@ async function storedSubscription(companyId: string): Promise<{ stripe_subscript
 
 // May an event about subscription `incomingId` (current status `status`)
 // write the company's row? Always when it IS the stored subscription.
-// Otherwise only a live subscription may take over (a new signup), or an
+// Otherwise a live subscription may take over (a new signup), or an
 // 'incomplete' one when nothing is stored yet (checkout in progress). An
 // ended or orphaned subscription that isn't the stored one never overwrites
 // it — e.g. a delayed subscription.updated after subscription.deleted.
-function mayWriteSubscription(storedId: string | null | undefined, incomingId: string | null | undefined, status: string | null | undefined): boolean {
+//
+// Two live subscriptions on one customer (the double-billing case): when the
+// stored subscription is itself live (read from Stripe), a DIFFERENT one may
+// take over only if it is newer (Stripe `created`) and not set to cancel at
+// period end. Otherwise the stored id flipped to whichever sent the last
+// event, and cancelling the old one at period end then cancelled the
+// company while the new one was still paying. `incoming` is the incoming
+// subscription object (live read or payload). Without the Stripe secret the
+// stored subscription can't be read, and the previous rule applies.
+async function mayWriteSubscription(storedId: string | null | undefined, incomingId: string | null | undefined, status: string | null | undefined, incoming?: any): Promise<boolean> {
   if (!incomingId) return false
   if (storedId === incomingId) return true
-  if (LIVE_SUB_STATUSES.includes(status || '')) return true
+  if (LIVE_SUB_STATUSES.includes(status || '')) {
+    if (!storedId || !STRIPE_SECRET_KEY) return true
+    const storedSub = await fetchLiveSubscription(storedId, true)
+    if (!storedSub || !LIVE_SUB_STATUSES.includes(storedSub.status || '')) return true
+    if (incoming?.cancel_at_period_end) return false
+    const inCreated = Number(incoming?.created) || 0
+    const storedCreated = Number(storedSub.created) || 0
+    return inCreated > storedCreated
+  }
   return !storedId && status === 'incomplete'
+}
+
+// Statuses under which another subscription on the customer keeps the
+// company billed when the stored one is deleted.
+const REPLACEMENT_SUB_STATUSES = ['active', 'trialing', 'past_due']
+
+// The best other live subscription on the customer to carry the company when
+// `deletedId` ends: not cancelling at period end first, then newest.
+function pickReplacementSubscription(subs: any[], deletedId: string): any | null {
+  const live = subs.filter((s: any) => s?.id && s.id !== deletedId && REPLACEMENT_SUB_STATUSES.includes(s.status))
+  live.sort((a: any, b: any) =>
+    (Number(!!a.cancel_at_period_end) - Number(!!b.cancel_at_period_end)) || ((Number(b.created) || 0) - (Number(a.created) || 0)))
+  return live[0] || null
 }
 
 // Period bounds moved from the subscription onto its items in newer Stripe
@@ -276,7 +321,7 @@ Deno.serve(async (req) => {
         const liveSub = await fetchLiveSubscription(obj.subscription)
         const sessionStatus = !liveSub?.status || liveSub.status === 'incomplete' ? 'active' : liveSub.status
         const storedForSession = await storedSubscription(companyId)
-        if (!mayWriteSubscription(storedForSession?.stripe_subscription_id, obj.subscription, sessionStatus)) {
+        if (!await mayWriteSubscription(storedForSession?.stripe_subscription_id, obj.subscription, sessionStatus, liveSub)) {
           console.warn('checkout.session.completed: stale or superseded subscription, not applied', obj.subscription, sessionStatus)
         } else {
           await must('checkout.session.completed upsert', supabase.from('subscriptions').upsert({
@@ -307,7 +352,7 @@ Deno.serve(async (req) => {
         // Current state from Stripe, not the (possibly stale) payload.
         const cur = (await fetchLiveSubscription(obj.id)) || obj
         const stored = await storedSubscription(companyId)
-        if (!mayWriteSubscription(stored?.stripe_subscription_id, obj.id, cur.status)) {
+        if (!await mayWriteSubscription(stored?.stripe_subscription_id, obj.id, cur.status, cur)) {
           console.warn(`${event.type}: stale or superseded subscription, not applied`, obj.id, cur.status)
           break
         }
@@ -340,6 +385,29 @@ Deno.serve(async (req) => {
         const storedDelId = storedDel?.stripe_subscription_id || null
         if (storedDelId && storedDelId !== obj.id) {
           console.warn('customer.subscription.deleted: not the stored subscription, ignored', obj.id)
+          break
+        }
+        // Before cancelling, check whether another subscription on the same
+        // customer is still live (read-only list). If so the company is
+        // still paying: switch the row to that subscription instead.
+        const customerSubs = await listCustomerSubscriptions(obj.customer)
+        const replacement = customerSubs ? pickReplacementSubscription(customerSubs, obj.id) : null
+        if (replacement) {
+          const repTier = resolveTier(replacement)
+          const repQuery = supabase.from('subscriptions').update({
+            stripe_subscription_id: replacement.id,
+            stripe_price_id: replacement.items?.data?.[0]?.price?.id || null,
+            status: replacement.status,
+            ...(repTier ? { tier: repTier } : {}),
+            current_period_start: toIso(periodStart(replacement)),
+            current_period_end:   toIso(periodEnd(replacement)),
+            cancel_at_period_end: replacement.cancel_at_period_end ?? false,
+            updated_at: new Date().toISOString(),
+          }).eq('company_id', companyId)
+          console.log('customer.subscription.deleted: switched to live subscription', obj.id, '->', replacement.id)
+          await must('subscription.deleted switch', storedDelId
+            ? repQuery.eq('stripe_subscription_id', storedDelId)
+            : repQuery.is('stripe_subscription_id', null))
           break
         }
         const delQuery = supabase.from('subscriptions').update({

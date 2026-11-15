@@ -834,13 +834,13 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
         <div style={sectionStyle}>
           <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:14}}>Default reporting period</div>
           <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:20,lineHeight:1.7}}>
-            Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
+            Choose whether reports default to the UK tax year (6 Apr — 5 Apr), the financial year (1 Apr — 31 Mar), the calendar year (1 Jan — 31 Dec), or a custom date range you set yourself. You can always override this when running individual reports.
           </div>
           {scopedCompanies.map(company => {
             const cs = companySettings[company.id] || {}
             // Normalise legacy short forms ('tax'/'calendar') to the canonical keys.
             const rawType = cs.year_type || 'tax_year'
-            const yearType = rawType==='tax' ? 'tax_year' : rawType==='calendar' ? 'calendar_year' : rawType
+            const yearType = rawType==='tax' ? 'tax_year' : rawType==='fy' ? 'financial_year' : rawType==='calendar' ? 'calendar_year' : rawType
             // Persist a patch on top of the company's existing settings row.
             const saveSettings = async(patch)=>{
               const updated={...cs,...patch}
@@ -858,7 +858,7 @@ export function SettingsPage({companies, setCompanies, companySettings, setCompa
                   <span style={{fontSize:13,fontWeight:600,color:T.text}}>{company.name}</span>
                 </div>
                 <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
+                  {[{k:'tax_year',label:'UK Tax Year',sub:'6 Apr — 5 Apr'},{k:'financial_year',label:'Financial Year',sub:'1 Apr — 31 Mar'},{k:'calendar_year',label:'Calendar Year',sub:'1 Jan — 31 Dec'},{k:'custom',label:'Custom Dates',sub:'Set your own range'}].map(opt=>(
                     <button key={opt.k} onClick={()=>saveSettings({year_type:opt.k})}
                     style={{fontFamily:SANS,fontSize:FS.sm,padding:'10px 16px',borderRadius:10,cursor:'pointer',textAlign:'left',
                       border:`2px solid ${yearType===opt.k?T.gold:T.border}`,

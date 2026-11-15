@@ -5,14 +5,23 @@
 // or Supabase, so every figure can be unit tested.
 //
 // PERIOD RULE (applies to every report on the Reports page)
-// A tax-year view covers the twelve calendar months April (year) to March
-// (year + 1), i.e. 1 April to 31 March. Monthly rent rows are dated the 1st,
-// so a row for April belongs to the tax year that starts that April, and the
-// month columns, the period filter and every total cover the same twelve
-// months. Expenses use the same window so a cash-flow month always contains
-// the same expenses as the P&L. A calendar year is 1 January to 31 December;
-// a custom range uses its own dates, with month columns for every calendar
-// month it touches.
+// Users choose the year basis (saved per company in company_settings.year_type):
+//   • Tax year ('tax', the default): the HMRC tax year, 6 April (year) to
+//     5 April (year + 1) inclusive. The twelve columns are tax months, the
+//     6th of one month to the 5th of the next, labelled by the month they
+//     start in ("Apr" = 6 Apr – 5 May). A row's column is found by shifting
+//     its date back 5 days, so every date in the period falls in exactly one
+//     column. A rent row is dated by its receipt (the latest receipt
+//     allocated to it) when it has receipt allocations, else its
+//     period_start (legacy rows: the 1st of year/month).
+//   • Financial year ('fy'): the twelve calendar months April (year) to March
+//     (year + 1), i.e. 1 April to 31 March. Monthly rent rows are dated the
+//     1st, so a row for April belongs to the year that starts that April.
+// In both, the month columns, the period filter and every total cover the
+// same twelve columns, and expenses use the same window so a cash-flow month
+// always contains the same expenses as the P&L. A calendar year is 1 January
+// to 31 December; a custom range uses its own dates, with month columns for
+// every calendar month it touches.
 
 import { isRentReceived, indexRentAllocations, rentReceivedOnRow } from './companyPnl'
 import { calcMonthlyMortgage } from './propertyCalcs'
@@ -26,11 +35,35 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 
 // ── Periods ─────────────────────────────────────────────────────────────────
 
-// ISO start/end (inclusive) of a tax or calendar year. See PERIOD RULE.
+// ISO start/end (inclusive) of a tax, financial or calendar year. See
+// PERIOD RULE. 'tax_year' / 'financial_year' (the stored forms) are accepted.
 export function yearPeriod(year, type) {
   const y = Number(year)
-  if (type === 'tax') return { start: `${y}-04-01`, end: `${y + 1}-03-31`, label: `${y}/${String(y + 1).slice(2)} Tax Year (Apr–Mar)` }
-  return { start: `${y}-01-01`, end: `${y}-12-31`, label: `${y} Calendar Year` }
+  const yy = String(y + 1).slice(2)
+  const t = yearBasis(type)
+  if (t === 'tax') return { start: `${y}-04-06`, end: `${y + 1}-04-05`, label: `${y}/${yy} Tax Year (6 Apr – 5 Apr)`, basis: 'tax' }
+  if (t === 'fy') return { start: `${y}-04-01`, end: `${y + 1}-03-31`, label: `${y}/${yy} Financial Year (1 Apr – 31 Mar)`, basis: 'fy' }
+  return { start: `${y}-01-01`, end: `${y}-12-31`, label: `${y} Calendar Year`, basis: 'calendar' }
+}
+
+// Internal basis from any stored or short form.
+export function yearBasis(type) {
+  if (type === 'tax' || type === 'tax_year') return 'tax'
+  if (type === 'fy' || type === 'financial_year') return 'fy'
+  if (type === 'custom') return 'custom'
+  return type === 'calendar' || type === 'calendar_year' ? 'calendar' : type
+}
+
+// Column header note for the tax-year basis.
+export const TAX_MONTH_NOTE = 'Tax months run 6th to 5th'
+
+// Ordered {m,y} month columns for a tax, financial or calendar year. Tax
+// months are keyed by the month they start in (the 6th), so both April
+// bases share the same twelve keys.
+export function yearMonths(year, type) {
+  const t = yearBasis(type)
+  if (t === 'tax' || t === 'fy') return [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2].map(m => ({ m, y: m >= 3 ? year : year + 1 }))
+  return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(m => ({ m, y: year }))
 }
 
 // The UK tax year in progress on `d`: a tax year starts on 6 April.
@@ -80,6 +113,56 @@ const monthIndexer = months => {
   return mk => (mk ? idx.get(`${mk.y}-${mk.m}`) ?? -1 : -1)
 }
 
+// ISO date `days` later (negative: earlier), read as a calendar date.
+function shiftIso(iso, days) {
+  const mt = typeof iso === 'string' && iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!mt) return null
+  const d = new Date(Date.UTC(Number(mt[1]), Number(mt[2]) - 1, Number(mt[3]) + days))
+  return d.toISOString().slice(0, 10)
+}
+
+// Receipts → Map(rent_payment_id → the latest received_date of a receipt
+// allocated to that period as current rent). null without receipts.
+export function indexRentReceiptDates(receipts) {
+  if (!Array.isArray(receipts)) return null
+  const m = new Map()
+  for (const r of receipts) {
+    const d = r?.received_date ? String(r.received_date).slice(0, 10) : null
+    if (!d) continue
+    for (const a of (r?.rent_allocations || [])) {
+      if (a?.target !== 'current_rent' || !a.rent_payment_id) continue
+      const cur = m.get(a.rent_payment_id)
+      if (!cur || d > cur) m.set(a.rent_payment_id, d)
+    }
+  }
+  return m
+}
+
+// The date a rent row is reported on for a basis. Tax year: its receipt
+// date when it has receipt allocations; otherwise (and on every other basis)
+// its period_start, or the 1st of its year/month on legacy rows.
+export function rentRowDate(r, type = null, receiptDates = null) {
+  if (yearBasis(type) === 'tax' && receiptDates?.has(r?.id)) return receiptDates.get(r.id)
+  if (r?.period_start) return String(r.period_start).slice(0, 10)
+  if (r?.year && r?.month) return `${r.year}-${String(r.month).padStart(2, '0')}-01`
+  return null
+}
+
+// The {y, m} column a dated row falls in. Tax year: the date shifted back 5
+// days (6 Apr–5 May is the "Apr" tax month). Otherwise its calendar month.
+export function columnMonth(iso, type = null) {
+  return isoMonth(yearBasis(type) === 'tax' ? shiftIso(iso, -5) : iso)
+}
+
+// The column of a rent row (tax year: by rentRowDate; otherwise the
+// committed rentRowMonth rule) and of an expense.
+export function rentRowColumn(r, type = null, receiptDates = null) {
+  if (yearBasis(type) !== 'tax') return rentRowMonth(r)
+  const d = rentRowDate(r, type, receiptDates)
+  return d ? columnMonth(d, type) : null
+}
+export const expenseColumn = (e, type = null) => columnMonth(e?.date, type)
+
 export const monthName = m => MONTHS[m]
 
 // ── Rent / expense figures ──────────────────────────────────────────────────
@@ -120,13 +203,16 @@ export function buildPnlReport({ properties = [], payments = [], expenses = [], 
 }
 
 // Rental income schedule — rent received per property per month column.
-export function buildIncomeSchedule({ properties = [], payments = [], months = [], receipts = null }) {
+// basis — the year basis (see PERIOD RULE); only the tax year changes how
+// rows are placed in columns.
+export function buildIncomeSchedule({ properties = [], payments = [], months = [], receipts = null, basis = null }) {
   const ids = new Set(properties.map(p => p.id))
   const at = monthIndexer(months)
+  const dates = yearBasis(basis) === 'tax' ? indexRentReceiptDates(receipts) : null
   const cells = new Map()
   let unplaced = 0
   for (const { r, amount } of received(payments, ids, receipts)) {
-    const i = at(rentRowMonth(r))
+    const i = at(rentRowColumn(r, basis, dates))
     if (i < 0) { unplaced += amount; continue }
     const k = `${r.property_id}|${i}`
     cells.set(k, (cells.get(k) || 0) + amount)
@@ -137,20 +223,21 @@ export function buildIncomeSchedule({ properties = [], payments = [], months = [
   })
   const monthTotals = months.map((_, i) => round2(rows.reduce((s, r) => s + r.monthly[i], 0)))
   const total = round2(monthTotals.reduce((s, v) => s + v, 0))
-  return { months, rows, monthTotals, total, average: months.length ? round2(total / months.length) : 0, unplaced: round2(unplaced), noRentRecorded: total === 0 && unplaced === 0 }
+  return { months, rows, monthTotals, total, average: months.length ? round2(total / months.length) : 0, unplaced: round2(unplaced), noRentRecorded: total === 0 && unplaced === 0, basis: yearBasis(basis) || null }
 }
 
 // Monthly cash flow — rent received in, expenses out, per month column.
-export function buildCashFlow({ properties = [], payments = [], expenses = [], months = [], receipts = null }) {
+export function buildCashFlow({ properties = [], payments = [], expenses = [], months = [], receipts = null, basis = null }) {
   const ids = new Set(properties.map(p => p.id))
   const at = monthIndexer(months)
+  const dates = yearBasis(basis) === 'tax' ? indexRentReceiptDates(receipts) : null
   const rent = months.map(() => 0), exp = months.map(() => 0)
-  for (const { r, amount } of received(payments, ids, receipts)) { const i = at(rentRowMonth(r)); if (i >= 0) rent[i] += amount }
-  for (const e of expenses) { if (!ids.has(e.property_id)) continue; const i = at(isoMonth(e.date)); if (i >= 0) exp[i] += amt(e.amount) }
+  for (const { r, amount } of received(payments, ids, receipts)) { const i = at(rentRowColumn(r, basis, dates)); if (i >= 0) rent[i] += amount }
+  for (const e of expenses) { if (!ids.has(e.property_id)) continue; const i = at(expenseColumn(e, basis)); if (i >= 0) exp[i] += amt(e.amount) }
   const rows = months.map(({ m, y }, i) => ({ m, y, rent: round2(rent[i]), exp: round2(exp[i]), net: round2(rent[i] - exp[i]) }))
   const tRent = round2(rows.reduce((s, r) => s + r.rent, 0))
   const tExp = round2(rows.reduce((s, r) => s + r.exp, 0))
-  return { rows, totals: { rent: tRent, exp: tExp, net: round2(tRent - tExp) }, noRentRecorded: tRent === 0 }
+  return { rows, totals: { rent: tRent, exp: tExp, net: round2(tRent - tExp) }, noRentRecorded: tRent === 0, basis: yearBasis(basis) || null }
 }
 
 // Mortgage portfolio — monthly payment from calcMonthlyMortgage (honours a
@@ -306,10 +393,17 @@ export function pnlExports(model, { fmt, fmtPct }) {
   return { pdf, csv }
 }
 
+// The export note: no rent recorded, and on the tax-year basis that the
+// month columns are tax months.
+function exportNote(model) {
+  const parts = [model.noRentRecorded ? NO_RENT_NOTE : null, model.basis === 'tax' ? `${TAX_MONTH_NOTE} (e.g. "Apr" is 6 April to 5 May).` : null].filter(Boolean)
+  return parts.length ? parts.join(' ') : undefined
+}
+
 export function incomeScheduleExports(model, { fmt, monthLabel = ({ m }) => MONTHS[m] }) {
   const labels = model.months.map(monthLabel)
   const pdf = {
-    title: 'Rental Income Schedule', note: model.noRentRecorded ? NO_RENT_NOTE : undefined,
+    title: 'Rental Income Schedule', note: exportNote(model),
     kpis: [['Total income', fmt(model.total)], ['Monthly average', fmt(model.average)], ['Properties', String(model.rows.length)]],
     headers: ['Property', 'Rent received'],
     rows: model.rows.map(r => [r.name, fmt(r.total)]),
@@ -330,7 +424,7 @@ export function incomeScheduleExports(model, { fmt, monthLabel = ({ m }) => MONT
 export function cashFlowExports(model, { fmt, monthLabel = ({ m }) => MONTHS[m] }) {
   const { rows, totals } = model
   const pdf = {
-    title: 'Monthly Cash Flow', note: model.noRentRecorded ? NO_RENT_NOTE : undefined,
+    title: 'Monthly Cash Flow', note: exportNote(model),
     kpis: [['Total income', fmt(totals.rent)], ['Total outgoings', fmt(totals.exp)], ['Net cash flow', fmt(totals.net)]],
     headers: ['Month', 'Rent Income', 'Expenses', 'Net Cash Flow'],
     rows: rows.map(r => [monthLabel(r), fmt(r.rent), fmt(r.exp), fmt(r.net)]),

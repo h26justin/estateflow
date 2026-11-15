@@ -51,7 +51,9 @@ export async function fetchAllMaintenanceJobs(_userId, opts = {}) {
 
 export async function fetchAllTenancies(_userId, opts = {}) {
   return fetchScoped(opts, ids => {
-    let q = supabase.from('tenancy_details').select(`*, ${PROP_EMBED_RENT}`).is('deleted_at', null)
+    // tenancy_details has no deleted_at column (a filter on it fails the
+    // whole request with 42703).
+    let q = supabase.from('tenancy_details').select(`*, ${PROP_EMBED_RENT}`)
     if (ids) q = q.in('property_id', ids)
     return q.order('id')
   })

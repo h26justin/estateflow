@@ -131,8 +131,11 @@ function CompaniesPanel({ companies, setCompanies, user, showToast, T }) {
   const {
     setShowAddCo, activeCoTab, setActiveCoTab, companyStats, activeProperties, permissionsMap,
     devModeActive, confirmDialog, setRenameCoTarget, setRenameCo, setRenameCoPassword, setRenameCoError,
-    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp,
+    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp, arrearsById,
   } = panelContext
+  // Rent-engine arrears (the same figure as the Arrears tile), never the
+  // hand-typed properties.arrears.
+  const arrearsOf = p => arrearsById?.get(p.id) ?? propertyArrears(p)
   const mono = MONO
 
   function openRename(c) {
@@ -245,7 +248,7 @@ function CompaniesPanel({ companies, setCompanies, user, showToast, T }) {
                         <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{displayName}</div>
                         <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{p.prop_type} · {p.address}</div>
                       </div>
-                      {p.arrears>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(p.arrears)}</div>}
+                      {arrearsOf(p)>0&&<div style={{fontFamily:MONO,fontSize:11,color:T.red}}>⚠ {fmt(arrearsOf(p))}</div>}
                       {canFin && <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end'}}>
                           <div style={{fontFamily:MONO,fontSize:13,fontWeight:700,color:T.goldText}}>{calcGrossYield(p, yieldBasis).toFixed(1)}%</div>
                           <div style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{yieldBasis==='value'?'on value':'on cost'}</div>
@@ -1227,6 +1230,10 @@ export default function App({ initialLoginMode = null } = {}) {
       if (ka !== kb) return natSort(ka, kb)
       return natSort(flatKeyWithinBuilding(a.name), flatKeyWithinBuilding(b.name))
     }
+    // Rent-engine arrears (as the Arrears tile), computed once per property
+    // and only for the arrears sort — not the hand-typed properties.arrears.
+    const arrearsCache = new Map()
+    const arrearsOf = p => { if (!arrearsCache.has(p.id)) arrearsCache.set(p.id, propertyArrears(p)); return arrearsCache.get(p.id) }
     return [...f].sort((a,b)=>{
       switch(sortBy) {
         case 'company-name': {
@@ -1239,7 +1246,7 @@ export default function App({ initialLoginMode = null } = {}) {
         case 'rent-high':    return (b.rent_pcm||0)-(a.rent_pcm||0)
         case 'rent-low':     return (a.rent_pcm||0)-(b.rent_pcm||0)
         case 'yield-high':   return calcGrossYield(b, yieldBasis)-calcGrossYield(a, yieldBasis)
-        case 'arrears':      return (b.arrears||0)-(a.arrears||0)
+        case 'arrears':      return arrearsOf(b)-arrearsOf(a)
         case 'value-high':   return propValue(b)-propValue(a)
         // Custom: drag positions first; rows never dragged (NULL sort_order)
         // tie at 0, so fall back to natural name order instead of DB order.
@@ -1955,7 +1962,7 @@ export default function App({ initialLoginMode = null } = {}) {
   const companiesPanelContext = {
     setShowAddCo, activeCoTab, setActiveCoTab, companyStats, activeProperties, permissionsMap,
     devModeActive, confirmDialog, setRenameCoTarget, setRenameCo, setRenameCoPassword, setRenameCoError,
-    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp,
+    setDeleteCoTarget, openDetail, yieldBasis, setEditProp, setShowAddProp, arrearsById,
   }
 
   return (

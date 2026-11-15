@@ -5,6 +5,7 @@ import {
   buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents,
   isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes,
   TAX_BAND_LABELS, CT_MORTGAGE_NOTE, rentReceivedOnRow, indexRentAllocations,
+  expenseCategoryLabel,
 } from '../companyPnl'
 import { evaluatePeriod } from '../rentEngine'
 
@@ -1069,5 +1070,31 @@ describe('dividend rates follow the period being reported', () => {
     // 10,000 − 19% CT = 8,100 after tax.
     expect(buildCompanyPnl({ ...args, periodEnd: '2026-04-05' }).shareholders[0].dividendTax).toBeCloseTo(708.75, 2)
     expect(buildCompanyPnl({ ...args, periodEnd: '2027-04-05' }).shareholders[0].dividendTax).toBeCloseTo(870.75, 2)
+  })
+})
+
+describe('expense category labels', () => {
+  it('labels the categories the receipt scanner writes', () => {
+    expect(expenseCategoryLabel('maintenance')).toBe('Maintenance / Repairs')
+    expect(expenseCategoryLabel('professional')).toBe('Professional Fees')
+    expect(expenseCategoryLabel('cleaning')).toBe('Cleaning')
+    expect(expenseCategoryLabel('garden')).toBe('Garden / Outside Maintenance')
+  })
+})
+
+describe('buildPortfolioPnl month placement override', () => {
+  it('places rows by rentMonthOf / expenseMonthOf when given (tax-month columns)', () => {
+    const properties = [{ id: 'p1', name: 'Flat', company_id: 'c1', status: 'rented', rent_pcm: 1000 }]
+    const payments = [{ id: 'r1', property_id: 'p1', year: 2025, month: 4, period_start: '2025-04-01', status: 'paid', amount: 1000 }]
+    const expenses = [{ id: 'e1', property_id: 'p1', date: '2026-04-03', amount: 100, category: 'repairs' }]
+    const monthKeys = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2].map(m => ({ m, y: m >= 3 ? 2024 : 2025 }))
+    const out = buildPortfolioPnl({
+      companies: [{ id: 'c1', name: 'Co' }], properties, payments, expenses, monthKeys,
+      rentMonthOf: () => ({ y: 2025, m: 2 }), expenseMonthOf: () => ({ y: 2025, m: 2 }),
+      include: { corporationTax: false },
+    })
+    const row = out.companies[0].rows[0]
+    expect(row.monthly[11]).toBe(900)
+    expect(row.monthly.slice(0, 11).every(v => v === 0)).toBe(true)
   })
 })

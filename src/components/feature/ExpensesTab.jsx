@@ -37,6 +37,12 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
     {v:'mortgage',       l:'Mortgage Payment'},
     {v:'mortgage_interest', l:'Mortgage interest'},
     {v:'compliance',     l:'Compliance certificates'},
+    // Written by the receipt scanner; listed so editing such an expense keeps
+    // its category instead of showing a blank choice.
+    {v:'maintenance',    l:'Maintenance / Repairs'},
+    {v:'professional',   l:'Professional Fees'},
+    {v:'cleaning',       l:'Cleaning'},
+    {v:'garden',         l:'Garden / Outside Maintenance'},
     {v:'legal',          l:'Legal Fees'},
     {v:'accountancy',    l:'Accountancy'},
     {v:'other',          l:'Other'},

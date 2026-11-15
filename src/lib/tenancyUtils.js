@@ -155,15 +155,17 @@ export function benefitSplitCheck(t) {
 //
 // Since 1 May 2026 a fixed term no longer ends an assured tenancy in England:
 // a tenant still in place after an old tenancy_end is holding over and rent
-// stays due. So tenancy_end alone ends cover only once the tenancy is marked
-// 'ended' (or, for 'notice_given', where it records the date the notice runs
-// out). Otherwise cover ends on expected_move_out when one is recorded.
+// stays due. That holding-over rule applies ONLY to a tenancy still marked
+// 'rented' (the DB default, so a missing status counts as 'rented'): its
+// cover runs past tenancy_end, ending on expected_move_out when one is
+// recorded. Every other status (notice_given, vacant, refurbishment, ended)
+// means the tenant is going or gone, so cover ends on expected_move_out when
+// set, else on tenancy_end.
 export function tenancyCoverEnd(t) {
   if (!t) return null
   const d = v => (v ? String(v).slice(0, 10) : null)
-  if (t.status === 'ended') return d(t.tenancy_end) || d(t.expected_move_out)
-  if (t.status === 'notice_given') return d(t.expected_move_out) || d(t.tenancy_end)
-  return d(t.expected_move_out)
+  if (!t.status || t.status === 'rented') return d(t.expected_move_out)
+  return d(t.expected_move_out) || d(t.tenancy_end)
 }
 
 // Is a tenancy live on a given ISO date?

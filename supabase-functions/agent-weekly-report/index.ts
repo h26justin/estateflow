@@ -47,10 +47,10 @@ const PROPERTY_SELECT = 'id,user_id,company_id,name,address,status,rent_pcm,rent
   'company:companies(id,name,color),' +
   'rent_payments(id,property_id,year,month,month_label,status,amount,period_start,period_end),' +
   'stl_bookings(id,rent_payment_id),' +
-  'rent_receipts(id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,rent_payment_id,target,amount,payment_plan_id)),' +
+  'rent_receipts(id,tenancy_id,received_date,amount,kind,payer,source,review_status,reverses_receipt_id,rent_allocations(id,tenancy_id,rent_payment_id,target,amount,payment_plan_id)),' +
   'non_chargeable_periods(id,start_date,end_date,reason),' +
   'rent_overrides(id,rent_payment_id,state,reason,expected_amount,created_at),' +
-  'tenancies(id,tenant_name,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
+  'tenancies(id,tenant_name,tenancy_start,tenancy_end,notice_received_date,expected_move_out,rent_amount,rent_frequency,rent_due_day,rent_due_anchor,payment_window_days,status,payment_source,benefit_type,benefit_contribution,tenant_contribution,benefit_frequency,benefit_next_payment_date,benefit_paid_to,opening_arrears,opening_arrears_date)'
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const money0 = (n: number) => '\u00A3' + Math.round(Number(n) || 0).toLocaleString('en-GB')

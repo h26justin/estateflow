@@ -156,7 +156,9 @@ function complianceSection(properties, items, { asOf }) {
     const req = CATALOGUE_BY_KEY[key]
     const date = effectiveExpiry(it, req)
     if (!date) continue
-    const k = `${p.id}|${key}`
+    // Custom certificates are all cert_type 'other' with a free-text name:
+    // told apart by name, as buildComplianceReport does.
+    const k = req ? `${p.id}|${key}` : `${p.id}|${key}|${String(it.cert_name || '').trim().toLowerCase()}`
     const cur = latest.get(k)
     if (!cur || date > cur.date) latest.set(k, { propertyId: p.id, property: p.name || 'Property', label: req?.label || it.cert_name || String(it.cert_type || 'Certificate'), date })
   }

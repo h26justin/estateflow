@@ -26,10 +26,15 @@
 --
 -- CLIENT BEHAVIOUR CHANGE / BUSINESS DECISION NEEDED:
 --   * An owner adding a SECOND company (including legitimate multi-company
---     landlords who already pay for their first) gets no trial on it: the app
---     shows it as trial-expired (TrialExpiredGate / App.jsx treat a NULL
---     trial_ends_at as ended) until it is subscribed or an admin grants a
---     trial / free tier. Confirm this is wanted before applying; the
+--     landlords who already pay for their first) gets no trial on it, so it
+--     is not live (RLS refuses writes) until it is subscribed or an admin
+--     grants a trial / free tier. The client must show that state: as of the
+--     15 Nov 2026 client fix, TrialExpiredGate (getOverdueCompanies) and the
+--     billing page (billingDisplayStatus -> 'needs_subscription') treat an
+--     owned, non-free-tier company with a NULL trial_ends_at and no live
+--     subscription as needing a subscription and offer Checkout. Deploy that
+--     client change BEFORE applying this migration; with an older client the
+--     company looks normal and every save fails. Confirm this is wanted before applying; the
 --     alternative is to only withhold the trial when none of the owner's
 --     companies is live.
 --   * Companies created by a platform admin / developer, or by the service

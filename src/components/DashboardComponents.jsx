@@ -491,7 +491,8 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
           insurance:'Insurance', agent_fees:'Agent / Management Fees', repairs:'Repairs & Maintenance',
           ground_rent:'Ground Rent', service_charge:'Service Charge', utilities:'Utilities',
           mortgage:'Mortgage Payment', legal:'Legal Fees', accountancy:'Accountancy', other:'Other',
-          mortgage_interest:'Mortgage interest', compliance:'Compliance certificates'
+          mortgage_interest:'Mortgage interest', compliance:'Compliance certificates',
+          maintenance:'Maintenance / Repairs', professional:'Professional Fees', cleaning:'Cleaning', garden:'Garden / Outside Maintenance'
         }
         const barW = totalExpenses > 0 ? ((amt / totalExpenses) * 100) : 0
         const barPx = (barW / 100) * 120
@@ -551,7 +552,8 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
     insurance:'Insurance', agent_fees:'Agent Fees', repairs:'Repairs',
     ground_rent:'Ground Rent', service_charge:'Service Charge',
     utilities:'Utilities', mortgage:'Mortgage', legal:'Legal', accountancy:'Accountancy', other:'Other',
-    mortgage_interest:'Mortgage interest', compliance:'Compliance certificates'
+    mortgage_interest:'Mortgage interest', compliance:'Compliance certificates',
+    maintenance:'Maintenance', professional:'Professional Fees', cleaning:'Cleaning', garden:'Garden'
   }
 
   return (

@@ -15,9 +15,8 @@ function parseDueDay(v) {
 function tenancyCoverEnd(t) {
   if (!t) return null;
   const d = (v) => v ? String(v).slice(0, 10) : null;
-  if (t.status === "ended") return d(t.tenancy_end) || d(t.expected_move_out);
-  if (t.status === "notice_given") return d(t.expected_move_out) || d(t.tenancy_end);
-  return d(t.expected_move_out);
+  if (!t.status || t.status === "rented") return d(t.expected_move_out);
+  return d(t.expected_move_out) || d(t.tenancy_end);
 }
 function tenancyCoversDate(t, iso) {
   if (!t?.tenancy_start) return false;
@@ -103,7 +102,8 @@ function rentDueDatesIn(tenancy, start, end, nonChargeable) {
   const step = CYCLE_DAYS[tenancy?.rent_frequency];
   if (!step || !tenancy?.tenancy_start) return null;
   const ts = tenancy.tenancy_start;
-  const anchor = tenancy.rent_due_anchor || ts;
+  let anchor = tenancy.rent_due_anchor || ts;
+  if (anchor > ts) anchor = addDays(anchor, -Math.floor(Math.round((toUTC(anchor) - toUTC(ts)) / 864e5) / step) * step);
   const rent = Number(tenancy.rent_amount) || 0;
   const stepsFrom = (iso) => Math.ceil((toUTC(iso) - toUTC(anchor)) / 864e5 / step);
   const k0 = Math.max(0, stepsFrom(ts));
@@ -346,7 +346,7 @@ function evaluatePeriod(row, ctx) {
   base.dueDate = dues && dues.length ? dues[0].date : dueDateFor(tenancy, start);
   const windowDays = tenancy.payment_window_days == null ? DEFAULT_PAYMENT_WINDOW_DAYS : Number(tenancy.payment_window_days);
   base.windowEnd = addDays(dues && dues.length ? dues[dues.length - 1].date : base.dueDate, windowDays);
-  if (byInstalment) base.instalments = dues;
+  if (byInstalment) base.instalments = dues.map((x) => ({ ...x, windowEnd: maxIso(addDays(x.date, windowDays), base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, x.date) : null) }));
   base.benefitDue = base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, base.dueDate) || base.windowEnd : null;
   const received = base.received == null ? 0 : base.received;
   base.outstanding = round2(Math.max(0, expected - received));
@@ -510,10 +510,53 @@ function contributionAsOf(e, asOf) {
   const prepaid = Math.min(later, Math.max(0, rec - due));
   return { ...c, due, received: round2(Math.min(rec, due)), notYetDue: round2(later - prepaid) };
 }
+function instalmentSplit(e, asOf, owed) {
+  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+  let left = e.received == null ? 0 : Number(e.received) || 0;
+  const parts2 = [];
+  for (const x of e.instalments) {
+    if (x.date > asOf) continue;
+    const paid = Math.min(left, x.amount);
+    left = round2(left - paid);
+    const unpaid = round2(x.amount - paid);
+    if (unpaid <= 5e-3) continue;
+    const bucket = asOf > (x.windowEnd || x.date) ? "overdue" : x.date === asOf ? "dueToday" : "inWindow";
+    parts2.push({ bucket, unpaid });
+  }
+  let excess = round2(parts2.reduce((s, x) => s + x.unpaid, 0) - owed);
+  for (let i = parts2.length - 1; i >= 0 && excess > 5e-3; i--) {
+    const cut = Math.min(excess, parts2[i].unpaid);
+    parts2[i].unpaid = round2(parts2[i].unpaid - cut);
+    excess = round2(excess - cut);
+  }
+  for (const x of parts2) out[x.bucket] = round2(out[x.bucket] + x.unpaid);
+  if (excess < -5e-3) out.inWindow = round2(out.inWindow - excess);
+  return out;
+}
 function missedOwed(e, asOf) {
   if (e?.state !== STATE.MISSED) return 0;
   const c = e.instalments ? contributionAsOf(e, asOf) : null;
-  return c ? round2(Math.max(0, c.due - c.received)) : Number(e.outstanding) || 0;
+  if (!c) return Number(e.outstanding) || 0;
+  const owed = round2(Math.max(0, c.due - c.received));
+  return owed > 0 ? outstandingSplit(e, asOf, owed).overdue : 0;
+}
+function outstandingBucket(e, asOf) {
+  if (e.dueDate && e.dueDate > asOf) return "notYetDue";
+  if (e.dueDate === asOf) return "dueToday";
+  if (e.instalments) {
+    const sp = instalmentSplit(e, asOf, Infinity);
+    return sp.overdue > 0 ? "overdue" : sp.dueToday > 0 ? "dueToday" : "inWindow";
+  }
+  const lastWindow = maxIso(e.windowEnd, e.benefitDue);
+  if (lastWindow ? asOf > lastWindow : e.state === STATE.MISSED) return "overdue";
+  return "inWindow";
+}
+function outstandingSplit(e, asOf, owed) {
+  if (!e.instalments || e.dueDate && e.dueDate >= asOf) return { [outstandingBucket(e, asOf)]: owed };
+  const sp = instalmentSplit(e, asOf, owed);
+  const out = {};
+  for (const k of ["overdue", "dueToday", "inWindow"]) if (sp[k] > 0) out[k] = sp[k];
+  return out;
 }
 function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || [];

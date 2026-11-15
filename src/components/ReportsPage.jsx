@@ -21,7 +21,7 @@ import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
-import { yearPeriod, currentTaxYear, reportYearOptions, rentRowMonth, buildPnlReport, buildIncomeSchedule, buildCashFlow, buildMortgagePortfolio, buildArrearsReport, buildComplianceReport, buildTenancySchedule, maintenanceCost, maintenancePriorityRank, pnlExports, incomeScheduleExports, cashFlowExports, mortgagePortfolioExports, complianceExports, arrearsExports } from '../lib/reportBuilders'
+import { yearPeriod, yearBasis, yearMonths, TAX_MONTH_NOTE, indexRentReceiptDates, rentRowDate, rentRowColumn, expenseColumn, currentTaxYear, reportYearOptions, rentRowMonth, buildPnlReport, buildIncomeSchedule, buildCashFlow, buildMortgagePortfolio, buildArrearsReport, buildComplianceReport, buildTenancySchedule, maintenanceCost, maintenancePriorityRank, pnlExports, incomeScheduleExports, cashFlowExports, mortgagePortfolioExports, complianceExports, arrearsExports } from '../lib/reportBuilders'
 import { EmptyState, Button } from './ui'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
@@ -50,8 +50,9 @@ function sortByCompanyName(props) {
   })
 }
 
-// Tax year: the twelve months Apr → Mar (1 Apr – 31 Mar), so the period
-// filter, the month columns and every total cover the same months — see the
+// Tax year: 6 Apr – 5 Apr in twelve tax months (6th to 5th); financial
+// year: 1 Apr – 31 Mar in calendar months. Either way the period filter, the
+// month columns and every total cover the same twelve columns — see the
 // PERIOD RULE in lib/reportBuilders.js. Calendar: Jan → Dec.
 function getYearRange(year, type) {
   const p = yearPeriod(year, type)
@@ -65,12 +66,12 @@ function inRange(dateStr, range) {
 // Monthly-grid reports cap out here so a very wide (or not-yet-set) custom
 // range can't render hundreds of columns.
 const MAX_GRID_MONTHS = 36
-// Ordered {m,y} month buckets a monthly report should show. Tax year runs
-// Apr→Mar, calendar Jan→Dec, and custom spans every calendar month the range
+// Ordered {m,y} month buckets a monthly report should show. Tax and
+// financial years run Apr→Mar (tax months keyed by the month they start
+// in), calendar Jan→Dec, and custom spans every calendar month the range
 // touches (start→end inclusive) so a custom window of any length lines up.
 function periodMonths(year, yearType, range) {
-  if (yearType === 'tax') return [3,4,5,6,7,8,9,10,11,0,1,2].map(m=>({m,y:m>=3?year:year+1}))
-  if (yearType === 'calendar') return [0,1,2,3,4,5,6,7,8,9,10,11].map(m=>({m,y:year}))
+  if (yearType === 'tax' || yearType === 'fy' || yearType === 'calendar') return yearMonths(year, yearType)
   const out = []
   const d   = new Date(range.start.getFullYear(), range.start.getMonth(), 1)
   const end = new Date(range.end.getFullYear(),   range.end.getMonth(),   1)
@@ -96,31 +97,38 @@ const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance'
 // map to the theme's AA-checked text tokens (goldText, not gold, for finance).
 const catColors = (T) => ({ tax:T.blue, performance:T.green, finance:T.goldText, compliance:T.purple, maintenance:T.amber })
 
-// Internal yearType is 'tax' | 'calendar' | 'custom'. The settings table
-// stores the longer vocabulary ('tax_year' | 'calendar_year' | 'custom'),
-// and some legacy rows hold the short form — normalise both on the way in.
+// Internal yearType is 'tax' (HMRC tax year, 6 Apr – 5 Apr — the default) |
+// 'fy' (financial year, 1 Apr – 31 Mar) | 'calendar' | 'custom'. The
+// settings table stores the longer vocabulary ('tax_year' | 'financial_year'
+// | 'calendar_year' | 'custom'), and some legacy rows hold the short form —
+// normalise both on the way in. An old stored 'tax' / 'tax_year' is the
+// 6 April tax year.
 function normType(t) {
   if (t === 'tax_year' || t === 'tax') return 'tax'
+  if (t === 'financial_year' || t === 'fy') return 'fy'
   if (t === 'calendar_year' || t === 'calendar') return 'calendar'
   if (t === 'custom') return 'custom'
   return 'tax'
 }
-const STORE_TYPE = { tax: 'tax_year', calendar: 'calendar_year', custom: 'custom' }
+const STORE_TYPE = { tax: 'tax_year', fy: 'financial_year', calendar: 'calendar_year', custom: 'custom' }
+// Period selector: the two April bases are offered side by side.
+const YEAR_TYPE_OPTIONS = [['tax', 'Tax year (6 Apr – 5 Apr)'], ['fy', 'Financial year (1 Apr – 31 Mar)'], ['calendar', 'Calendar'], ['custom', 'Custom']]
 
 // "All companies" has no settings row of its own, so its default period
 // type comes from what the companies themselves are set to: the majority
 // of saved year_type values (custom ranges are per-company dates, so they
 // don't vote). Null when no company has a saved type — leave the default.
 function consensusYearType(companies, companySettings) {
-  const votes = { tax: 0, calendar: 0 }
+  const votes = { tax: 0, fy: 0, calendar: 0 }
   companies.forEach(c => {
     const t = companySettings?.[c.id]?.year_type
     if (!t) return
     const n = normType(t)
     if (n !== 'custom') votes[n]++
   })
-  if (!votes.tax && !votes.calendar) return null
-  return votes.calendar > votes.tax ? 'calendar' : 'tax'
+  if (!votes.tax && !votes.fy && !votes.calendar) return null
+  // Most votes wins; ties go to the tax year, then the financial year.
+  return ['tax', 'fy', 'calendar'].reduce((best, k) => votes[k] > votes[best] ? k : best, 'tax')
 }
 
 export default function ReportsPage({ properties, companies, companySettings, user, selectedReportId, onSelectReport }) {
@@ -286,7 +294,10 @@ export default function ReportsPage({ properties, companies, companySettings, us
   // Filtered by company
   const filtProps = useMemo(() => sortByCompanyName(selectedCompany === 'all' ? properties : properties.filter(p => p.company_id === selectedCompany)), [properties, selectedCompany])
   const filtExp   = useMemo(() => expenses.filter(e => (selectedCompany==='all'||e.property?.company_id===selectedCompany) && inRange(e.date, range)), [expenses, selectedCompany, range])
-  const filtRent  = useMemo(() => rentPayments.filter(r => (selectedCompany==='all'||r.property?.company_id===selectedCompany) && inRange(rentPaymentDate(r), range)), [rentPayments, selectedCompany, range])
+  // Tax year (6 April): a rent row is dated by its receipt when it has one
+  // (rentRowDate), so the filter and the tax-month columns agree.
+  const receiptDates = useMemo(() => yearType === 'tax' ? indexRentReceiptDates((properties || []).flatMap(p => p.rent_receipts || [])) : null, [properties, yearType])
+  const filtRent  = useMemo(() => rentPayments.filter(r => (selectedCompany==='all'||r.property?.company_id===selectedCompany) && inRange(yearType === 'tax' ? rentRowDate(r, 'tax', receiptDates) : rentPaymentDate(r), range)), [rentPayments, selectedCompany, range, yearType, receiptDates])
   const filtComp  = useMemo(() => compliance.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [compliance, selectedCompany])
   const filtMaint = useMemo(() => maintenance.filter(m => selectedCompany==='all'||m.property?.company_id===selectedCompany), [maintenance, selectedCompany])
   const filtTen   = useMemo(() => tenancies.filter(t => selectedCompany==='all'||t.property?.company_id===selectedCompany), [tenancies, selectedCompany])
@@ -344,7 +355,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
               </select>
             )}
             <select value={year} onChange={e=>setYear(Number(e.target.value))}
-              aria-label="Tax year for the Year-End Pack" title="Tax year applied to the Year-End Pack"
+              aria-label="Year for the Year-End Pack" title="Year (and basis) applied to the Year-End Pack"
               style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
               {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
@@ -414,7 +425,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
           )}
           {/* Year type toggle */}
           <div style={{display:'flex',background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,overflow:'hidden'}}>
-            {[['tax','Tax year'],['calendar','Calendar'],['custom','Custom']].map(([k,l])=>(
+            {YEAR_TYPE_OPTIONS.map(([k,l])=>(
               <button key={k} onClick={()=>saveYearType(k)} aria-pressed={yearType===k} style={{fontFamily:SANS,fontSize:FS.sm,padding:'7px 14px',border:'none',cursor:'pointer',background:yearType===k?accent+'22':'transparent',color:yearType===k?accent:T.muted,fontWeight:yearType===k?700:400}}>{l}</button>
             ))}
           </div>
@@ -802,6 +813,10 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
   const { agents = [], companies = [], selectedCompany = 'all' } = extras || {}
   const nat = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { numeric: true, sensitivity: 'base' })
   const active = (selectedCompany === 'all' ? companies : companies.filter(c => c.id === selectedCompany))
+  // Tax year (6 April): month columns are tax months — place rows the way
+  // the period filter dated them.
+  const taxBasis = yearBasis(extras?.yearType) === 'tax'
+  const receiptDates = taxBasis ? indexRentReceiptDates(propertyReceipts(filtProps)) : null
   return buildPortfolioPnl({
     companies: [...active].sort(nat),
     properties: filtProps, payments: filtRent, expenses: filtExp, agents,
@@ -815,6 +830,8 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
     fullOccupancy,
     rentEstimates,
     receipts: propertyReceipts(filtProps),
+    rentMonthOf: taxBasis ? r => rentRowColumn(r, 'tax', receiptDates) : null,
+    expenseMonthOf: taxBasis ? e => expenseColumn(e, 'tax') : null,
   })
 }
 
@@ -1049,7 +1066,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
     case 'income_sched': {
       const months = exportMonths(range, extras)
       if (!months) return GRID_TOO_WIDE_DATA('Rental Income Schedule')
-      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
+      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months, basis: extras?.yearType }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
     }
     case 'expense_breakdown': {
       const byCat = filtExp.reduce((a,e)=>{a[e.category||'Other']=(a[e.category||'Other']||0)+(e.amount||0);return a},{})
@@ -1149,7 +1166,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
     case 'cashflow': {
       const months = exportMonths(range, extras)
       if (!months) return GRID_TOO_WIDE_DATA('Monthly Cash Flow')
-      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
+      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months, basis: extras?.yearType }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
     }
     case 'equity': {
       const rows=filtProps.map(p=>({name:p.name,val:propValue(p),debt:p.mortgage_amount||0,eq:propValue(p)-(p.mortgage_amount||0),ltv:propValue(p)?((p.mortgage_amount||0)/propValue(p))*100:0})).sort((a,b)=>b.eq-a.eq)
@@ -1265,12 +1282,12 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
     case 'income_sched': {
       const months = exportMonths(range, extras)
       if (!months) return [['Report', id], ['Period', range.label], [GRID_TOO_WIDE_DATA('').rows[0][0]]]
-      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months }), { fmt }).csv
+      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months, basis: extras?.yearType }), { fmt }).csv
     }
     case 'cashflow': {
       const months = exportMonths(range, extras)
       if (!months) return [['Report', id], ['Period', range.label], [GRID_TOO_WIDE_DATA('').rows[0][0]]]
-      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months }), { fmt }).csv
+      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months, basis: extras?.yearType }), { fmt }).csv
     }
     case 'arrears': return arrearsExports(buildArrearsReport(filtProps), { fmt }).csv
     case 'ownership': {
@@ -1644,7 +1661,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
   const tooWide = !!wantMonths && wantMonths.length > MAX_GRID_MONTHS
   const bucketKeys = tooWide ? null : wantMonths
   const rentEstimates = pnlInc.estRents ? estimateMissingRents(filtProps) : null
-  const raw = computePortfolioPnl(filtProps, filtExp, filtRent, range, { agents, companies, selectedCompany }, bucketKeys, pnlForecast && bucketKeys ? new Date() : null,
+  const raw = computePortfolioPnl(filtProps, filtExp, filtRent, range, { agents, companies, selectedCompany, yearType }, bucketKeys, pnlForecast && bucketKeys ? new Date() : null,
     { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct }, pnlInc.fullOcc, rentEstimates)
   // "My share" scales every company block by the viewer's shareholding;
   // dividend tax (if switched on) uses the band on their shareholder entry.
@@ -1824,6 +1841,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
       <>
         {controls}
         {cards}
+        <TaxMonthNote T={T} yearType={yearType}/>
         <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
           <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth}}>
             <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
@@ -1943,6 +1961,11 @@ function GridTooWide({ T }) {
 }
 
 // Explicit empty state for the rent reports: no received rent in the period.
+// Tax-year (6 April) basis: the month columns are tax months.
+function TaxMonthNote({ T, yearType }) {
+  if (yearType !== 'tax') return null
+  return <div style={{fontFamily:SANS,fontSize:FS.xs,color:T.muted,margin:'0 0 8px'}}>{TAX_MONTH_NOTE} (e.g. “Apr” is 6 April to 5 May).</div>
+}
 function NoRentNote({ T }) {
   return (
     <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10,lineHeight:1.6}}>
@@ -1957,7 +1980,7 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
   const nMonths = months.length
   const cols = `160px repeat(${nMonths},1fr) 100px`
   // Rent received per month — same builder as the PDF/CSV and the P&L.
-  const d = buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months })
+  const d = buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months, basis: yearType })
   const propRent = d.rows.map(r => ({ p: r.p, monthData: r.monthly, total: r.total }))
   const monthTotals = d.monthTotals
   const grandTotal = d.total
@@ -1969,6 +1992,7 @@ function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, a
         {label:'Properties tracked',value:filtProps.length,color:T.text},
       ]}/>
       {d.noRentRecorded && <NoRentNote T={T}/>}
+      <TaxMonthNote T={T} yearType={yearType}/>
       <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth:900}}>
           <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
@@ -2395,8 +2419,11 @@ function rentOutstandingData(filtProps) {
     for (const e of evaluateProperty(p)) {
       if (e.periodStart < GO_LIVE || e.periodStart > asOf) continue
       const b = periodBreakdown(e, asOf)
-      if (b.bucket === 'overdue') { add('overdue', b.owed); add('outstanding', b.owed) }
-      if (b.bucket === 'inWindow' || b.bucket === 'dueToday') { add('window', b.owed); add('outstanding', b.owed) }
+      // A non-monthly period can owe in more than one bucket (an earlier
+      // instalment overdue, a later one still in its window): b.split.
+      const parts = b.split || { [b.bucket]: b.owed }
+      if (parts.overdue) { add('overdue', parts.overdue); add('outstanding', parts.overdue) }
+      for (const k of ['inWindow', 'dueToday']) if (parts[k]) { add('window', parts[k]); add('outstanding', parts[k]) }
       if (b.bucket === 'pendingReview') add('pendingReview', b.owed)
       if (b.bucket === 'notYetDue') add('notYetDue', b.owed)
       // A non-monthly period part way through: instalments still ahead are
@@ -2680,7 +2707,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
   if (months.length > MAX_GRID_MONTHS) return <GridTooWide T={T}/>
   // Rent received and expenses per month column — same builder as the
   // PDF/CSV, so its totals match the P&L and the income schedule.
-  const d = buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months })
+  const d = buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months, basis: yearType })
   const mData = d.rows.map(r => ({ ...r, label: monthLabel(r.m, r.y, yearType) }))
   const totalRent = d.totals.rent
   const totalExp = d.totals.exp
@@ -2692,6 +2719,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
         {label:'Net cash flow',value:fmt(totalRent-totalExp),color:(totalRent-totalExp)>=0?T.green:T.red},
       ]}/>
       {d.noRentRecorded && <NoRentNote T={T}/>}
+      <TaxMonthNote T={T} yearType={yearType}/>
 
       <ChartCard title="Net cash flow by month" T={T}>
         <AreaChart T={T} accent={accent} fmt={fmtCompact}

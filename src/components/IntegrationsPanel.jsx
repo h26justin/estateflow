@@ -663,9 +663,10 @@ const XERO_PREVIEW_BLOCKS = [
   ['refurb', 'refurb cost(s)'],
 ]
 
-// Resolves to { mode, pushBlocked }: mode 'both' after a yes,
+// Resolves to { mode, pushBlocked, previewToken }: mode 'both' after a yes,
 // 'reconcile_only' when there is nothing to post or posting isn't set up;
-// null when the user cancels.
+// null when the user cancels. previewToken binds the push to the list the
+// user reviewed: the server refuses a push whose list has changed since.
 async function previewAndConfirmXeroPush({ confirmDialog, companyId, propertyIds = null, scopeLabel = null }) {
   const pv = await api.previewXeroSync(companyId, propertyIds)
   const blocked = pv.blocked || []
@@ -688,7 +689,23 @@ async function previewAndConfirmXeroPush({ confirmDialog, companyId, propertyIds
     confirmLabel: `Post ${toPost} to Xero`, destructive: true,
   })
   if (!ok) return null
-  return { mode: 'both', pushBlocked: false }
+  return { mode: 'both', pushBlocked: false, previewToken: pv.preview_token || null }
+}
+
+// Preview → confirm → run. If the server says the list changed between the
+// review and the push (nothing was posted), say so and re-open the preview
+// so the user reviews the new list; a second change in a row stops.
+async function confirmAndRunXeroPush({ confirmDialog, companyId, propertyIds = null, scopeLabel = null, run }) {
+  for (let attempt = 0; ; attempt++) {
+    const plan = await previewAndConfirmXeroPush({ confirmDialog, companyId, propertyIds, scopeLabel })
+    if (!plan) return null
+    try {
+      return { plan, result: await run(plan) }
+    } catch (e) {
+      if (e?.code !== 'preview_changed' || attempt >= 1) throw e
+      showAppToast(`${e.message} Showing the updated list.`, 'error')
+    }
+  }
 }
 
 // Success styling only when everything asked for happened: a blocked or
@@ -738,10 +755,10 @@ function CompanyXeroCard({ T, mono, company, connection, properties, onChanged, 
     try {
       // Show exactly what would be posted, and post only on a yes. With
       // nothing to post (or posting not set up) run the read-only pull.
-      const plan = await previewAndConfirmXeroPush({ confirmDialog, companyId: company.id })
-      if (!plan) { setBusy(null); return }
-      const r = await api.runXeroSync(company.id, plan.mode)
-      showXeroSyncResult(company.abbr, r, plan.pushBlocked)
+      const out = await confirmAndRunXeroPush({ confirmDialog, companyId: company.id,
+        run: plan => api.runXeroSync(company.id, plan.mode, { previewToken: plan.previewToken }) })
+      if (!out) { setBusy(null); return }
+      showXeroSyncResult(company.abbr, out.result, out.plan.pushBlocked)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -940,10 +957,10 @@ function XeroSettingsPanel({ T, mono, company, properties, onSaved }) {
   async function syncOneProperty(p) {
     setSyncingProp(p.id)
     try {
-      const plan = await previewAndConfirmXeroPush({ confirmDialog, companyId: company.id, propertyIds: [p.id], scopeLabel: p.name || p.address })
-      if (!plan) return
-      const r = await api.runXeroSyncForProperties(company.id, [p.id], plan.mode)
-      showXeroSyncResult(p.name || p.address || 'Property', r, plan.pushBlocked)
+      const out = await confirmAndRunXeroPush({ confirmDialog, companyId: company.id, propertyIds: [p.id], scopeLabel: p.name || p.address,
+        run: plan => api.runXeroSyncForProperties(company.id, [p.id], plan.mode, { previewToken: plan.previewToken }) })
+      if (!out) return
+      showXeroSyncResult(p.name || p.address || 'Property', out.result, out.plan.pushBlocked)
       onSaved?.()
     } catch (e) { showAppToast(e.message, 'error') }
     finally { setSyncingProp(null) }

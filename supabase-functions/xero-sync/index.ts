@@ -452,109 +452,135 @@ serve(async (req) => {
       .eq('user_id', caller.id).eq('company_id', companyId).single()).data
   }
 
+  // What a push WOULD post, computed without posting. Counts every block a
+  // confirmed push would post (same filters, same toggles, same
+  // property_ids scope as the push below), so the dialog never under-states
+  // what lands in the customer's ledger. A block the sync map can't record
+  // yet is reported in `blocked`, not counted. Used by action=preview and,
+  // to check the preview token, by every push.
+  const computePushPreview = async () => {
+    const missing = pushSetupMissing(settings)
+    const floor = settings.push_from_date ? String(settings.push_from_date).slice(0, 10) : null
+    const scoped = Array.isArray(body.property_ids) && body.property_ids.length > 0
+    const props = await fetchAllRows(() => {
+      let q = admin.from('properties')
+        .select('id, mortgage_amount, mortgage_rate')
+        .eq('user_id', caller.id).eq('company_id', companyId).is('deleted_at', null)
+      if (scoped) q = q.in('id', body.property_ids)
+      return q.order('id', { ascending: true })
+    })
+    const propIds = props.map((p: any) => p.id)
+    const syncedSet = await loadSyncedSet(admin, caller.id, companyId)
+    const block = () => ({ count: 0, total: 0, earliest: null as string | null })
+    const rent = block(), expenses = block(), mortgage_interest = block(), deposits = block(), refurb = block()
+    // Every item counted, as `entity_type:local_id` (the sync-map key): the
+    // preview token is a hash over this list, so a push can prove it posts
+    // the list the user reviewed.
+    const keys: string[] = []
+    const add = (b: any, amount: number, d: string, key: string) => {
+      b.count++; b.total += amount
+      if (!b.earliest || d < b.earliest) b.earliest = d
+      keys.push(key)
+    }
+    const blocked: string[] = []
+    let skippedPulled = 0
+    if (propIds.length && settings.sync_rent) {
+      const data = await fetchAllRows(() => admin.from('rent_payments')
+        .select('id, amount, period_start, year, month')
+        .in('property_id', propIds).eq('status', 'paid').gt('amount', 0)
+        .order('id', { ascending: true }))
+      for (const p of data) {
+        const d = rentDate(p)
+        if (!d || syncedSet.has(`rent_payment:${p.id}`) || (floor && d < floor)) continue
+        add(rent, Number(p.amount), d, `rent_payment:${p.id}`)
+      }
+    }
+    if (propIds.length && settings.sync_expenses) {
+      const data = await fetchAllRows(() => admin.from('property_expenses')
+        .select('id, amount, date, source_ref')
+        .in('property_id', propIds).is('deleted_at', null).gt('amount', 0)
+        .order('id', { ascending: true }))
+      for (const e of data) {
+        if (!e.date || syncedSet.has(`expense:${e.id}`) || (floor && e.date < floor)) continue
+        if (String(e.source_ref || '').startsWith('xero:')) { skippedPulled++; continue }
+        add(expenses, Number(e.amount), e.date, `expense:${e.id}`)
+      }
+    }
+    if (propIds.length && settings.sync_mortgage_interest) {
+      if (!(await mapAcceptsEntityType(admin, companyId, 'mortgage_interest'))) blocked.push(mapBlockedReason('mortgage_interest'))
+      else {
+        const yyyymm = currentYyyymm()
+        for (const p of props) {
+          if (!(Number(p.mortgage_amount) > 0) || !(Number(p.mortgage_rate) > 0)) continue
+          const monthlyInterest = (Number(p.mortgage_amount) * Number(p.mortgage_rate)) / 12
+          if (monthlyInterest <= 0) continue
+          const localIdUuid = await mortgageLocalIdUuid(`${p.id}:${yyyymm}`)
+          if (syncedSet.has(`mortgage_interest:${localIdUuid}`)) continue
+          add(mortgage_interest, Math.round(monthlyInterest * 100) / 100, `${yyyymm}-01`, `mortgage_interest:${localIdUuid}`)
+        }
+      }
+    }
+    if (propIds.length && settings.sync_deposits_separate) {
+      if (!(await mapAcceptsEntityType(admin, companyId, 'deposit'))) blocked.push(mapBlockedReason('deposit'))
+      else {
+        const data = await fetchAllRows(() => admin.from('tenancy_details')
+          .select('id, deposit_amount, tenancy_start')
+          .in('property_id', propIds).gt('deposit_amount', 0)
+          .order('id', { ascending: true }))
+        for (const t of data) {
+          const d = t.tenancy_start || new Date().toISOString().slice(0, 10)
+          if (syncedSet.has(`deposit:${t.id}`) || (floor && d < floor)) continue
+          add(deposits, Number(t.deposit_amount), d, `deposit:${t.id}`)
+        }
+      }
+    }
+    if (propIds.length && settings.sync_refurb_separate) {
+      if (!(await mapAcceptsEntityType(admin, companyId, 'refurb'))) blocked.push(mapBlockedReason('refurb'))
+      else {
+        const data = await fetchAllRows(() => admin.from('refurb_costs')
+          .select('id, cost, date')
+          .in('property_id', propIds).eq('paid', true).gt('cost', 0)
+          .order('id', { ascending: true }))
+        for (const r of data) {
+          if (!r.date || syncedSet.has(`refurb:${r.id}`) || (floor && r.date < floor)) continue
+          add(refurb, Number(r.cost), r.date, `refurb:${r.id}`)
+        }
+      }
+    }
+    for (const b of [rent, expenses, mortgage_interest, deposits, refurb]) b.total = Math.round(b.total * 100) / 100
+    return { missing, floor, rent, expenses, mortgage_interest, deposits, refurb, blocked, skippedPulled, keys }
+  }
+
+  // The preview token: SHA-256 (hex) over the company, the property scope and
+  // the sorted list of `entity_type:local_id` items the preview counted. A
+  // push must carry the token of the preview the user confirmed; the push
+  // recomputes it and refuses when the list has changed since.
+  const previewScope = Array.isArray(body.property_ids) && body.property_ids.length > 0
+    ? [...body.property_ids].map(String).sort().join(',') : 'all'
+  const previewTokenFor = async (keys: string[]) => {
+    const material = `${companyId}|${previewScope}|${[...keys].sort().join(',')}`
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material))
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
   // ── action=preview → what a push WOULD post, without posting ──
-  // The UI shows this in a confirm dialog before every manual push.
-  // Counts every block a confirmed push would post (same filters, same
-  // toggles, same property_ids scope as the push below), so the dialog
-  // never under-states what lands in the customer's ledger. A block the
-  // sync map can't record yet is reported in `blocked`, not counted.
+  // The UI shows this in a confirm dialog before every manual push, and
+  // passes preview_token back with the push.
   if (action === 'preview') {
     try {
-      const missing = pushSetupMissing(settings)
-      const floor = settings.push_from_date ? String(settings.push_from_date).slice(0, 10) : null
-      const scoped = Array.isArray(body.property_ids) && body.property_ids.length > 0
-      const props = await fetchAllRows(() => {
-        let q = admin.from('properties')
-          .select('id, mortgage_amount, mortgage_rate')
-          .eq('user_id', caller.id).eq('company_id', companyId).is('deleted_at', null)
-        if (scoped) q = q.in('id', body.property_ids)
-        return q.order('id', { ascending: true })
-      })
-      const propIds = props.map((p: any) => p.id)
-      const syncedSet = await loadSyncedSet(admin, caller.id, companyId)
-      const block = () => ({ count: 0, total: 0, earliest: null as string | null })
-      const rent = block(), expenses = block(), mortgage_interest = block(), deposits = block(), refurb = block()
-      const add = (b: any, amount: number, d: string) => {
-        b.count++; b.total += amount
-        if (!b.earliest || d < b.earliest) b.earliest = d
-      }
-      const blocked: string[] = []
-      let skippedPulled = 0
-      if (propIds.length && settings.sync_rent) {
-        const data = await fetchAllRows(() => admin.from('rent_payments')
-          .select('id, amount, period_start, year, month')
-          .in('property_id', propIds).eq('status', 'paid').gt('amount', 0)
-          .order('id', { ascending: true }))
-        for (const p of data) {
-          const d = rentDate(p)
-          if (!d || syncedSet.has(`rent_payment:${p.id}`) || (floor && d < floor)) continue
-          add(rent, Number(p.amount), d)
-        }
-      }
-      if (propIds.length && settings.sync_expenses) {
-        const data = await fetchAllRows(() => admin.from('property_expenses')
-          .select('id, amount, date, source_ref')
-          .in('property_id', propIds).is('deleted_at', null).gt('amount', 0)
-          .order('id', { ascending: true }))
-        for (const e of data) {
-          if (!e.date || syncedSet.has(`expense:${e.id}`) || (floor && e.date < floor)) continue
-          if (String(e.source_ref || '').startsWith('xero:')) { skippedPulled++; continue }
-          add(expenses, Number(e.amount), e.date)
-        }
-      }
-      if (propIds.length && settings.sync_mortgage_interest) {
-        if (!(await mapAcceptsEntityType(admin, companyId, 'mortgage_interest'))) blocked.push(mapBlockedReason('mortgage_interest'))
-        else {
-          const yyyymm = currentYyyymm()
-          for (const p of props) {
-            if (!(Number(p.mortgage_amount) > 0) || !(Number(p.mortgage_rate) > 0)) continue
-            const monthlyInterest = (Number(p.mortgage_amount) * Number(p.mortgage_rate)) / 12
-            if (monthlyInterest <= 0) continue
-            const localIdUuid = await mortgageLocalIdUuid(`${p.id}:${yyyymm}`)
-            if (syncedSet.has(`mortgage_interest:${localIdUuid}`)) continue
-            add(mortgage_interest, Math.round(monthlyInterest * 100) / 100, `${yyyymm}-01`)
-          }
-        }
-      }
-      if (propIds.length && settings.sync_deposits_separate) {
-        if (!(await mapAcceptsEntityType(admin, companyId, 'deposit'))) blocked.push(mapBlockedReason('deposit'))
-        else {
-          const data = await fetchAllRows(() => admin.from('tenancy_details')
-            .select('id, deposit_amount, tenancy_start')
-            .in('property_id', propIds).gt('deposit_amount', 0)
-            .order('id', { ascending: true }))
-          for (const t of data) {
-            const d = t.tenancy_start || new Date().toISOString().slice(0, 10)
-            if (syncedSet.has(`deposit:${t.id}`) || (floor && d < floor)) continue
-            add(deposits, Number(t.deposit_amount), d)
-          }
-        }
-      }
-      if (propIds.length && settings.sync_refurb_separate) {
-        if (!(await mapAcceptsEntityType(admin, companyId, 'refurb'))) blocked.push(mapBlockedReason('refurb'))
-        else {
-          const data = await fetchAllRows(() => admin.from('refurb_costs')
-            .select('id, cost, date')
-            .in('property_id', propIds).eq('paid', true).gt('cost', 0)
-            .order('id', { ascending: true }))
-          for (const r of data) {
-            if (!r.date || syncedSet.has(`refurb:${r.id}`) || (floor && r.date < floor)) continue
-            add(refurb, Number(r.cost), r.date)
-          }
-        }
-      }
+      const { missing, floor, rent, expenses, mortgage_interest, deposits, refurb, blocked, skippedPulled, keys } = await computePushPreview()
       let bankName: string | null = null
       if (settings.default_bank_account_id) {
         await ensureToken()
         const r = await xeroFetch(accessToken, conn.tenant_id, `Accounts/${settings.default_bank_account_id}`)
         if (r.ok) bankName = (await r.json()).Accounts?.[0]?.Name || null
       }
-      for (const b of [rent, expenses, mortgage_interest, deposits, refurb]) b.total = Math.round(b.total * 100) / 100
       return new Response(JSON.stringify({
         preview: true, configured: missing.length === 0, missing,
         org: conn.tenant_name, bank: bankName, from: floor,
         rent, expenses, mortgage_interest, deposits, refurb,
         blocked, skipped_pulled_expenses: skippedPulled,
+        preview_token: await previewTokenFor(keys),
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     } catch (e) {
       return jsonError(500, 'Could not prepare the Xero preview: ' + (e as Error).message)
@@ -687,6 +713,30 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ...summary, deleted, failed: failures.length, errors: failures.slice(0, 10) }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  }
+
+  // ── Preview binding ──
+  // A run that can post (anything but reconcile_only, which never posts and
+  // is what the cron uses) must carry the preview_token of the preview the
+  // user confirmed. The list is recomputed now; a missing token, or one for
+  // a different list (records added, edited, synced or deleted since the
+  // review, or a different property scope), posts nothing.
+  if (action !== 'reconcile_only') {
+    let currentToken = ''
+    try {
+      currentToken = await previewTokenFor((await computePushPreview()).keys)
+    } catch (e) {
+      return jsonError(500, 'Could not check the Xero preview: ' + (e as Error).message)
+    }
+    const given = typeof body.preview_token === 'string' ? body.preview_token : ''
+    if (!given || given !== currentToken) {
+      return new Response(JSON.stringify({
+        error: given
+          ? 'The list of transactions to post to Xero changed since you reviewed it — review again. Nothing was posted.'
+          : 'Review what will be posted to Xero first — nothing was posted.',
+        code: 'preview_changed',
+      }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
   }
 
   // Concurrency guard — one sync per (user, company) at a time. Two

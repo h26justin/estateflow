@@ -208,8 +208,20 @@ describe('All-companies period type default', () => {
     })
     await screen.findByText('Alpha Ltd — total')
     // User overrides to tax year — the consensus default must not reassert.
-    fireEvent.click(screen.getByText('Tax year'))
-    expect(await screen.findAllByText(/Tax Year/)).not.toHaveLength(0)
+    fireEvent.click(screen.getByText('Tax year (6 Apr – 5 Apr)'))
+    expect(await screen.findAllByText(/Tax Year \(6 Apr – 5 Apr\)/)).not.toHaveLength(0)
     expect(screen.queryByText(/Calendar Year/)).not.toBeInTheDocument()
+  })
+
+  it('offers the financial year (1 Apr – 31 Mar) as a second April basis, and reads a saved financial_year', async () => {
+    renderReport({
+      cA: { year_type: 'financial_year' },
+      cB: { year_type: 'financial_year' },
+    })
+    await screen.findByText('Alpha Ltd — total')
+    expect(screen.getAllByText(/Financial Year \(1 Apr – 31 Mar\)/).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('Tax year (6 Apr – 5 Apr)'))
+    expect(await screen.findAllByText(/Tax Year \(6 Apr – 5 Apr\)/)).not.toHaveLength(0)
+    expect(screen.queryByText(/Financial Year \(1 Apr/)).not.toBeInTheDocument()
   })
 })

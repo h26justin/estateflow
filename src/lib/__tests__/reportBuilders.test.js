@@ -19,6 +19,7 @@ vi.mock('../supabase', () => ({ supabase: { from: vi.fn(table => chain(table)) }
 
 import {
   yearPeriod, currentTaxYear, reportYearOptions, rentRowMonth,
+  yearMonths, yearBasis, indexRentReceiptDates, rentRowDate, rentRowColumn, expenseColumn,
   buildPnlReport, buildIncomeSchedule, buildCashFlow, buildMortgagePortfolio,
   buildComplianceReport, buildTenancySchedule, buildArrearsReport,
   maintenanceCost, maintenancePriorityRank,
@@ -65,8 +66,15 @@ const expenses = [
 ]
 
 describe('period rule', () => {
-  it('a tax year is the twelve months 1 April to 31 March', () => {
-    expect(yearPeriod(2025, 'tax')).toMatchObject({ start: '2025-04-01', end: '2026-03-31' })
+  it('a financial year is the twelve months 1 April to 31 March; a tax year is 6 April to 5 April', () => {
+    expect(yearPeriod(2025, 'fy')).toMatchObject({ start: '2025-04-01', end: '2026-03-31' })
+    expect(yearPeriod(2025, 'fy').label).toMatch(/Financial Year \(1 Apr – 31 Mar\)/)
+    expect(yearPeriod(2025, 'tax')).toMatchObject({ start: '2025-04-06', end: '2026-04-05' })
+    expect(yearPeriod(2025, 'tax').label).toMatch(/Tax Year \(6 Apr – 5 Apr\)/)
+    // Stored forms: an old 'tax' / 'tax_year' value is the 6 April tax year.
+    expect(yearPeriod(2025, 'tax_year').start).toBe('2025-04-06')
+    expect(yearPeriod(2025, 'financial_year').start).toBe('2025-04-01')
+    expect(yearBasis('tax_year')).toBe('tax')
     expect(yearPeriod(2025, 'calendar')).toMatchObject({ start: '2025-01-01', end: '2025-12-31' })
   })
   it('a rent row belongs to the month of its period (legacy rows: year/month)', () => {
@@ -87,8 +95,8 @@ describe('period rule', () => {
   })
 })
 
-describe('screen, PDF and CSV agree for the 2025/26 tax year', () => {
-  const period = yearPeriod(2025, 'tax')
+describe('screen, PDF and CSV agree for the 2025/26 financial year (1 April basis)', () => {
+  const period = yearPeriod(2025, 'fy')
   const months = taxMonths(2025)
   const pRent = payments.filter(r => inPeriod(rentDate(r), period))
   const pExp = expenses.filter(e => inPeriod(e.date, period))
@@ -171,6 +179,85 @@ describe('screen, PDF and CSV agree for the 2025/26 tax year', () => {
     expect(buildPnlReport({ properties, payments: extra, expenses: pExp }).totals.rent).toBe(3600)
     expect(buildIncomeSchedule({ properties, payments: extra, months }).total).toBe(3600)
     expect(buildCashFlow({ properties, payments: extra, expenses: pExp, months }).totals.rent).toBe(3600)
+  })
+})
+
+describe('year basis: tax year (6 Apr – 5 Apr) and financial year (1 Apr – 31 Mar)', () => {
+  // The page's filter and columns for a basis (ReportsPage filtRent/filtExp,
+  // periodMonths): a rent row is dated by rentRowDate, an expense by its date.
+  const view = (basis, year, { payments: pays, expenses: exps, receipts = null }) => {
+    const period = yearPeriod(year, basis)
+    const dates = indexRentReceiptDates(receipts)
+    const pRent = pays.filter(r => inPeriod(rentRowDate(r, basis, dates), period))
+    const pExp = exps.filter(e => inPeriod(e.date, period))
+    const months = yearMonths(year, basis)
+    return {
+      pRent, pExp,
+      pnl: buildPnlReport({ properties, payments: pRent, expenses: pExp, receipts }),
+      inc: buildIncomeSchedule({ properties, payments: pRent, months, receipts, basis }),
+      cash: buildCashFlow({ properties, payments: pRent, expenses: pExp, months, receipts, basis }),
+    }
+  }
+  const legacy = (id, pid, y, m, amount) => ({ id, property_id: pid, year: y, month: m, status: 'paid', amount })
+  const pays = [
+    ...payments,
+    legacy('L1', 'p1', 2025, 4, 1000),                      // legacy 1 April 2025
+    rent('R1', 'p3', '2026-03-01', 'overdue', null),        // received 4 Apr 2026 by receipt
+    rent('R2', 'p3', '2025-03-01', 'overdue', null),        // received 7 Apr 2025 by receipt
+  ]
+  const exps = [...expenses, { id: 'e5', property_id: 'p1', amount: 75, date: '2026-04-03' }, { id: 'e6', property_id: 'p1', amount: 40, date: '2025-04-05' }]
+  const receipts = [
+    { id: 'x1', received_date: '2026-04-04', rent_allocations: [{ rent_payment_id: 'R1', target: 'current_rent', amount: 1200 }] },
+    { id: 'x2', received_date: '2025-04-07', rent_allocations: [{ rent_payment_id: 'R2', target: 'current_rent', amount: 1200 }] },
+  ]
+
+  it.each(['tax', 'fy'])('%s basis: P&L = Income Schedule = Cash Flow totals, and every row lands in one column', (basis) => {
+    for (const year of [2024, 2025, 2026]) {
+      const { pnl, inc, cash } = view(basis, year, { payments: pays, expenses: exps, receipts })
+      expect(inc.total).toBe(pnl.totals.rent)
+      expect(inc.unplaced).toBe(0)
+      expect(cash.totals.rent).toBe(pnl.totals.rent)
+      expect(cash.totals.exp).toBe(pnl.totals.exp)
+      expect(cash.totals.net).toBe(pnl.totals.net)
+    }
+  })
+
+  it('an expense dated 3 April Y+1 is inside tax year Y and outside financial year Y', () => {
+    const tax = view('tax', 2025, { payments: pays, expenses: exps, receipts })
+    expect(tax.pExp.map(e => e.id)).toContain('e5')
+    expect(tax.cash.rows[11].exp).toBe(350 + 999 + 75)     // the "Mar" tax month, 6 Mar – 5 Apr 2026
+    expect(expenseColumn({ date: '2026-04-03' }, 'tax')).toEqual({ y: 2026, m: 2 })
+    const fy = view('fy', 2025, { payments: pays, expenses: exps, receipts })
+    expect(fy.pExp.map(e => e.id)).not.toContain('e5')
+    expect(view('fy', 2026, { payments: pays, expenses: exps, receipts }).pExp.map(e => e.id)).toContain('e5')
+    // 5 April 2025 closes tax year 2024; it is in financial year 2025.
+    expect(view('tax', 2024, { payments: pays, expenses: exps, receipts }).pExp.map(e => e.id)).toContain('e6')
+    expect(fy.pExp.map(e => e.id)).toContain('e6')
+  })
+
+  it('a legacy rent row dated 1 April Y belongs to Y−1 on the tax-year basis and Y on the financial-year basis', () => {
+    const L1 = pays.find(r => r.id === 'L1')
+    expect(view('tax', 2024, { payments: pays, expenses: exps, receipts }).pRent).toContain(L1)
+    expect(view('tax', 2025, { payments: pays, expenses: exps, receipts }).pRent).not.toContain(L1)
+    expect(rentRowColumn(L1, 'tax')).toEqual({ y: 2025, m: 2 })    // the last ("Mar") tax month of 2024/25
+    expect(view('fy', 2025, { payments: pays, expenses: exps, receipts }).pRent).toContain(L1)
+    expect(view('fy', 2024, { payments: pays, expenses: exps, receipts }).pRent).not.toContain(L1)
+    expect(rentRowColumn(L1, 'fy')).toEqual({ y: 2025, m: 3 })
+  })
+
+  it('on the tax-year basis a rent row with receipts is dated by its receipt', () => {
+    const R1 = pays.find(r => r.id === 'R1'), R2 = pays.find(r => r.id === 'R2')
+    const dates = indexRentReceiptDates(receipts)
+    expect(rentRowDate(R1, 'tax', dates)).toBe('2026-04-04')
+    expect(rentRowDate(R1, 'fy', dates)).toBe('2026-03-01')
+    const t25 = view('tax', 2025, { payments: pays, expenses: exps, receipts })
+    expect(t25.pRent).toContain(R1)                         // 4 Apr 2026 is in 2025/26
+    expect(t25.pRent).toContain(R2)                         // 7 Apr 2025 is in 2025/26
+    // "Apr" tax month (6 Apr – 5 May 2025): r2 (1 May) and R2 (received 7 Apr);
+    // r1 (1 Apr 2025) belongs to 2024/25.
+    expect(t25.inc.monthTotals[0]).toBe(1000 + 1200)
+    expect(t25.pRent.map(r => r.id)).not.toContain('r1')
+    expect(t25.inc.monthTotals[11]).toBe(1200 + 1200)       // "Mar": r5 (1 Mar 2026) and R1 (received 4 Apr 2026)
   })
 })
 
@@ -283,12 +370,21 @@ describe('reports fetches', () => {
     expect(exp).toContainEqual({ table: 'property_expenses', m: 'is', args: ['deleted_at', null] })
     expect(exp).toContainEqual({ table: 'property_expenses', m: 'order', args: ['id'] })
 
-    for (const [fn, table] of [[fetchAllMaintenanceJobs, 'maintenance_jobs'], [fetchAllTenancies, 'tenancy_details'], [fetchAllComplianceItems, 'compliance_items']]) {
+    for (const [fn, table] of [[fetchAllMaintenanceJobs, 'maintenance_jobs'], [fetchAllComplianceItems, 'compliance_items']]) {
       calls.length = 0
       await fn('u1', { propertyIds: ['p1'] })
       expect(calls).toContainEqual({ table, m: 'is', args: ['deleted_at', null] })
       expect(calls.some(c => c.m === 'eq' && c.args[0] === 'user_id')).toBe(false)
     }
+  })
+
+  it('tenancy_details has no deleted_at column, so the tenancy query never filters on it', async () => {
+    calls.length = 0
+    await fetchAllTenancies('u1', { propertyIds: ['p1'] })
+    const ten = calls.filter(c => c.table === 'tenancy_details')
+    expect(ten).toContainEqual({ table: 'tenancy_details', m: 'in', args: ['property_id', ['p1']] })
+    expect(ten.some(c => c.args?.[0] === 'deleted_at')).toBe(false)
+    expect(ten.some(c => c.m === 'eq' && c.args[0] === 'user_id')).toBe(false)
   })
 
   it('page past the 1,000-row cap and filter deleted rent rows client-side', async () => {
