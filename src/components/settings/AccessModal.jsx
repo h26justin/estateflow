@@ -165,9 +165,14 @@ export function AccessModal({companies, onClose, showToast, user, permissionsMap
   async function setAllCompanies(userId, userEmail, giveAll) {
     setSaving(userId+'all')
     try {
-      await api.setAllCompanyAccess(userId, userEmail, giveAll ? companies.map(c=>c.id) : [])
-      setAccess(prev => ({ ...prev, [userId]: giveAll ? companies.map(c=>c.id) : [] }))
-      showToast(giveAll ? 'Full access granted' : 'All access removed')
+      // Per-company diff scoped to these companies: existing roles are kept,
+      // new grants take the member's existing role (never an upgrade), and
+      // their access to anyone else's companies is not touched.
+      const coIds = companies.map(c=>c.id)
+      await api.setAllCompanyAccess(userId, userEmail, giveAll ? coIds : [], { scopeCompanyIds: coIds })
+      setAccess(prev => ({ ...prev, [userId]: giveAll ? coIds : [] }))
+      showToast(giveAll ? 'Access granted to every company' : 'All access removed')
+      await reloadRows()
     } catch(e) { showToast(e.message,'error') }
     setSaving(null)
   }

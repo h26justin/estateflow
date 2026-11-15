@@ -54,6 +54,15 @@ export default function Root() {
   // stays mounted (it renders the marketing site itself after sign-out).
   const [appIntent, setAppIntent] = useState(null)
   const appMounted = useRef(false)
+  // App is keyed on the signed-in user id, so signing out or switching user
+  // in the same tab starts App from fresh state (tenant flag, onboarding,
+  // company filters, the previous user's companies in search). A token
+  // refresh keeps the same id, so it never remounts. The login-modal intent
+  // only applies to the first App instance — not to the one mounted on
+  // sign-out, which would otherwise pop the modal straight back open.
+  const appKey = session?.user?.id || 'signed-out'
+  const keyRef = useRef({ key: appKey, changed: false })
+  if (keyRef.current.key !== appKey) keyRef.current = { key: appKey, changed: true }
   // A transition keeps the marketing page on screen while App's chunk
   // downloads, instead of flashing the spinner fallback.
   const openApp = (intent) => startTransition(() => setAppIntent(intent))
@@ -73,7 +82,7 @@ export default function Root() {
   appMounted.current = true
   return (
     <Suspense fallback={<FullScreenSpinner />}>
-      <App initialLoginMode={appIntent?.loginMode || null} />
+      <App key={appKey} initialLoginMode={keyRef.current.changed ? null : (appIntent?.loginMode || null)} />
     </Suspense>
   )
 }

@@ -272,6 +272,9 @@ export async function deleteNote(id) {
 }
 
 // ── SORT ORDER ────────────────────────────────────────────────────────────────
+// Throws on error or when RLS updated no row (it used to ignore both).
 export async function updatePropertySortOrder(id, sortOrder) {
-  await supabase.from('properties').update({ sort_order: sortOrder }).eq('id', id)
+  const { data, error } = await supabase.from('properties').update({ sort_order: sortOrder }).eq('id', id).select('id')
+  if (error) throw error
+  if (!data || data.length === 0) throw new Error('Property order not saved — you may not have permission to edit this property')
 }

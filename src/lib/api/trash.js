@@ -2,13 +2,18 @@
 import { supabase } from '../supabase'
 import { extractStoragePaths } from '../attachments'
 import { logAction } from './audit'
+import { fetchAccessibleCompanyIds } from './access'
 
 // ── SOFT DELETE ───────────────────────────────────────────────────────────────
 export async function softDeleteProperty(propertyId, userId) {
-  const { error } = await supabase.from('properties')
+  const { data, error } = await supabase.from('properties')
     .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq('id', propertyId)
+    .select('id')
   if (error) throw error
+  // RLS filters rows the caller may not change, so a refusal is zero rows,
+  // not an error — it used to report "moved to Trash" with nothing moved.
+  if (!data || data.length === 0) throw new Error('Property not deleted — you may not have permission to delete it')
   await logAction(userId, null, 'property.deleted', 'property', propertyId, null)
 }
 
@@ -20,10 +25,16 @@ export async function restoreProperty(propertyId, userId) {
   await logAction(userId, null, 'property.restored', 'property', propertyId, null)
 }
 
+// Trash is scoped by the companies the user owns or has access to (and their
+// properties), not by the creator user_id: a property or expense a team-mate
+// created and the owner deleted used to be missing from the owner's Trash.
+// RLS still decides what each query actually returns.
 export async function fetchDeletedProperties(userId) {
+  const companyIds = await fetchAccessibleCompanyIds(userId)
+  if (companyIds.length === 0) return []
   const { data, error } = await supabase.from('properties')
     .select('*, company:companies(name,abbr,color)')
-    .eq('user_id', userId)
+    .in('company_id', companyIds)
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
   if (error) throw error
@@ -216,29 +227,50 @@ export async function removeStorageFiles(paths) {
   return { removed, failed }
 }
 
+// How each trashable table is scoped to the user (see fetchAccessibleCompanyIds
+// in ./access):
+//   company  — the row's own company_id is one of the user's companies
+//   property — the row's property belongs to one of the user's companies
+//              (an !inner embed filtered on the alias, so no long id lists)
+//   owner    — companies the user owns (only an owner deletes a company)
+//   creator  — deals keep creator scoping (company_id may be null on a deal)
+const TRASH_TABLES = [
+  { table: 'properties',         scope: 'company' },
+  { table: 'companies',          scope: 'owner' },
+  { table: 'tenancy_details',    scope: 'property' },
+  { table: 'compliance_items',   scope: 'property' },
+  { table: 'maintenance_jobs',   scope: 'property' },
+  { table: 'property_expenses',  scope: 'property' },
+  { table: 'deals',              scope: 'creator' },
+  { table: 'property_documents', scope: 'property' },
+]
+
+// Apply a TRASH_TABLES scope to a select. Property-scoped selects must
+// include PROPERTY_EMBED (!inner) so the alias filter applies.
+function scoped(query, scope, userId, companyIds) {
+  if (scope === 'company') return query.in('company_id', companyIds)
+  if (scope === 'property') return query.in('property.company_id', companyIds)
+  if (scope === 'owner') return query.eq('owner_id', userId)
+  return query.eq('user_id', userId)
+}
+const PROPERTY_EMBED = 'property:properties!inner(name, company_id)'
+
 export async function purgeExpiredTrash(userId) {
   if (!userId) return { purged: 0, filesRemoved: 0 }
   const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
-  const tables = [
-    { table: 'properties',         scope: { col: 'user_id',  val: userId } },
-    { table: 'companies',          scope: { col: 'owner_id', val: userId } },
-    { table: 'tenancy_details',    scope: { col: 'user_id',  val: userId } },
-    { table: 'compliance_items',   scope: { col: 'user_id',  val: userId } },
-    { table: 'maintenance_jobs',   scope: { col: 'user_id',  val: userId } },
-    { table: 'property_expenses',  scope: { col: 'user_id',  val: userId } },
-    { table: 'deals',              scope: { col: 'user_id',  val: userId } },
-    { table: 'property_documents', scope: { col: 'user_id',  val: userId } },
-  ]
+  let companyIds = []
+  try { companyIds = await fetchAccessibleCompanyIds(userId) } catch (e) { return { purged: 0, filesRemoved: 0 } }
   let purged = 0, filesRemoved = 0
-  for (const { table, scope } of tables) {
+  for (const { table, scope } of TRASH_TABLES) {
+    if ((scope === 'company' || scope === 'property') && companyIds.length === 0) continue
     try {
       // Find what is about to go, remove its files while the rows (and so
       // our storage permissions) still exist, then delete the rows. The
       // delete repeats the trash conditions so a row restored between the
       // two calls survives.
-      const { data: rows, error: selErr } = await supabase.from(table)
-        .select('id')
-        .eq(scope.col, scope.val)
+      const { data: rows, error: selErr } = await scoped(
+        supabase.from(table).select(scope === 'property' ? `id, ${PROPERTY_EMBED}` : 'id'),
+        scope, userId, companyIds)
         .lt('deleted_at', cutoff)
         .not('deleted_at', 'is', null)
       if (selErr || !rows?.length) continue
@@ -264,20 +296,27 @@ export async function fetchAllDeleted(userId) {
   // are about to vanish on the next reload.
   try { await purgeExpiredTrash(userId) } catch (e) {}
 
-  // Query each table in parallel for deleted rows belonging to the user
-  const safe = (p) => p.then(r => r.data || []).catch(() => [])
+  const companyIds = await fetchAccessibleCompanyIds(userId)
+  // Errors are surfaced, not swallowed: an empty list on failure made the
+  // Trash page say "Trash is empty" when it simply could not load.
+  const must = (p) => p.then(r => { if (r.error) throw r.error; return r.data || [] })
+  const query = (table, select, scope) => {
+    if ((scope === 'company' || scope === 'property') && companyIds.length === 0) return Promise.resolve([])
+    return must(scoped(supabase.from(table).select(select), scope, userId, companyIds)
+      .not('deleted_at', 'is', null).order('deleted_at', { ascending: false }))
+  }
 
   const [props, companies, tenancies, compliance, maintenance, expenses, deals, documents] = await Promise.all([
-    safe(supabase.from('properties').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('companies').select('id, name, abbr, color, deleted_at, deleted_by').eq('owner_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('tenancy_details').select('id, tenant_name, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('compliance_items').select('id, cert_type, cert_name, expiry_date, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('maintenance_jobs').select('id, title, description, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('property_expenses').select('id, description, amount, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('deals').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
-    safe(supabase.from('property_documents').select('id, name, file_path, file_url, category, property_id, deleted_at, deleted_by, property:properties(name)').eq('user_id', userId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    query('properties', 'id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)', 'company'),
+    query('companies', 'id, name, abbr, color, deleted_at, deleted_by', 'owner'),
+    query('tenancy_details', `id, tenant_name, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
+    query('compliance_items', `id, cert_type, cert_name, expiry_date, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
+    query('maintenance_jobs', `id, title, description, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
+    query('property_expenses', `id, description, amount, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
+    // Deals: RLS scopes (unchanged).
+    must(supabase.from('deals').select('id, name, address, deleted_at, deleted_by, company_id, company:companies(name,abbr,color)').not('deleted_at', 'is', null).order('deleted_at', { ascending: false })),
+    query('property_documents', `id, name, file_path, file_url, category, property_id, deleted_at, deleted_by, ${PROPERTY_EMBED}`, 'property'),
   ])
-
   return {
     properties: props.map(r => ({ ...r, _type: 'properties', _label: 'Property', _name: r.name || r.address })),
     companies: companies.map(r => ({ ...r, _type: 'companies', _label: 'Company', _name: r.name })),

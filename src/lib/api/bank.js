@@ -137,42 +137,101 @@ export async function fetchBankTransactions({ limit = 200, unmatchedOnly = false
   return data || []
 }
 
-// Manual click-to-match: link a bank_transaction to a rent_payment.
-// Also flips the rent_payment row to paid with the bank amount.
+// ── Manual match / unmatch ──────────────────────────────────────────────
+// The rent row's `notes` gets one line per bank match so unmatch can find
+// and remove exactly what match wrote.
+const MATCH_NOTE_PREFIX = 'Matched from bank'
+const matchNote = (tx) => `${MATCH_NOTE_PREFIX} · ${tx.counterparty || ''}`.trim()
+const round2 = (n) => Math.round(n * 100) / 100
+
+// What a match writes to the rent row. A row that already records money
+// (amount > 0) KEEPS it and adds the bank amount — it used to be silently
+// replaced. Existing notes are kept; the match line is appended. Pure.
+export function planBankMatch(rentRow, tx) {
+  const existing = Number(rentRow?.amount) || 0
+  const notes = [rentRow?.notes, matchNote(tx)].filter(Boolean).join('\n')
+  return { status: 'paid', amount: round2(existing + (Number(tx.amount) || 0)), notes }
+}
+
+// What an unmatch writes back. There is no column to record the row's state
+// before the match, so: take the bank amount back off and remove the match
+// line. If money from elsewhere remains the status is left alone; otherwise
+// the row returns to an empty 'void' slot with no amount (it used to keep
+// the bank amount and note on a 'void' row). Pure.
+export function planBankUnmatch(rentRow, tx) {
+  const line = matchNote(tx)
+  const lines = String(rentRow?.notes || '').split('\n')
+  const idx = lines.lastIndexOf(line)
+  if (idx >= 0) lines.splice(idx, 1)
+  const notes = lines.filter(Boolean).join('\n') || null
+  const remaining = round2((Number(rentRow?.amount) || 0) - (Number(tx.amount) || 0))
+  if (remaining > 0) return { amount: remaining, notes }
+  return { status: 'void', amount: null, notes }
+}
+
+// Manual click-to-match: link a bank_transaction to a rent_payment and
+// record the bank amount on the rent row. The rent row is scoped by RLS, not
+// by creator: a team-mate's match used to update 0 rows (`.eq('user_id')`)
+// and still report "Matched.". Exactly one row must change, or it throws.
 export async function matchTransactionToRentPayment(transactionId, rentPaymentId) {
   const userId = (await supabase.auth.getUser()).data.user.id
   const { data: tx, error: tErr } = await supabase
-    .from('bank_transactions').select('amount, counterparty')
+    .from('bank_transactions').select('amount, counterparty, matched_rent_payment_id')
     .eq('id', transactionId).eq('user_id', userId).single()
   if (tErr) throw tErr
-  const { error: uErr } = await supabase.from('bank_transactions')
+  if (tx.matched_rent_payment_id) throw new Error('This transaction is already matched — unmatch it first')
+  const { data: rent, error: rgErr } = await supabase.from('rent_payments')
+    .select('id, status, amount, notes').eq('id', rentPaymentId).maybeSingle()
+  if (rgErr) throw rgErr
+  if (!rent) throw new Error('Rent record not found, or you do not have access to it')
+  const { data: txRows, error: uErr } = await supabase.from('bank_transactions')
     .update({
       matched_rent_payment_id: rentPaymentId,
       matched_at: new Date().toISOString(),
       match_confidence: 1.0, // manual = certain
     })
     .eq('id', transactionId).eq('user_id', userId)
+    .select('id')
   if (uErr) throw uErr
-  const { error: rErr } = await supabase.from('rent_payments')
-    .update({
-      status: 'paid',
-      amount: tx.amount,
-      notes: `Matched from bank · ${tx.counterparty || ''}`.trim(),
-    })
-    .eq('id', rentPaymentId).eq('user_id', userId)
-  if (rErr) throw rErr
+  if (!txRows || txRows.length !== 1) throw new Error('Transaction not matched — it may have been removed')
+  const { data: rentRows, error: rErr } = await supabase.from('rent_payments')
+    .update(planBankMatch(rent, tx))
+    .eq('id', rentPaymentId)
+    .select('id')
+  if (rErr || !rentRows || rentRows.length !== 1) {
+    // Don't leave the transaction pointing at a rent row we failed to update.
+    await supabase.from('bank_transactions')
+      .update({ matched_rent_payment_id: null, matched_at: null, match_confidence: null })
+      .eq('id', transactionId).eq('user_id', userId)
+    if (rErr) throw rErr
+    throw new Error('Rent record not updated — you may not have permission to edit rent on this property')
+  }
 }
 
 export async function unmatchTransaction(transactionId) {
   const userId = (await supabase.auth.getUser()).data.user.id
-  const { data: tx } = await supabase.from('bank_transactions')
-    .select('matched_rent_payment_id').eq('id', transactionId).eq('user_id', userId).single()
-  await supabase.from('bank_transactions')
+  const { data: tx, error: tErr } = await supabase.from('bank_transactions')
+    .select('amount, counterparty, matched_rent_payment_id').eq('id', transactionId).eq('user_id', userId).single()
+  if (tErr) throw tErr
+  let rent = null
+  if (tx?.matched_rent_payment_id) {
+    const { data, error } = await supabase.from('rent_payments')
+      .select('id, status, amount, notes').eq('id', tx.matched_rent_payment_id).maybeSingle()
+    if (error) throw error
+    rent = data
+  }
+  const { data: txRows, error: uErr } = await supabase.from('bank_transactions')
     .update({ matched_rent_payment_id: null, matched_at: null, match_confidence: null })
     .eq('id', transactionId).eq('user_id', userId)
-  if (tx?.matched_rent_payment_id) {
-    await supabase.from('rent_payments')
-      .update({ status: 'void' })
-      .eq('id', tx.matched_rent_payment_id).eq('user_id', userId)
+    .select('id')
+  if (uErr) throw uErr
+  if (!txRows || txRows.length !== 1) throw new Error('Transaction not unmatched — it may have been removed')
+  if (rent) {
+    const { data: rentRows, error: rErr } = await supabase.from('rent_payments')
+      .update(planBankUnmatch(rent, tx))
+      .eq('id', rent.id)
+      .select('id')
+    if (rErr) throw rErr
+    if (!rentRows || rentRows.length !== 1) throw new Error('Unmatched, but the rent record could not be updated — check it on the Rent tab')
   }
 }

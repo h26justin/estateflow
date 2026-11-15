@@ -75,8 +75,16 @@ export async function createRoom(propertyId, room) {
   return data
 }
 
+// tenancy_start / tenancy_end / issued_date / expiry_date are Postgres `date`
+// columns: a cleared field arrives as '' which Postgres rejects ("invalid
+// input syntax for type date"). The create paths already sent null.
+function blankDatesToNull(patch, keys) {
+  for (const k of keys) if (k in patch && (patch[k] === '' || patch[k] === undefined)) patch[k] = null
+  return patch
+}
+
 export async function updateRoom(id, updates) {
-  const patch = { ...updates, updated_at: new Date().toISOString() }
+  const patch = blankDatesToNull({ ...updates, updated_at: new Date().toISOString() }, ['tenancy_start', 'tenancy_end'])
   if ('rent_pcm' in patch) {
     patch.rent_pcm = patch.rent_pcm === '' || patch.rent_pcm == null ? null : Number(patch.rent_pcm)
   }
@@ -138,7 +146,7 @@ export async function createLicence(propertyId, licence) {
 export async function updateLicence(id, updates) {
   const { data, error } = await supabase
     .from('hmo_licences')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(blankDatesToNull({ ...updates, updated_at: new Date().toISOString() }, ['issued_date', 'expiry_date']))
     .eq('id', id)
     .select()
     .single()
@@ -174,10 +182,11 @@ export async function setPropertyHmo(propertyId, isHmo) {
  * glance without an extra round-trip.
  *
  *   totalRooms      — count of rooms
- *   occupiedRooms   — status === 'occupied'
+ *   occupiedRooms   — status 'occupied' or 'notice' (a tenant on notice is
+ *                     still in the room and still paying)
  *   vacantRooms     — status === 'vacant'
  *   occupancyRate   — occupied / total (0..1)
- *   monthlyRent     — sum of rent_pcm across OCCUPIED rooms (collectable)
+ *   monthlyRent     — sum of rent_pcm across occupied + on-notice rooms (collectable)
  *   potentialRent   — sum of rent_pcm across ALL rooms (full capacity)
  *   voidRent        — potential - monthly (lost income from voids)
  *   arrears         — rooms flagged as a risk: occupied with a tenancy_end in
@@ -196,7 +205,7 @@ export function rollupRooms(rooms = []) {
   for (const r of rooms) {
     const rent = Number(r.rent_pcm) || 0
     potentialRent += rent
-    if (r.status === 'occupied') {
+    if (r.status === 'occupied' || r.status === 'notice') {
       occupiedRooms += 1
       monthlyRent += rent
       if (r.tenancy_end) {

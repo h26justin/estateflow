@@ -3,13 +3,20 @@ import { render, screen, fireEvent } from '@testing-library/react'
 
 const auth = { session: null, loading: false }
 const appLoaded = vi.fn()
+const appMounted = vi.hoisted(() => ({ count: 0 }))
 
 vi.mock('../lib/AuthContext', () => ({ useAuth: () => auth }))
 vi.mock('../lib/ThemeContext', () => ({ useTheme: () => ({ T: { bg: '#fff', border: '#ccc', gold: '#c80' } }) }))
 vi.mock('../lib/subdomain', () => ({ getSubdomain: () => null }))
-vi.mock('../App', () => {
+vi.mock('../App', async () => {
   appLoaded()
-  return { default: ({ initialLoginMode }) => <div>APP mode={String(initialLoginMode)}</div> }
+  const { useState } = await import('react')
+  function MockApp({ initialLoginMode }) {
+    // Counts mounts: the initializer runs once per mounted instance.
+    useState(() => { appMounted.count += 1; return null })
+    return <div>APP mode={String(initialLoginMode)}</div>
+  }
+  return { default: MockApp }
 })
 vi.mock('../components/MarketingSite', () => ({
   default: ({ onSignIn, onSignUp }) => (
@@ -45,6 +52,33 @@ describe('Root', () => {
     render(<Root />)
     fireEvent.click(await screen.findByText('sign up'))
     expect(await screen.findByText('APP mode=signup')).toBeTruthy()
+  })
+
+  it('remounts App (fresh state) when the signed-in user changes, not on a token refresh', async () => {
+    auth.session = { access_token: 't1', user: { id: 'u1' } }
+    const { rerender } = render(<Root />)
+    expect(await screen.findByText('APP mode=null')).toBeTruthy()
+    const mountsAfterSignIn = appMounted.count
+    // Token refresh: new session object, same user id.
+    auth.session = { access_token: 't2', user: { id: 'u1' } }
+    rerender(<Root />)
+    expect(appMounted.count).toBe(mountsAfterSignIn)
+    // A different user in the same tab.
+    auth.session = { access_token: 't3', user: { id: 'u2' } }
+    rerender(<Root />)
+    expect(appMounted.count).toBe(mountsAfterSignIn + 1)
+  })
+
+  it('does not reopen the login modal on the App mounted after sign-out', async () => {
+    const { rerender } = render(<Root />)
+    fireEvent.click(await screen.findByText('sign in'))
+    expect(await screen.findByText('APP mode=login')).toBeTruthy()
+    auth.session = { access_token: 't1', user: { id: 'u1' } }
+    rerender(<Root />)
+    expect(await screen.findByText('APP mode=null')).toBeTruthy()
+    auth.session = null
+    rerender(<Root />)
+    expect(await screen.findByText('APP mode=null')).toBeTruthy()
   })
 
   it('goes straight to App when signed in', async () => {

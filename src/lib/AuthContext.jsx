@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 import { logError } from './logError'
-import { getStoredDevice, clearStoredDevice } from './trustedDevice'
+import { getStoredDevice, clearStoredDevice, setTrustedDeviceUser } from './trustedDevice'
 import { lazyPanel } from './lazyPages'
 
 // Loaded only when a sign-in actually needs an MFA challenge or a password
@@ -64,6 +64,13 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'PASSWORD_RECOVERY') setRecovery(true)
+      if (event === 'SIGNED_OUT') {
+        // Per-tab state that must not outlive the user it was set for: an
+        // admin's impersonation target, and an invite token stashed at signup
+        // (it would otherwise be redeemed by the next account to sign in here).
+        try { sessionStorage.removeItem('ownproperly_impersonate') } catch { /* non-fatal */ }
+        try { localStorage.removeItem('pending_invite_token') } catch { /* non-fatal */ }
+      }
       // Bail out when nothing meaningful changed — Supabase fires events on
       // every tab refocus with a fresh session object reference, and
       // publishing it unconditionally re-renders the whole app tree.
@@ -79,6 +86,8 @@ export function AuthProvider({ children }) {
   // AAL check — runs once per sign-in (keyed on user id, NOT on the session
   // object, so routine token refreshes don't re-trigger it).
   const userId = session?.user?.id ?? null
+  // Trusted-device tokens are stored per user (see trustedDevice.js).
+  setTrustedDeviceUser(userId)
   useEffect(() => {
     if (!userId) { setAal({ userId: null, status: 'ok' }); return }
     let cancelled = false
@@ -94,14 +103,14 @@ export function AuthProvider({ children }) {
         // token. The check is SERVER-SIDE (is_device_trusted validates the
         // token's hash against an unexpired row); a forged localStorage value
         // simply fails it and falls through to the challenge.
-        const stored = getStoredDevice()
+        const stored = getStoredDevice(userId)
         if (stored?.token) {
           try {
             const { data: trusted, error: tErr } = await supabase.rpc('is_device_trusted', { p_token: stored.token })
             if (cancelled) return
             if (!tErr && trusted === true) { setAal({ userId, status: 'ok' }); return }
             // Expired / revoked / unrecognised — forget it so we stop asking.
-            clearStoredDevice()
+            clearStoredDevice(userId)
           } catch (e) {
             // On any RPC error, fail to the SAFE side: show the challenge.
             logError('AuthContext:isDeviceTrusted', e)

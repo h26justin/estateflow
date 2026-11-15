@@ -115,12 +115,19 @@ export async function attachComplianceDocument(propertyId, propertyName, file, c
   const path = `${userId}/properties/${propertyId}/${Date.now()}.${ext}`
   const { error: uploadErr } = await supabase.storage.from('property-documents').upload(path, file)
   if (uploadErr) throw uploadErr
+  // Live columns are file_type / file_size (there is no size, type or
+  // property_name column, so this insert always failed). propertyName is
+  // kept in the signature for callers but not stored.
   const { data, error } = await supabase.from('property_documents').insert({
-    property_id: propertyId, property_name: propertyName,
+    property_id: propertyId,
     name: file.name, file_path: path,
-    size: file.size, type: file.type, category, user_id: userId,
+    file_size: file.size, file_type: file.type || null, category, user_id: userId,
   }).select().single()
-  if (error) throw error
+  if (error) {
+    // Don't leave an orphaned file in the bucket.
+    try { await supabase.storage.from('property-documents').remove([path]) } catch (_) { /* best effort */ }
+    throw error
+  }
   return data
 }
 

@@ -71,12 +71,17 @@ export async function uploadDocument(propertyId, propertyName, file, userId) {
   if (uploadErr) throw uploadErr
   // Bucket is private — do NOT store a public URL. Always generate signed URLs
   // on demand via getDocumentSignedUrl(). file_path is the canonical reference.
+  // Live columns are file_type / file_size (no size, type or property_name).
   const { error: dbErr } = await supabase.from('property_documents').insert({
-    property_id: propertyId, property_name: propertyName,
+    property_id: propertyId,
     name: file.name, file_path: path,
-    size: file.size, type: file.type, user_id: userId,
+    file_size: file.size, file_type: file.type || null, user_id: userId,
   })
-  if (dbErr) throw dbErr
+  if (dbErr) {
+    // Don't leave an orphaned file in the bucket.
+    try { await supabase.storage.from('property-documents').remove([path]) } catch (_) { /* best effort */ }
+    throw dbErr
+  }
   return path
 }
 

@@ -6,7 +6,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import { showAppToast } from '../lib/toast'
 import { SkeletonRows } from '../lib/Skeleton'
-import { EmptyState } from './ui'
+import { EmptyState, Button } from './ui'
 
 const mono = MONO
 
@@ -19,6 +19,15 @@ const TYPE_CONFIG = {
   property_expenses:  { icon: 'pound', label: 'Expense',     color: '#D46F97' },
   deals:              { icon: 'target', label: 'Deal',        color: '#3AAFB9' },
   property_documents: { icon: 'file-text', label: 'Document',    color: '#9B8AC2' },
+}
+
+// TYPE_CONFIG key (the row's table) -> fetchAllDeleted's group key. The old
+// string-munging resolved property_documents to a non-existent group, so the
+// Documents tab never appeared.
+const GROUP_KEY = {
+  properties: 'properties', companies: 'companies', tenancy_details: 'tenancies',
+  compliance_items: 'compliance', maintenance_jobs: 'maintenance',
+  property_expenses: 'expenses', deals: 'deals', property_documents: 'documents',
 }
 
 function daysAgo(dateStr) {
@@ -44,13 +53,19 @@ export default function TrashPage({ user, onRestored }) {
   const [groups, setGroups] = useState({})
   const [filter, setFilter] = useState('all')
   const [working, setWorking] = useState(null)
+  // A failed load used to render as "Your trash is empty".
+  const [loadError, setLoadError] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api.fetchAllDeleted(user?.id)
       setGroups(data)
-    } catch(e) { console.error('Failed to load trash', e) }
+    } catch(e) {
+      console.error('Failed to load trash', e)
+      setLoadError(e?.message || 'Could not load the Trash')
+    }
     setLoading(false)
   }, [user?.id])
 
@@ -112,12 +127,7 @@ export default function TrashPage({ user, onRestored }) {
       key: k,
       label: TYPE_CONFIG[k].label,
       icon: TYPE_CONFIG[k].icon,
-      count: (groups[k.replace('_details', '').replace('_items', '').replace('_jobs', '').replace('property_expenses', 'expenses').replace('properties', 'properties')] ||
-              (k === 'tenancy_details' ? groups.tenancies : null) ||
-              (k === 'compliance_items' ? groups.compliance : null) ||
-              (k === 'maintenance_jobs' ? groups.maintenance : null) ||
-              (k === 'property_expenses' ? groups.expenses : null) ||
-              groups[k] || []).length
+      count: (groups[GROUP_KEY[k]] || []).length
     })).filter(t => t.count > 0)
   ]
 
@@ -135,7 +145,10 @@ export default function TrashPage({ user, onRestored }) {
         </p>
       </div>
 
-      {totalCount === 0 ? (
+      {loadError ? (
+        <EmptyState icon="alert-triangle" title="We couldn't load the Trash" body="Your deleted items are still safe. This is usually a temporary connection problem."
+          action={<Button variant="primary" size="sm" onClick={load}>Retry</Button>}/>
+      ) : totalCount === 0 ? (
         <EmptyState icon="trash" title="Your trash is empty" body="Deleted items will appear here"/>
       ) : (
         <>

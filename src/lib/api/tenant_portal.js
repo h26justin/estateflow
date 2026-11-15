@@ -101,9 +101,12 @@ export async function submitMaintenanceRequest(propertyId, tenantUserId, title, 
   return data
 }
 
+// The tenant's OWN thread: filtered by tenant_user_id as well as property, so
+// a tenant in a shared house (HMO) does not see another tenant's messages.
 export async function fetchTenantMessages(propertyId, tenantUserId) {
+  if (!tenantUserId) throw new Error('fetchTenantMessages: tenantUserId is required')
   const { data, error } = await supabase.from('tenant_messages')
-    .select('*').eq('property_id', propertyId).order('created_at')
+    .select('*').eq('property_id', propertyId).eq('tenant_user_id', tenantUserId).order('created_at')
   if (error) throw error
   return data || []
 }
@@ -128,10 +131,15 @@ export async function sendTenantMessage(propertyId, tenantUserId, message, sende
   return data
 }
 
+// Marks the landlord's replies in the caller's own thread as read — it used to
+// mark every tenant's thread on the property read.
 export async function markMessagesRead(propertyId, tenantUserId) {
-  await supabase.from('tenant_messages')
+  if (!tenantUserId) throw new Error('markMessagesRead: tenantUserId is required')
+  const { error } = await supabase.from('tenant_messages')
     .update({ read_at: new Date().toISOString() })
-    .eq('property_id', propertyId).eq('sender_type', 'landlord').is('read_at', null)
+    .eq('property_id', propertyId).eq('tenant_user_id', tenantUserId)
+    .eq('sender_type', 'landlord').is('read_at', null)
+  if (error) throw error
 }
 
 export async function setDocumentSharedWithTenant(docId, shared) {
@@ -141,10 +149,13 @@ export async function setDocumentSharedWithTenant(docId, shared) {
 }
 
 export async function saveCompanyContactMode(companyId, mode, agentName, agentPhone, agentEmail) {
-  const { error } = await supabase.from('companies')
+  const { data, error } = await supabase.from('companies')
     .update({ contact_mode: mode, agent_name: agentName, agent_phone: agentPhone, agent_email: agentEmail })
     .eq('id', companyId)
+    .select('id')
   if (error) throw error
+  // companies_update RLS: only the owner may write the row — zero rows is a refusal.
+  if (!data || data.length === 0) throw new Error('Contact settings not saved — only the company owner can change them')
 }
 
 export async function savePropertyContactOverride(propertyId, override) {
