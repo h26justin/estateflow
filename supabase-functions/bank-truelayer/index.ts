@@ -7,9 +7,8 @@
 //   - finalize       → after the bank redirects back with ?code=&state=,
 //                      exchange the code for access+refresh tokens, store
 //                      both, fetch accounts, mark connection active.
-//   - sync           → refresh the access token if needed, pull 90 days
-//                      of transactions per account, auto-match against
-//                      unpaid rent_payments.
+//   - sync           → DISABLED: returns 503 "TrueLayer is not enabled"
+//                      (the app syncs through bank-plaid; see below).
 //   - list_institutions  → kept as a no-op so the existing UI fallback
 //                          path doesn't break. TrueLayer hosts its own
 //                          picker so we don't need our own.
@@ -212,6 +211,7 @@ async function finalize(supabaseUser: any, body: any) {
       await admin.from('bank_connections')
         .update({ status: 'revoked', updated_at: new Date().toISOString() })
         .eq('id', connection_id).eq('user_id', supabaseUser.id)
+        .eq('provider', 'truelayer').eq('status', 'pending')
     }
     throw new Error(`Authorisation cancelled at bank (${error})`)
   }
@@ -223,7 +223,11 @@ async function finalize(supabaseUser: any, body: any) {
     .select('*')
     .eq('id', connection_id)
     .eq('user_id', supabaseUser.id)
+    .eq('provider', 'truelayer')
+    .eq('status', 'pending')
     .single()
+  // Only a TrueLayer connection still waiting for its callback can be
+  // finalised — never an active / revoked one, and never a Plaid row.
   if (connErr || !conn) throw new Error('Connection not found')
 
   // Exchange code for tokens
@@ -282,144 +286,16 @@ async function finalize(supabaseUser: any, body: any) {
 }
 
 // ── Action: sync ────────────────────────────────────────────────────────
-async function sync(supabaseUser: any) {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
-
-  // Load active connections + their accounts in one go
-  const { data: conns } = await admin
-    .from('bank_connections')
-    .select('id, partner_data, status')
-    .eq('user_id', supabaseUser.id)
-    .eq('status', 'active')
-
-  if (!conns || conns.length === 0) {
-    return { ok: true, inserted: 0, matched: 0, message: 'No active connections to sync' }
-  }
-
-  let inserted = 0, matched = 0
-
-  for (const conn of conns) {
-    let accessToken: string
-    try {
-      accessToken = await ensureFreshToken(admin, conn)
-    } catch (e) {
-      console.error('token refresh failed for connection', conn.id, e)
-      // If refresh token has expired (>90 days), mark expired so the UI
-      // can prompt the user to reconnect.
-      await admin.from('bank_connections')
-        .update({ status: 'expired', updated_at: new Date().toISOString() })
-        .eq('id', conn.id)
-      continue
-    }
-
-    const { data: accts } = await admin
-      .from('bank_accounts')
-      .select('id, provider_account_id')
-      .eq('connection_id', conn.id)
-      .eq('user_id', supabaseUser.id)
-
-    const fromDate = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10)
-
-    for (const acct of accts || []) {
-      let txs: any
-      try {
-        txs = await tlGet(`/data/v1/accounts/${acct.provider_account_id}/transactions?from=${fromDate}`, accessToken)
-      } catch (e) {
-        console.error('tx fetch failed', acct.id, e)
-        continue
-      }
-      const results = txs?.results || []
-      for (const t of results) {
-        const providerId = t.transaction_id
-        if (!providerId) continue
-
-        // TrueLayer puts the sign on the amount + a separate
-        // transaction_type (CREDIT/DEBIT). We just trust the sign;
-        // credits are positive incoming money.
-        const amount = Number(t.amount) || 0
-        const currency = t.currency || 'GBP'
-        const postedAt = t.timestamp || new Date().toISOString()
-        const counterparty = t.merchant_name || t.meta?.provider_merchant_name || null
-        const description = t.description || t.transaction_classification?.[0] || null
-
-        const row: any = {
-          account_id: acct.id,
-          user_id: supabaseUser.id,
-          provider_transaction_id: providerId,
-          posted_at: postedAt,
-          amount,
-          currency,
-          description,
-          counterparty,
-        }
-
-        // Auto-match only positive GBP credits
-        if (amount > 0 && currency === 'GBP') {
-          const match = await tryAutoMatch(admin, supabaseUser.id, amount, postedAt, counterparty || description || '')
-          if (match) {
-            row.matched_rent_payment_id = match.id
-            row.matched_at = new Date().toISOString()
-            row.match_confidence = match.confidence
-          }
-        }
-
-        const { error: insErr } = await admin
-          .from('bank_transactions')
-          .upsert(row, { onConflict: 'account_id,provider_transaction_id' })
-        if (!insErr) {
-          inserted++
-          if (row.matched_rent_payment_id) {
-            await admin.from('rent_payments')
-              .update({ status: 'paid', amount, notes: `Auto-matched from bank · ${counterparty || ''}`.trim() })
-              .eq('id', row.matched_rent_payment_id)
-              .eq('user_id', supabaseUser.id)
-            matched++
-          }
-        }
-      }
-    }
-
-    await admin.from('bank_connections')
-      .update({ last_synced_at: new Date().toISOString() })
-      .eq('id', conn.id)
-  }
-
-  return { ok: true, inserted, matched }
-}
-
-// Identical heuristic to the GoCardless build — schema is the same.
-async function tryAutoMatch(admin: any, userId: string, amount: number, postedAt: string, hint: string) {
-  const { data: candidates } = await admin
-    .from('rent_payments')
-    .select('id, property_id, year, month, amount, status, period_start, properties:property_id(rent_pcm, address)')
-    .eq('user_id', userId)
-    .in('status', ['void', 'late', 'partial'])
-    .is('deleted_at', null)
-  if (!candidates || candidates.length === 0) return null
-
-  const posted = new Date(postedAt)
-  let best: { id: string; confidence: number } | null = null
-
-  for (const c of candidates) {
-    const expected = c.amount || c.properties?.rent_pcm || 0
-    if (!expected) continue
-    const diff = Math.abs(expected - amount)
-    if (diff > Math.max(5, expected * 0.02)) continue
-    let dateOk = true
-    if (c.period_start) {
-      const ps = new Date(c.period_start)
-      const days = Math.abs((posted.getTime() - ps.getTime()) / 86400_000)
-      dateOk = days <= 10
-    }
-    if (!dateOk) continue
-    let confidence = 0.7
-    if (diff < 0.5) confidence += 0.15
-    const addr = (c.properties?.address || '').toLowerCase()
-    if (hint && addr && hint.toLowerCase().includes(addr.split(',')[0]?.trim() || '~~')) confidence += 0.1
-    if (!best || confidence > best.confidence) best = { id: c.id, confidence }
-  }
-  if (best && best.confidence >= 0.75) return best
-  return null
+// Disabled (Nov 2026). The app's bank feed is Plaid (bank-plaid); this
+// function stays deployed only so TrueLayer connect/finalize keep working
+// for any pilot account. Its sync used to overwrite the recorded rent amount
+// with the bank figure and mark rent paid on a loose match, and marked every
+// active bank connection — Plaid ones included — expired when a TrueLayer
+// token refresh failed. Rather than maintain a second matcher, sync now
+// refuses; re-enable only with the same matching rules as bank-plaid.
+const TRUELAYER_SYNC_DISABLED = 'TrueLayer is not enabled — bank transactions sync through the Plaid connection'
+async function sync(_supabaseUser: any): Promise<never> {
+  throw new Error(TRUELAYER_SYNC_DISABLED)
 }
 
 // ── Router ──────────────────────────────────────────────────────────────
@@ -463,7 +339,7 @@ serve(async (req) => {
       return json({ error: 'Something went wrong — please try again' }, 500)
     }
     const msg = e.message
-    const status = msg.includes('not yet enabled') ? 503 : 400
+    const status = msg.includes('not yet enabled') || msg === TRUELAYER_SYNC_DISABLED ? 503 : 400
     return json({ error: msg }, status)
   }
 })

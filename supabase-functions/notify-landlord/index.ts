@@ -26,6 +26,9 @@ const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY')!
 
+// Notifications one tenant may push to landlords per rolling hour.
+const MAX_PER_HOUR = 20
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -82,6 +85,21 @@ serve(async (req) => {
     .maybeSingle()
   if (!prop) return json({ error: 'Property not found' }, 404)
 
+  // Per-tenant rate limit: every notification this path writes carries
+  // metadata.sender_user_id, so count this tenant's in the last hour. A
+  // counting error does not block (the repair / message itself is already
+  // saved by the portal; this only guards the landlord's bell from spam).
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count: recent, error: rlErr } = await admin
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('metadata->>sender_user_id', user.id)
+    .gte('created_at', since)
+  if (rlErr) console.error('notify-landlord rate-limit count failed', rlErr)
+  else if ((recent ?? 0) >= MAX_PER_HOUR) {
+    return json({ error: 'Too many notifications sent in the last hour — please try again later' }, 429)
+  }
+
   const propLabel = prop.name || prop.address || 'a property'
   const safeTitle = String(title).slice(0, 120)
   const safePriority = ['low', 'normal', 'high', 'urgent'].includes(priority) ? priority : 'normal'
@@ -111,5 +129,6 @@ serve(async (req) => {
     return json({ error: 'Could not deliver notification' }, 500)
   }
 
-  return json({ ok: true, notified_user: prop.user_id })
+  // The landlord's auth user id is never returned to the tenant.
+  return json({ ok: true })
 })

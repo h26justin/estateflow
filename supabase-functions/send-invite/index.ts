@@ -105,19 +105,17 @@ Deno.serve(async (req) => {
     const recipient = String(email || '').trim().toLowerCase()
     if (!recipient) return json({ error: 'Invitation has no email address' }, 400)
     const ids = invites.map(i => i.id)
+    // Reserve first, then count: the log row is inserted BEFORE the caps are
+    // checked and the counts include it, so concurrent requests all see each
+    // other and a burst can never exceed a cap. Over a cap → the row is
+    // deleted again and the request rejected.
+    const release = async () => {
+      if (!reservedId) return
+      const { error: relErr } = await supabase.from('invite_email_log').delete().eq('id', reservedId)
+      if (relErr) console.error('send-invite: could not release log row:', relErr.message)
+      reservedId = null
+    }
     try {
-      if (await countSince(3600, q => q.eq('sender_id', user.id)) >= SENDER_PER_HOUR) {
-        return tooMany(`You can send up to ${SENDER_PER_HOUR} invitation emails an hour. Please try again later.`, 3600)
-      }
-      if (await countSince(86_400, q => q.eq('sender_id', user.id)) >= SENDER_PER_DAY) {
-        return tooMany(`You can send up to ${SENDER_PER_DAY} invitation emails a day. Please try again tomorrow.`, 86_400)
-      }
-      if (await countSince(86_400, q => q.eq('recipient_email', recipient)) >= RECIPIENT_PER_DAY) {
-        return tooMany('This person has already been sent several invitations today. Please try again tomorrow.', 86_400)
-      }
-      if (await countSince(RESEND_INTERVAL_SEC, q => q.overlaps('invitation_ids', ids)) > 0) {
-        return tooMany('This invitation was sent less than an hour ago. Please wait before re-sending.', RESEND_INTERVAL_SEC)
-      }
       const { data: logRow, error: logErr } = await supabase
         .from('invite_email_log')
         .insert({ sender_id: user.id, recipient_email: recipient, invitation_ids: ids })
@@ -125,8 +123,25 @@ Deno.serve(async (req) => {
         .single()
       if (logErr) throw new Error('invite_email_log insert failed: ' + logErr.message)
       reservedId = logRow?.id ?? null
+      if (!reservedId) throw new Error('invite_email_log insert returned no id')
+
+      let rejection: Response | null = null
+      if (await countSince(3600, q => q.eq('sender_id', user.id)) > SENDER_PER_HOUR) {
+        rejection = tooMany(`You can send up to ${SENDER_PER_HOUR} invitation emails an hour. Please try again later.`, 3600)
+      } else if (await countSince(86_400, q => q.eq('sender_id', user.id)) > SENDER_PER_DAY) {
+        rejection = tooMany(`You can send up to ${SENDER_PER_DAY} invitation emails a day. Please try again tomorrow.`, 86_400)
+      } else if (await countSince(86_400, q => q.eq('recipient_email', recipient)) > RECIPIENT_PER_DAY) {
+        rejection = tooMany('This person has already been sent several invitations today. Please try again tomorrow.', 86_400)
+      } else if (await countSince(RESEND_INTERVAL_SEC, q => q.overlaps('invitation_ids', ids)) > 1) {
+        rejection = tooMany('This invitation was sent less than an hour ago. Please wait before re-sending.', RESEND_INTERVAL_SEC)
+      }
+      if (rejection) {
+        await release()
+        return rejection
+      }
     } catch (e) {
       console.error('send-invite rate-limit check failed:', (e as Error).message)
+      await release()
       return json({ error: 'Invitations are temporarily unavailable — please try again shortly.' }, 503)
     }
     const { data: inviterProfile } = await supabase

@@ -59,6 +59,11 @@
 //     room and nights are reported as a conflict (last_sync_status
 //     'partial'), per-booking errors are collected and retried, and live
 //     bookings left without a segment are repaired at the end of each run
+//   • only GBP bookings become rent (amount is pounds; no conversion) —
+//     others are recorded in stl_bookings and counted as skippedNonGbp
+//   • a booking whose listing is no longer mapped loses its segment, same
+//     as a cancellation; mappings are re-checked against the connection's
+//     company and user before anything is written for them
 //
 // Rate limits: Hostaway allows 15 req/10s per IP and 20 req/10s per
 // account — paginated calls are spaced ~750ms apart.
@@ -246,8 +251,72 @@ async function withToken<T>(admin: any, conn: any, fn: (token: string) => Promis
 }
 
 // ── The sync itself ────────────────────────────────────────────────────────
-type SyncResult = { bookings: number; created: number; updated: number; removed: number; skippedUnmapped: number; repaired: number; conflicts: string[]; errors: string[] }
-type SegmentOutcome = 'created' | 'updated' | 'removed' | 'conflict' | 'none'
+// partial = the page cap was reached, so not every changed reservation was
+// fetched; last_synced_at is then left where it was.
+// skippedNonGbp = live bookings in another currency: recorded in
+// stl_bookings (with their currency) but never written as rent, because
+// rent_payments.amount is pounds and we do not convert.
+// rejectedMappings = mappings whose property is outside this connection's
+// company, or that the connection's user can no longer write to.
+type SyncResult = { bookings: number; created: number; updated: number; removed: number; skippedUnmapped: number; skippedNonGbp: number; repaired: number; partial: boolean; rejectedMappings: string[]; conflicts: string[]; errors: string[] }
+type SegmentOutcome = 'created' | 'updated' | 'removed' | 'conflict' | 'none' | 'non_gbp'
+
+// A missing currency has always been stored as GBP (see the upsert below),
+// so it is treated as GBP here too.
+const isGbp = (currency: any) => !currency || String(currency).trim().toUpperCase() === 'GBP'
+
+// Hostaway list page size and cap (40 x 100 reservations per run).
+const PAGE_SIZE = 100
+const MAX_PAGES = 40
+
+// The mapping rows are re-checked here before anything is written for them:
+// save_mappings validates ownership, but a mapping row could also have been
+// written directly by a client. A mapping is used only when its property is
+// in the same company as the connection and the connection's user can still
+// write to it (the company owner, an owner / admin / editor member, or the
+// property's own user — the same tiers as has_company_write /
+// has_property_permission, evaluated with the service role because the cron
+// run has no user session).
+async function checkedMappings(admin: any, conn: any, mappings: any[]): Promise<{ propMap: Map<number, string>; rejected: string[]; rejectedListings: Set<number> }> {
+  const propMap = new Map<number, string>()
+  const rejected: string[] = []
+  const rejectedListings = new Set<number>()
+  const propIds = [...new Set(mappings.map((m: any) => m.property_id).filter(Boolean))]
+  if (!propIds.length) return { propMap, rejected, rejectedListings }
+
+  const [{ data: props, error: pErr }, { data: company, error: cErr }, { data: access, error: aErr }] = await Promise.all([
+    admin.from('properties').select('id, user_id, company_id').in('id', propIds),
+    admin.from('companies').select('*').eq('id', conn.company_id).maybeSingle(),
+    admin.from('user_company_access').select('*').eq('company_id', conn.company_id).eq('user_id', String(conn.user_id)).limit(1),
+  ])
+  if (pErr) throw pErr
+  if (cErr) throw cErr
+  if (aErr) throw aErr
+
+  const member = (access || [])[0]
+  const memberRole = member ? (member.role || (member.is_admin ? 'admin' : 'editor')) : null
+  const companyWrite = !!company && !company.deleted_at && (
+    company.owner_id === conn.user_id || company.user_id === conn.user_id
+    || (!!member && (member.is_owner === true || ['owner', 'admin', 'editor'].includes(memberRole))))
+
+  const byId = new Map<string, any>((props || []).map((p: any) => [p.id, p]))
+  for (const m of mappings) {
+    const listingId = Number(m.hostaway_listing_id)
+    const prop = byId.get(m.property_id)
+    const ok = !!prop && !!conn.company_id && prop.company_id === conn.company_id
+      && (companyWrite || (!!company && !company.deleted_at && prop.user_id === conn.user_id))
+    if (ok) propMap.set(listingId, m.property_id)
+    else { rejectedListings.add(listingId); rejected.push(`listing ${listingId}`) }
+  }
+  return { propMap, rejected, rejectedListings }
+}
+
+// Same removal path as a cancellation: hard-delete the segment and unlink it.
+async function removeSegment(admin: any, row: any) {
+  const { error } = await admin.from('rent_payments').delete().eq('id', row.rent_payment_id)
+  if (error) throw error
+  await admin.from('stl_bookings').update({ rent_payment_id: null }).eq('id', row.id)
+}
 
 const isUniqueViolation = (e: any) => e?.code === '23505' || /duplicate key value/i.test(String(e?.message || ''))
 
@@ -326,7 +395,7 @@ async function writeSegment(admin: any, row: any, segment: any, label: string, c
 // Live bookings that still have no segment (a conflict that has since
 // cleared, or a cancellation that arrived after the re-let): give them their
 // segment now so a same-night clash heals itself on the next run.
-async function repairMissingSegments(admin: any, conn: any, conflicts: string[], errors: string[]): Promise<number> {
+async function repairMissingSegments(admin: any, conn: any, propMap: Map<number, string>, conflicts: string[], errors: string[]): Promise<number> {
   const since = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   const { data: rows } = await admin.from('stl_bookings').select('*')
     .eq('hostaway_connection_id', conn.id).is('rent_payment_id', null)
@@ -335,6 +404,10 @@ async function repairMissingSegments(admin: any, conn: any, conflicts: string[],
   let repaired = 0
   for (const row of (rows || [])) {
     if (!row.arrival || !row.departure) continue
+    // Never repair a booking in another currency, or one whose listing is no
+    // longer (validly) mapped to the property it was recorded against.
+    if (!isGbp(row.currency)) continue
+    if (propMap.get(Number(row.hostaway_listing_id)) !== row.property_id) continue
     const label = `#${row.hostaway_reservation_id} ${row.guest_name || 'Guest'} (${row.source || 'Hostaway'}) ${row.arrival} → ${row.departure}`
     try {
       const segment = buildSegment({ propertyId: row.property_id, userId: row.user_id, arrival: row.arrival, departure: row.departure,
@@ -349,12 +422,12 @@ async function repairMissingSegments(admin: any, conn: any, conflicts: string[],
 }
 
 async function syncConnection(admin: any, conn: any): Promise<SyncResult> {
-  const { data: mappings } = await admin.from('hostaway_property_mappings')
+  const { data: mappings, error: mapErr } = await admin.from('hostaway_property_mappings')
     .select('hostaway_listing_id, property_id')
     .eq('connection_id', conn.id)
-  const propMap = new Map<number, string>(
-    (mappings || []).map((m: any) => [Number(m.hostaway_listing_id), m.property_id]))
-  if (propMap.size === 0) throw new Error('No property mappings yet — map your Hostaway listing to a Properly property first')
+  if (mapErr) throw mapErr
+  if (!(mappings || []).length) throw new Error('No property mappings yet — map your Hostaway listing to a Properly property first')
+  const { propMap, rejected: rejectedMappings, rejectedListings } = await checkedMappings(admin, conn, mappings || [])
 
   // Incremental after the first sync: anything whose latest activity falls
   // on/after (last sync - 48h). latestActivityStart is date-granular, so the
@@ -367,26 +440,41 @@ async function syncConnection(admin: any, conn: any): Promise<SyncResult> {
     query = `&latestActivityStart=${since.toISOString().slice(0, 10)}`
   }
 
+  // partial: the loop stopped while Hostaway still had more to give (page
+  // cap reached, or a full page brought nothing new — i.e. paging is not
+  // advancing). The cursor is then not moved, so nothing is silently lost.
+  let partial = false
   const reservations = await withToken(admin, conn, async (token) => {
     const out: any[] = []
+    const seen = new Set<number>()
+    partial = false
     let afterId: number | null = null
-    for (let page = 0; page < 40; page++) {
+    let exhausted = false
+    for (let page = 0; page < MAX_PAGES; page++) {
       // includeResources=1 adds the financial breakdown (channel commission,
       // Hostaway commission, cleaning fee, tax, fee lines) to each reservation.
-      let path = `/reservations?limit=100&includeResources=1${query}`
+      let path = `/reservations?limit=${PAGE_SIZE}&includeResources=1${query}`
       if (afterId) path += `&afterId=${afterId}`
       const json = await hostawayGet(token, path)
       const items = Array.isArray(json?.result) ? json.result : []
-      out.push(...items)
-      if (items.length < 100) break
+      let fresh = 0
+      for (const it of items) {
+        const id = Number(it?.id)
+        if (id && seen.has(id)) continue
+        if (id) seen.add(id)
+        out.push(it); fresh++
+      }
+      if (items.length < PAGE_SIZE) { exhausted = true; break }
+      if (fresh === 0) break
       afterId = items[items.length - 1]?.id
       if (!afterId) break
       await sleep(750)
     }
+    partial = !exhausted
     return out
   })
 
-  let created = 0, updated = 0, removed = 0, skippedUnmapped = 0
+  let created = 0, updated = 0, removed = 0, skippedUnmapped = 0, skippedNonGbp = 0
   const conflicts: string[] = []
   const errors: string[] = []
 
@@ -400,8 +488,24 @@ async function syncConnection(admin: any, conn: any): Promise<SyncResult> {
 
   for (const r of ordered) {
     const listingId = Number(r.listingMapId)
+    // A mapping that failed the ownership check: write nothing for it.
+    if (rejectedListings.has(listingId)) continue
     const propertyId = propMap.get(listingId)
-    if (!propertyId) { skippedUnmapped++; continue }
+    if (!propertyId) {
+      skippedUnmapped++
+      // The reservation moved to an unmapped listing, or its mapping was
+      // removed: take its revenue segment out, same as a cancellation.
+      if (!r.id) continue
+      try {
+        const { data: prev, error: prevErr } = await admin.from('stl_bookings').select('id, rent_payment_id')
+          .eq('hostaway_connection_id', conn.id).eq('hostaway_reservation_id', r.id).maybeSingle()
+        if (prevErr) throw prevErr
+        if (prev?.rent_payment_id) { await removeSegment(admin, prev); removed++ }
+      } catch (e) {
+        errors.push(`#${r.id} ${r.guestName || 'Guest'}: ${(e as Error).message}`)
+      }
+      continue
+    }
 
     const arrival = dateOnly(r.arrivalDate)
     const departure = dateOnly(r.departureDate)
@@ -414,14 +518,15 @@ async function syncConnection(admin: any, conn: any): Promise<SyncResult> {
       if (outcome === 'created') created++
       else if (outcome === 'updated') updated++
       else if (outcome === 'removed') removed++
+      else if (outcome === 'non_gbp') skippedNonGbp++
     } catch (e) {
       errors.push(`#${r.id} ${r.guestName || 'Guest'} ${arrival}: ${(e as Error).message}`)
     }
   }
 
-  const repaired = await repairMissingSegments(admin, conn, conflicts, errors)
+  const repaired = await repairMissingSegments(admin, conn, propMap, conflicts, errors)
 
-  return { bookings: reservations.length, created, updated, removed, skippedUnmapped, repaired, conflicts, errors }
+  return { bookings: reservations.length, created, updated, removed, skippedUnmapped, skippedNonGbp, repaired, partial, rejectedMappings, conflicts, errors }
 }
 
 // Upsert one Hostaway reservation into stl_bookings and keep its rent
@@ -493,9 +598,16 @@ async function syncReservation(admin: any, conn: any, r: any, propertyId: string
       if (!row.rent_payment_id) return 'none'
       // Cancelled / declined / expired after we recorded it — remove the
       // revenue segment (hard delete, same as deleteRentSegment in the app).
-      await admin.from('rent_payments').delete().eq('id', row.rent_payment_id)
-      await admin.from('stl_bookings').update({ rent_payment_id: null }).eq('id', row.id)
+      await removeSegment(admin, row)
       return 'removed'
+    }
+
+    // Booking in another currency: rent_payments.amount is pounds and we do
+    // not convert, so it is recorded above (with its currency) but never
+    // written as rent. A segment written before this rule is taken out.
+    if (!isGbp(row.currency)) {
+      if (row.rent_payment_id) await removeSegment(admin, row)
+      return 'non_gbp'
     }
 
     // STL bookings are collected upfront by the channel, so every confirmed
@@ -514,10 +626,16 @@ async function recordSyncOutcome(admin: any, conn: any, r: SyncResult) {
   const now = new Date().toISOString()
   const notes: string[] = []
   if (r.errors.length) notes.push(`${r.errors.length} booking(s) could not be updated and will be retried: ${r.errors.slice(0, 5).join(' · ')}${r.errors.length > 5 ? ' …' : ''}`)
+  if (r.partial) notes.push(`Not every changed reservation could be fetched in this run (limit ${MAX_PAGES * PAGE_SIZE}); the next sync starts from the same point`)
+  if (r.rejectedMappings.length) notes.push(`${r.rejectedMappings.length} mapping(s) skipped because the property is not in this company or can no longer be edited by the connected user: ${r.rejectedMappings.slice(0, 5).join(', ')}`)
   if (r.conflicts.length) notes.push(`${r.conflicts.length} same-night booking clash(es): ${r.conflicts.slice(0, 5).join(' · ')}${r.conflicts.length > 5 ? ' …' : ''}`)
+  if (r.skippedNonGbp) notes.push(`${r.skippedNonGbp} booking(s) in a currency other than GBP were not recorded as rent`)
   const patch: Record<string, unknown> = { updated_at: now }
-  if (r.errors.length) { patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
-  else if (r.conflicts.length) { patch.last_synced_at = now; patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
+  // Errors or a capped fetch: keep the cursor where it was so the missed
+  // reservations come through again on the next run. (Skipped mappings do
+  // advance it: fixing a mapping via save_mappings resets the cursor.)
+  if (r.errors.length || r.partial) { patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
+  else if (r.conflicts.length || r.skippedNonGbp || r.rejectedMappings.length) { patch.last_synced_at = now; patch.last_sync_status = 'partial'; patch.last_sync_error = notes.join(' | ') }
   else { patch.last_synced_at = now; patch.last_sync_status = 'ok'; patch.last_sync_error = null }
   await admin.from('hostaway_connections').update(patch).eq('id', conn.id)
 }
@@ -598,10 +716,21 @@ serve(async (req) => {
         return jsonError(500, 'The connection could not be stored securely. Please contact support.')
       }
 
+      // Reconnecting to a different Hostaway account: the old account's
+      // listing mappings mean nothing there, so clear them.
+      const existing = await getConnection()
+      if (existing && String(existing.account_id) !== accountId) {
+        const { error: mdErr } = await admin.from('hostaway_property_mappings').delete().eq('connection_id', existing.id)
+        if (mdErr) throw mdErr
+      }
+
       const { error: cErr } = await admin.from('hostaway_connections').upsert({
         user_id: caller.id,
         company_id: companyId,
         account_id: accountId,
+        // Fresh cursor: the next sync pulls the account's full history
+        // rather than only activity since the previous account's last sync.
+        last_synced_at: null,
         client_secret: secretEnc ? null : clientSecret,
         client_secret_enc: secretEnc,
         access_token: tokenEnc ? null : accessToken,
@@ -652,6 +781,10 @@ serve(async (req) => {
         })
         if (mErr) throw mErr
       }
+      // Mappings changed: reset the cursor so the next sync re-reads every
+      // reservation — newly mapped listings get their history, and bookings
+      // on listings that are no longer mapped have their segments removed.
+      await admin.from('hostaway_connections').update({ last_synced_at: null, updated_at: new Date().toISOString() }).eq('id', conn.id)
       return jsonResp(200, { saved: mappings.length })
     }
 
