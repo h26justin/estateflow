@@ -5,12 +5,14 @@
 // readiness, and POSTs to HMRC's Property Business API (or returns a
 // mocked success in sandbox mode).
 //
-// HMRC endpoint (cash basis, UK property):
-//   POST /individuals/business/property/uk/{nino}/{businessId}/cumulative-summary/{taxYear}
-// Headers must include:
-//   Authorization: Bearer <hmrc_access_token>
-//   Accept: application/vnd.hmrc.2.0+json
-//   Gov-Client-* fraud-prevention headers (TODO when live)
+// HMRC endpoint: NOT VERIFIED. MTD quarterly updates are cumulative (6 April
+// to the quarter end) and the summary_json the app saves is now the
+// year-to-date figure, but the request below still posts to the older
+// period-summary path (`.../period/{taxYear}`, Accept 6.0) and the current
+// cumulative endpoint (method, path, Accept version, body field names) has
+// not been confirmed against HMRC's own API reference. Until it is, live
+// filing is hard-disabled: anything other than HMRC's sandbox host is
+// refused before a request is made (see LIVE_FILING_ENDPOINT_VERIFIED).
 //
 // Status:
 //   - Sandbox mode (mtd_settings.sandbox_mode, the user's explicit toggle):
@@ -43,6 +45,15 @@ const HMRC_CLIENT_ID     = Deno.env.get('HMRC_CLIENT_ID') || ''
 const HMRC_CLIENT_SECRET = Deno.env.get('HMRC_CLIENT_SECRET') || ''
 // Explicit opt-in to the labelled mock when live creds/token are missing.
 const MTD_SANDBOX_FALLBACK = Deno.env.get('MTD_SANDBOX_FALLBACK') === 'true'
+// This server's own public egress IP, for Gov-Vendor-Public-IP. The function
+// cannot discover it reliably, so it is configured; unset → header omitted
+// (never the client's address).
+const HMRC_VENDOR_PUBLIC_IP = (Deno.env.get('HMRC_VENDOR_PUBLIC_IP') || '').trim()
+// Hard guard: flip to true only once the cumulative-summary endpoint, Accept
+// version and body have been confirmed from HMRC's API reference and the
+// request below matches it. While false, only HMRC's sandbox host is called.
+const LIVE_FILING_ENDPOINT_VERIFIED = false
+const HMRC_SANDBOX_HOST = /^https:\/\/test-api\.service\.hmrc\.gov\.uk\/?$/.test(HMRC_BASE_URL)
 
 // Only HMRC fraud-prevention headers may be forwarded from the browser.
 // Anything else (Authorization, Host, Content-Type, X-* …) is dropped so a
@@ -142,7 +153,7 @@ serve(async (req) => {
     // sandbox. No secrets or URLs are returned.
     if (reqBody?.action === 'status') {
       const productionHost = /^https:\/\/api\.service\.hmrc\.gov\.uk\/?$/.test(HMRC_BASE_URL)
-      const live = !!(HMRC_CLIENT_ID && HMRC_CLIENT_SECRET) && productionHost
+      const live = LIVE_FILING_ENDPOINT_VERIFIED && !!(HMRC_CLIENT_ID && HMRC_CLIENT_SECRET) && productionHost
       return new Response(JSON.stringify({ live_filing_available: live }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -227,6 +238,10 @@ serve(async (req) => {
     }
 
     // ── LIVE HMRC PATH ──
+    // Refuse anything but HMRC's sandbox until the endpoint is verified.
+    if (!LIVE_FILING_ENDPOINT_VERIFIED && !HMRC_SANDBOX_HOST) {
+      return jsonError(409, 'Live filing to HMRC is disabled pending verification of HMRC\'s quarterly update endpoint. Nothing was sent to HMRC.')
+    }
     // Token refresh (if expired). On refresh, re-encrypt the new tokens
     // and null out the plaintext columns. If encryption isn't configured
     // (no OWNPROPERLY_TOKEN_KEY), fall back to writing plaintext.
@@ -277,7 +292,9 @@ serve(async (req) => {
       },
     }
 
-    // POST to HMRC — endpoint shape per the Property Business API v6.0.
+    // POST to HMRC — the older period-summary shape (Property Business API
+    // v6.0). NOT verified as the current cumulative endpoint: only reachable
+    // on HMRC's sandbox host while LIVE_FILING_ENDPOINT_VERIFIED is false.
     // Always the UK endpoint: foreign-property is rejected above, and
     // fhl-property correctly files as UK property (FHL regime abolished).
     const url = `${HMRC_BASE_URL}/individuals/business/property/uk/${encodeURIComponent(settings.nino)}/${encodeURIComponent(settings.mtd_business_id)}/period/${sub.tax_year}`
@@ -290,14 +307,25 @@ serve(async (req) => {
     // posture is "honest values from a compliant vendor"). The Gov-Vendor-*
     // headers describe THIS server's place in the chain.
 
-    // Server-side vendor headers
+    // The END USER's public IP is the first x-forwarded-for hop on the
+    // request reaching us: that is Gov-Client-Public-IP, set here and never
+    // taken from the browser. Gov-Vendor-Public-IP is THIS server's egress
+    // address, which only configuration can tell us; without it the vendor
+    // IP and the Forwarded chain are left out rather than filled with the
+    // client's address.
     const forwardedFor = req.headers.get('x-forwarded-for') || ''
-    const vendorPublicIp = forwardedFor.split(',')[0]?.trim() || ''
+    const clientPublicIp = forwardedFor.split(',')[0]?.trim() || ''
+    delete fraudHeaders['Gov-Client-Public-IP']
+    delete fraudHeaders['Gov-Client-Public-IP-Timestamp']
+    if (clientPublicIp) {
+      fraudHeaders['Gov-Client-Public-IP'] = clientPublicIp
+      fraudHeaders['Gov-Client-Public-IP-Timestamp'] = new Date().toISOString()
+    }
     const vendorHeaders: Record<string, string> = {
       'Gov-Vendor-Version': 'OwnProperly=1.0.0',
       'Gov-Vendor-License-IDs': '', // populated if we ever ship a desktop client
-      'Gov-Vendor-Public-IP': vendorPublicIp,
-      'Gov-Vendor-Forwarded': `by=${vendorPublicIp}&for=${(fraudHeaders['Gov-Client-Public-IP'] || '')}`,
+      'Gov-Vendor-Public-IP': HMRC_VENDOR_PUBLIC_IP,
+      'Gov-Vendor-Forwarded': HMRC_VENDOR_PUBLIC_IP && clientPublicIp ? `by=${HMRC_VENDOR_PUBLIC_IP}&for=${clientPublicIp}` : '',
       'Gov-Vendor-Product-Name': 'OwnProperly',
     }
 

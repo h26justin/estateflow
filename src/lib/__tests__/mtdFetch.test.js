@@ -6,7 +6,7 @@ const calls = []
 const results = {}
 function chain(table) {
   const q = {}
-  for (const m of ['select', 'eq', 'is', 'in', 'or', 'gte', 'lte']) {
+  for (const m of ['select', 'eq', 'is', 'in', 'or', 'gte', 'lte', 'order', 'range']) {
     q[m] = vi.fn((...args) => { calls.push({ table, m, args }); return q })
   }
   const next = () => (results[table] || []).shift() || { data: [], error: null }
@@ -26,14 +26,25 @@ import { fetchMtdRawForPeriod, fetchMtdPropertyScope } from '../api/mtd'
 describe('fetchMtdRawForPeriod', () => {
   beforeEach(() => { calls.length = 0; for (const k of Object.keys(results)) delete results[k] })
 
-  it('takes all the user\'s properties by default (company_id is a portfolio group, not legal ownership)', async () => {
+  it('with no companies owned, takes the no-company properties the user added', async () => {
     results.properties = [{ data: [{ id: 'p1', mortgage_amount: 0, mortgage_rate: 0 }], error: null }]
     await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
+    expect(calls).toContainEqual({ table: 'companies', m: 'eq', args: ['owner_id', 'u1'] })
     const props = calls.filter(c => c.table === 'properties')
     expect(props).toContainEqual({ table: 'properties', m: 'eq', args: ['user_id', 'u1'] })
-    expect(props).not.toContainEqual({ table: 'properties', m: 'is', args: ['company_id', null] })
-    // No company on any property → no companies lookup needed.
-    expect(calls.some(c => c.table === 'companies')).toBe(false)
+    expect(props).toContainEqual({ table: 'properties', m: 'is', args: ['company_id', null] })
+    expect(rentPropIds()).toEqual(['p1'])
+  })
+
+  it('scopes by the companies the user owns, not by who added each property', async () => {
+    results.companies = [{ data: [{ id: 'co1', name: 'My Group', legal_owner: 'personal' }], error: null }]
+    // p2 was added to my company by a collaborator (its user_id is theirs).
+    results.properties = [{ data: [{ id: 'p1', company_id: 'co1' }, { id: 'p2', company_id: 'co1' }], error: null }]
+    await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
+    const props = calls.filter(c => c.table === 'properties')
+    expect(props).toContainEqual({ table: 'properties', m: 'or', args: ['company_id.in.(co1),and(company_id.is.null,user_id.eq.u1)'] })
+    expect(props.some(c => c.m === 'eq' && c.args[0] === 'user_id')).toBe(false)
+    expect(rentPropIds()).toEqual(['p1', 'p2'])
   })
 
   const rentPropIds = () => calls.find(c => c.table === 'rent_payments' && c.m === 'in' && c.args[0] === 'property_id')?.args[1]
@@ -52,7 +63,7 @@ describe('fetchMtdRawForPeriod', () => {
     ], error: null }]
     const out = await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
     expect(calls).toContainEqual({ table: 'companies', m: 'select', args: ['id, name, legal_owner'] })
-    expect(calls).toContainEqual({ table: 'companies', m: 'in', args: ['id', ['ltd', 'pers', 'unset']] })
+    expect(calls).toContainEqual({ table: 'companies', m: 'eq', args: ['owner_id', 'u1'] })
     expect(rentPropIds()).toEqual(['p2', 'p3', 'p4'])
     expect(out.scope.excluded.map(p => p.id)).toEqual(['p1'])
     expect(out.scope.excludedCompanies).toEqual([{ id: 'ltd', name: 'Ltd Co', count: 1 }])
@@ -80,8 +91,12 @@ describe('fetchMtdRawForPeriod', () => {
 
   it('falls back to including every property when companies.legal_owner does not exist yet', async () => {
     results.properties = [{ data: [{ id: 'p1', company_id: 'ltd' }, { id: 'p2', company_id: null }], error: null }]
-    results.companies = [{ data: null, error: { code: '42703', message: 'column companies.legal_owner does not exist' } }]
+    results.companies = [
+      { data: null, error: { code: '42703', message: 'column companies.legal_owner does not exist' } },
+      { data: [{ id: 'ltd', name: 'Ltd Co' }], error: null },
+    ]
     const out = await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
+    expect(calls).toContainEqual({ table: 'companies', m: 'select', args: ['id, name'] })
     expect(rentPropIds()).toEqual(['p1', 'p2'])
     expect(out.scope.legalOwnerSupported).toBe(false)
     expect(out.scope.excluded).toEqual([])
@@ -99,6 +114,7 @@ describe('fetchMtdRawForPeriod', () => {
     results.properties = [{ data: [{ id: 'p1' }], error: null }]
     await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05', propertyIds: ['p1'] })
     expect(calls.some(c => c.table === 'companies')).toBe(false)
+    expect(calls.some(c => c.table === 'properties' && c.m === 'eq')).toBe(false)
     expect(rentPropIds()).toEqual(['p1'])
   })
 
@@ -125,6 +141,36 @@ describe('fetchMtdRawForPeriod', () => {
     const out = await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
     expect(out.mortgageInterest).toBe(Math.round(5000 * 92 / 365 * 100) / 100)
   })
+
+  it('bounds legacy NULL-period rows to the months in the window', async () => {
+    results.properties = [{ data: [{ id: 'p1' }], error: null }]
+    await fetchMtdRawForPeriod({ periodFrom: '2026-10-06', periodTo: '2027-01-05' })
+    const or = calls.find(c => c.table === 'rent_payments' && c.m === 'or').args[0]
+    expect(or).toBe('and(period_start.gte.2026-10-06,period_start.lte.2027-01-05),'
+      + 'and(period_start.is.null,year.eq.2026,month.gte.10,month.lte.12),'
+      + 'and(period_start.is.null,year.eq.2027,month.gte.1,month.lte.1)')
+    expect(or).not.toMatch(/,period_start\.is\.null(,|$)/)
+  })
+
+  it('pages every query with a stable order', async () => {
+    results.properties = [{ data: [{ id: 'p1' }], error: null }]
+    await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
+    for (const table of ['properties', 'rent_payments', 'property_expenses', 'rent_receipts']) {
+      expect(calls).toContainEqual({ table, m: 'order', args: ['id', { ascending: true }] })
+      expect(calls).toContainEqual({ table, m: 'range', args: [0, 999] })
+    }
+  })
+
+  it('loads receipts received in the window, and each row\'s allocations', async () => {
+    results.properties = [{ data: [{ id: 'p1' }], error: null }]
+    results.rent_receipts = [{ data: [{ id: 'r1', received_date: '2026-09-03', rent_allocations: [] }], error: null }]
+    const out = await fetchMtdRawForPeriod({ periodFrom: '2026-07-06', periodTo: '2026-10-05' })
+    expect(calls).toContainEqual({ table: 'rent_receipts', m: 'gte', args: ['received_date', '2026-07-06'] })
+    expect(calls).toContainEqual({ table: 'rent_receipts', m: 'lte', args: ['received_date', '2026-10-05'] })
+    const sel = calls.find(c => c.table === 'rent_payments' && c.m === 'select').args[0]
+    expect(sel).toMatch(/rent_allocations\(/)
+    expect(out.receipts).toHaveLength(1)
+  })
 })
 
 describe('fetchMtdPropertyScope', () => {
@@ -147,7 +193,10 @@ describe('fetchMtdPropertyScope', () => {
 
   it('treats a PostgREST schema-cache miss on legal_owner as column-missing too', async () => {
     results.properties = [{ data: [{ id: 'p1', company_id: 'ltd' }], error: null }]
-    results.companies = [{ data: null, error: { code: 'PGRST204', message: "Could not find the 'legal_owner' column of 'companies' in the schema cache" } }]
+    results.companies = [
+      { data: null, error: { code: 'PGRST204', message: "Could not find the 'legal_owner' column of 'companies' in the schema cache" } },
+      { data: [{ id: 'ltd', name: 'Ltd Co' }], error: null },
+    ]
     const scope = await fetchMtdPropertyScope()
     expect(scope.legalOwnerSupported).toBe(false)
     expect(scope.included.map(p => p.id)).toEqual(['p1'])

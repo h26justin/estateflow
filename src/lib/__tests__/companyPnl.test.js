@@ -4,7 +4,9 @@ import {
   findViewerShareholder, viewerEffectiveShares, aggregateShareholdersAcrossCompanies,
   buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents,
   isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes,
+  TAX_BAND_LABELS, CT_MORTGAGE_NOTE, rentReceivedOnRow, indexRentAllocations,
 } from '../companyPnl'
+import { evaluatePeriod } from '../rentEngine'
 
 describe('ukCorporationTax', () => {
   it('returns nil for zero or negative profit', () => {
@@ -46,10 +48,22 @@ describe('ukCorporationTax', () => {
 })
 
 describe('dividendTax', () => {
-  it('applies band rates', () => {
-    expect(dividendTax(10_000, 'basic')).toBe(875)
-    expect(dividendTax(10_000, 'higher')).toBe(3_375)
-    expect(dividendTax(10_000, 'additional')).toBe(3_935)
+  it('applies the 2025-26 band rates to dates before 6 April 2026', () => {
+    expect(dividendTax(10_000, 'basic', '2026-04-05')).toBe(875)
+    expect(dividendTax(10_000, 'higher', '2026-04-05')).toBe(3_375)
+    expect(dividendTax(10_000, 'additional', '2026-04-05')).toBe(3_935)
+  })
+  it('applies the 10.75% / 35.75% rates from 6 April 2026 (additional unchanged)', () => {
+    expect(dividendTax(10_000, 'basic', '2026-04-06')).toBe(1_075)
+    expect(dividendTax(10_000, 'higher', '2026-04-06')).toBe(3_575)
+    expect(dividendTax(10_000, 'additional', '2026-04-06')).toBe(3_935)
+    expect(dividendTax(10_000, 'higher', new Date(2027, 0, 31))).toBe(3_575)
+  })
+  it('uses the current rates when no date is given', () => {
+    expect(dividendTax(10_000, 'basic')).toBe(1_075)
+    expect(dividendTax(10_000, 'higher')).toBe(3_575)
+    expect(TAX_BAND_LABELS.basic).toBe('Basic rate (10.75%)')
+    expect(TAX_BAND_LABELS.higher).toBe('Higher rate (35.75%)')
   })
   it('returns null for unknown/absent band and 0 for negative amounts', () => {
     expect(dividendTax(10_000, null)).toBeNull()
@@ -136,6 +150,7 @@ describe('buildCompanyPnl', () => {
         { category: 'agent_fees', amount: 3_000 }, // excluded — calculated fee replaces it
       ],
       agents, shareholders, months: 12,
+      periodEnd: '2026-03-31', // 2025-26 dividend rates
     })
 
     expect(r.income.rentCollected).toBe(60_000)
@@ -721,7 +736,7 @@ describe('scalePortfolioPnl', () => {
   it('applies dividend tax per company when bands are supplied', () => {
     // Alpha whole-company posttax 8,100 → 50% share = 4,050; higher band
     // 33.75% → 1,366.88 dividend tax → net 2,683.12.
-    const r = scalePortfolioPnl(base(), { cA: 50 }, { dividendTaxBands: { cA: 'higher' } })
+    const r = scalePortfolioPnl(base(), { cA: 50 }, { dividendTaxBands: { cA: 'higher' }, periodEnd: '2026-03-31' })
     const alpha = r.companies[0]
     expect(alpha.totals.dividendTax).toBeCloseTo(1_366.88, 2)
     expect(alpha.totals.posttax).toBeCloseTo(2_683.12, 2)
@@ -939,5 +954,120 @@ describe('rent collected counts late and partial receipts', () => {
       months: 2,
     })
     expect(r.grand.income).toBe(1400)
+  })
+})
+
+// Rent Tracker parity: a period's rent comes from its receipt allocations
+// when it has any (rentEngine.js evaluatePeriod), else the legacy row amount.
+describe('income from receipt allocations (Rent Tracker parity)', () => {
+  // September: row still 'pending' but a £1,000 manual receipt is allocated.
+  // October: row 'paid' £1,000 from a statement import whose receipt bounced.
+  const sep = { id: 'sep', property_id: 'p1', year: 2026, month: 9, status: 'pending', amount: null, period_start: '2026-09-01', period_end: '2026-09-30' }
+  const oct = { id: 'oct', property_id: 'p1', year: 2026, month: 10, status: 'paid', amount: 1_000, period_start: '2026-10-01', period_end: '2026-10-31' }
+  const receipts = [
+    { id: 'r1', received_date: '2026-09-03', amount: 1_000, kind: 'receipt', source: 'manual', rent_allocations: [{ rent_payment_id: 'sep', target: 'current_rent', amount: 1_000 }] },
+    { id: 'r2', received_date: '2026-10-02', amount: 1_000, kind: 'receipt', source: 'statement', rent_allocations: [{ rent_payment_id: 'oct', target: 'current_rent', amount: 1_000 }] },
+    { id: 'r3', received_date: '2026-10-20', amount: -1_000, kind: 'bounce', source: 'manual', rent_allocations: [{ rent_payment_id: 'oct', target: 'current_rent', amount: -1_000 }] },
+  ]
+  const property = { id: 'p1', name: 'Flat 1', company_id: 'cA', status: 'rented', rent_pcm: 1_000 }
+
+  it('matches the rent engine row by row', () => {
+    const idx = indexRentAllocations(receipts)
+    for (const row of [sep, oct]) {
+      const engine = evaluatePeriod(row, { property, receipts, today: '2026-11-15' })
+      expect(rentReceivedOnRow(row, idx)).toBe(engine.received)
+    }
+    expect(rentReceivedOnRow(sep, idx)).toBe(1_000)
+    expect(rentReceivedOnRow(oct, idx)).toBe(0)
+  })
+
+  it('buildCompanyPnl counts September and not the bounced October', () => {
+    const r = buildCompanyPnl({ properties: [property], payments: [sep, oct], receipts, months: 2 })
+    expect(r.income.rentCollected).toBe(1_000)
+    expect(r.income.usedFallback).toBe(false)
+  })
+
+  it('buildPortfolioPnl puts the £1,000 in September and nothing in October', () => {
+    const r = buildPortfolioPnl({
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }], properties: [property],
+      payments: [sep, oct], receipts, months: 2,
+      monthKeys: [{ m: 8, y: 2026 }, { m: 9, y: 2026 }],
+    })
+    expect(r.companies[0].rows[0].income).toBe(1_000)
+    expect(r.companies[0].rows[0].monthly).toEqual([1_000, 0])
+  })
+
+  it('keeps the row-only behaviour when no receipts are passed', () => {
+    const r = buildCompanyPnl({ properties: [property], payments: [sep, oct], months: 2 })
+    expect(r.income.rentCollected).toBe(1_000) // October's row amount, as before
+  })
+
+  it('falls back to the row amount for a period with no allocations', () => {
+    const legacy = { id: 'aug', property_id: 'p1', year: 2026, month: 8, status: 'paid', amount: 950 }
+    const r = buildCompanyPnl({ properties: [property], payments: [legacy, sep, oct], receipts, months: 3 })
+    expect(r.income.rentCollected).toBe(1_950)
+  })
+})
+
+describe('mortgage payments (incl. capital) and the corporation tax estimate', () => {
+  it('buildCompanyPnl adds the mortgage category back before CT and says so', () => {
+    const r = buildCompanyPnl({
+      properties: [{ id: 'p1', status: 'rented' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 30_000 }],
+      expenses: [
+        { property_id: 'p1', category: 'mortgage', amount: 10_000 },
+        { property_id: 'p1', category: 'mortgage_interest', amount: 2_000 },
+        { property_id: 'p1', category: 'repairs', amount: 1_000 },
+      ],
+      months: 12,
+    })
+    // Cash profit still deducts the whole payment...
+    expect(r.operatingProfit).toBe(17_000)
+    // ...but CT is on 30,000 − 2,000 interest − 1,000 repairs = 27,000 at 19%.
+    expect(r.ctBase).toBe(27_000)
+    expect(r.mortgageExcludedFromCt).toBe(10_000)
+    expect(r.corporationTax.tax).toBe(5_130)
+    expect(r.profitAfterTax).toBe(17_000 - 5_130)
+    expect(r.ctNote).toBe(CT_MORTGAGE_NOTE)
+  })
+
+  it('has no note when there is no mortgage payment', () => {
+    const r = buildCompanyPnl({ properties: [{ id: 'p1' }], payments: [{ property_id: 'p1', status: 'paid', amount: 1_000 }], months: 12 })
+    expect(r.ctNote).toBeNull()
+    expect(r.mortgageExcludedFromCt).toBe(0)
+  })
+
+  it('buildPortfolioPnl leaves the mortgage category out of the CT base', () => {
+    const args = {
+      companies: [{ id: 'cA', name: 'Alpha Ltd' }],
+      properties: [{ id: 'p1', name: 'Flat 1', company_id: 'cA' }],
+      payments: [{ property_id: 'p1', status: 'paid', amount: 20_000 }],
+      expenses: [{ property_id: 'p1', category: 'mortgage', amount: 8_000 }],
+      months: 12,
+    }
+    const b = buildPortfolioPnl(args).companies[0]
+    expect(b.totals.pretax).toBe(12_000)
+    expect(b.totals.ct).toBe(3_800) // 19% of 20,000
+    expect(b.mortgageExcludedFromCt).toBe(8_000)
+    expect(b.rows[0].ctShare).toBe(3_800)
+    expect(b.rows[0].posttax).toBe(8_200)
+    // Mortgage switched off by assumption: nothing to add back.
+    const off = buildPortfolioPnl({ ...args, include: { mortgage: false } }).companies[0]
+    expect(off.totals.ct).toBe(3_800)
+    expect(off.mortgageExcludedFromCt).toBe(0)
+  })
+})
+
+describe('dividend rates follow the period being reported', () => {
+  const args = {
+    properties: [{ id: 'p1' }],
+    payments: [{ property_id: 'p1', status: 'paid', amount: 10_000 }],
+    shareholders: [{ id: 's1', name: 'A', percentage: 100, tax_band: 'basic' }],
+    months: 12,
+  }
+  it('2025-26 period keeps 8.75%, 2026-27 period uses 10.75%', () => {
+    // 10,000 − 19% CT = 8,100 after tax.
+    expect(buildCompanyPnl({ ...args, periodEnd: '2026-04-05' }).shareholders[0].dividendTax).toBeCloseTo(708.75, 2)
+    expect(buildCompanyPnl({ ...args, periodEnd: '2027-04-05' }).shareholders[0].dividendTax).toBeCloseTo(870.75, 2)
   })
 })

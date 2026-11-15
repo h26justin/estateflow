@@ -1,5 +1,6 @@
 // MTD ITSA: HMRC settings, quarterly submissions and OAuth.
 import { supabase } from '../supabase'
+import { fetchAllPages } from '../paginate'
 import { collectClientFraudHeaders } from '../hmrcFraudHeaders'
 import {
   RECEIVED_STATUSES, estimateMortgageInterest,
@@ -82,10 +83,32 @@ export async function upsertMtdSubmission({ tax_year, quarter_number, period_fro
   return data
 }
 
+// Legacy rent rows carry only year/month (period_start IS NULL). PostgREST
+// filter for those rows in the calendar months the window touches, so the
+// NULL-period branch never pulls every legacy row for all time.
+function legacyMonthFilter(periodFrom, periodTo) {
+  const [fy, fm] = periodFrom.split('-').map(Number)
+  const [ty, tm] = periodTo.split('-').map(Number)
+  const parts = []
+  for (let y = fy; y <= ty; y++) {
+    const m0 = y === fy ? fm : 1
+    const m1 = y === ty ? tm : 12
+    if (m0 > m1) continue
+    parts.push(`and(period_start.is.null,year.eq.${y},month.gte.${m0},month.lte.${m1})`)
+  }
+  return parts.join(',')
+}
+
 // Aggregate the user's rent + expenses for a given period across their
 // personally held properties. Returns the raw rows so the caller can run
-// buildQuarterlySummary from src/lib/mtdItsa.js client-side (keeps tax logic
-// in one place).
+// buildQuarterlySummary / buildQuarterAndYearToDate from src/lib/mtdItsa.js
+// client-side (keeps tax logic in one place).
+//
+// Returns { payments, expenses, receipts, mortgageProps, mortgageInterest,
+// scope }. `receipts` are the rent_receipts received in the window with their
+// allocations, and each payment row carries its own current-rent
+// `rent_allocations`, so income follows the Rent Tracker's receipts where a
+// period has them (see buildQuarterlySummary).
 export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds = null }) {
   const uid = (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
@@ -109,27 +132,36 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
       .in('id', propIds).is('deleted_at', null)
     mortgageProps = (props || []).filter(p => Number(p.mortgage_amount) > 0 && Number(p.mortgage_rate) > 0)
   }
-  if (propIds.length === 0) return { payments: [], expenses: [], mortgageInterest: 0, scope }
+  if (propIds.length === 0) return { payments: [], expenses: [], receipts: [], mortgageProps: [], mortgageInterest: 0, scope }
 
   // Legacy rows carry only year/month (period_start IS NULL) — a plain
   // gte/lte on period_start silently excludes them, understating MTD income.
-  // Fetch NULL-period rows too, synthesise whole-month period dates from
-  // year/month, then re-filter to the requested window client-side.
-  const [paymentsRes, expensesRes] = await Promise.all([
-    supabase.from('rent_payments').select('id, property_id, amount, period_start, period_end, status, year, month')
+  // Fetch NULL-period rows for the months the window touches too, synthesise
+  // whole-month period dates from year/month, then re-filter to the
+  // requested window client-side. Every query is paged (PostgREST caps a
+  // response at 1,000 rows) with a stable order.
+  const legacy = legacyMonthFilter(periodFrom, periodTo)
+  const [paymentRows, expenseRows, receiptRows] = await Promise.all([
+    fetchAllPages(() => supabase.from('rent_payments')
+      .select('id, property_id, amount, period_start, period_end, status, year, month, rent_allocations(id, target, amount)')
       .in('property_id', propIds)
       .in('status', RECEIVED_STATUSES)
-      .or(`and(period_start.gte.${periodFrom},period_start.lte.${periodTo}),period_start.is.null`),
-    supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
+      .or(`and(period_start.gte.${periodFrom},period_start.lte.${periodTo})${legacy ? ',' + legacy : ''}`)
+      .order('id', { ascending: true })),
+    fetchAllPages(() => supabase.from('property_expenses').select('id, property_id, amount, date, category, description')
       .in('property_id', propIds)
       .is('deleted_at', null)
-      .gte('date', periodFrom).lte('date', periodTo),
+      .gte('date', periodFrom).lte('date', periodTo)
+      .order('id', { ascending: true })),
+    fetchAllPages(() => supabase.from('rent_receipts')
+      .select('id, property_id, received_date, amount, kind, rent_allocations(id, rent_payment_id, target, amount)')
+      .in('property_id', propIds)
+      .gte('received_date', periodFrom).lte('received_date', periodTo)
+      .order('id', { ascending: true })),
   ])
-  if (paymentsRes.error) throw paymentsRes.error
-  if (expensesRes.error) throw expensesRes.error
 
   const pad2 = (n) => String(n).padStart(2, '0')
-  const payments = (paymentsRes.data || [])
+  const payments = paymentRows
     .map(p => {
       if (p.period_start || !p.year || !p.month) return p
       const lastDay = new Date(p.year, p.month, 0).getDate()
@@ -147,42 +179,58 @@ export async function fetchMtdRawForPeriod({ periodFrom, periodTo, propertyIds =
   // (true interest declines as principal is paid down on repayment mortgages).
   // Properties with actual 'mortgage_interest' expenses recorded in the
   // period are left out of the estimate: the recorded figure is used instead.
-  const expenses = expensesRes.data || []
+  const expenses = expenseRows
   const mortgageInterest = estimateMortgageInterest({ mortgageProps, expenses, periodFrom, periodTo })
 
-  return { payments, expenses, mortgageInterest, scope }
+  return { payments, expenses, receipts: receiptRows, mortgageProps, mortgageInterest, scope }
 }
 
-// Which of the user's properties count for personal MTD ITSA. Companies are
-// also used as plain portfolio groups (nearly every property has a
-// company_id), so only an explicit companies.legal_owner = 'limited_company'
-// excludes a property; no company, 'personal' or NULL (not set) stay in.
-// If the column isn't in the DB yet (app deployed before the migration), the
-// companies lookup fails with an undefined-column error and we fall back to
-// including everything — the pre-flag behaviour.
+// Which properties count for the signed-in user's personal MTD ITSA.
+//
+// Whose: properties in the companies this user owns (companies.owner_id),
+// whoever added them — a collaborator adding a property to the owner's
+// portfolio stamps it with the collaborator's user_id, so scoping by
+// properties.user_id lost it from the owner's figures and put it in the
+// collaborator's. Properties with no company fall back to the creator.
+// RLS still decides what the user can read at all.
+//
+// Personal or company: companies are also used as plain portfolio groups, so
+// only an explicit companies.legal_owner = 'limited_company' excludes a
+// property; no company, 'personal' or NULL (not set) stay in. If the column
+// isn't in the DB yet (app deployed before the migration), the companies
+// lookup fails with an undefined-column error and we fall back to including
+// everything — the pre-flag behaviour.
 // Returns { included, excluded, excludedCompanies, unsetCompanies,
 // legalOwnerSupported } (see splitPropertiesByLegalOwner).
 export async function fetchMtdPropertyScope(userId = null) {
   const uid = userId || (await supabase.auth.getUser()).data.user?.id
   if (!uid) throw new Error('Not signed in')
-  const { data: props, error: pe } = await supabase
-    .from('properties').select('id, company_id, mortgage_amount, mortgage_rate')
-    .eq('user_id', uid).is('deleted_at', null)
-  if (pe) throw pe
-  const properties = props || []
-  const companyIds = [...new Set(properties.map(p => p.company_id).filter(Boolean))]
-  if (companyIds.length === 0) return splitPropertiesByLegalOwner(properties, [])
 
-  const { data: cos, error: ce } = await supabase
+  let legalOwnerSupported = true
+  let { data: cos, error: ce } = await supabase
     .from('companies').select('id, name, legal_owner')
-    .in('id', companyIds)
+    .eq('owner_id', uid)
   if (ce) {
-    if (isMissingLegalOwnerColumnError(ce)) {
-      return splitPropertiesByLegalOwner(properties, [], { legalOwnerSupported: false })
-    }
-    throw ce
+    if (!isMissingLegalOwnerColumnError(ce)) throw ce
+    legalOwnerSupported = false
+    ;({ data: cos, error: ce } = await supabase
+      .from('companies').select('id, name')
+      .eq('owner_id', uid))
+    if (ce) throw ce
   }
-  return splitPropertiesByLegalOwner(properties, cos || [])
+  const companies = cos || []
+  const companyIds = companies.map(c => c.id)
+
+  const properties = await fetchAllPages(() => {
+    let q = supabase
+      .from('properties').select('id, company_id, mortgage_amount, mortgage_rate')
+      .is('deleted_at', null)
+    q = companyIds.length
+      ? q.or(`company_id.in.(${companyIds.join(',')}),and(company_id.is.null,user_id.eq.${uid})`)
+      : q.is('company_id', null).eq('user_id', uid)
+    return q.order('id', { ascending: true })
+  })
+  return splitPropertiesByLegalOwner(properties, companies, { legalOwnerSupported })
 }
 
 // Start the HMRC gov.uk OAuth flow. Returns nothing — performs a

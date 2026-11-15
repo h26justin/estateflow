@@ -4,6 +4,7 @@ import {
   mapExpenseCategoryToHmrc, buildQuarterlySummary, quarterStatusLabel,
   currentQuarter, estimateMortgageInterest,
   splitPropertiesByLegalOwner, isMissingLegalOwnerColumnError,
+  buildQuarterAndYearToDate, sameSubmissionFigures, FINANCE_COST_NOTE,
 } from '../mtdItsa'
 
 describe('taxYearForDate — 5/6 April boundary', () => {
@@ -197,7 +198,131 @@ describe('buildQuarterlySummary — income aggregation', () => {
       repairsAndMaintenance: 200, professionalFees: 90,
       premisesRunningCosts: 50, residentialFinancialCost: 300,
     })
-    expect(s.totals.expenses).toBe(640)
+    // Section 24: finance costs are sent to HMRC but not deducted from net.
+    expect(s.totals.expenses).toBe(340)
+    expect(s.totals.residentialFinancialCost).toBe(300)
+  })
+
+  it('leaves mortgage interest out of net (Section 24 tax credit, not a deduction)', () => {
+    const s = buildQuarterlySummary({
+      payments: [{ status: 'paid', amount: 3000, period_start: '2026-05-01' }],
+      expenses: [
+        { amount: 500, date: '2026-05-02', category: 'repairs' },
+        { amount: 900, date: '2026-05-02', category: 'mortgage_interest' },
+      ],
+      mortgageInterest: 100,
+      periodFrom, periodTo,
+    })
+    expect(s.totals).toEqual({ income: 3000, expenses: 500, residentialFinancialCost: 1000, net: 2500 })
+    expect(s.expenses.residentialFinancialCost).toBe(1000)
+    expect(FINANCE_COST_NOTE).toMatch(/20% basic-rate tax credit/)
+  })
+})
+
+// Income follows the Rent Tracker: receipt allocations where a period has
+// them (on the date received), the legacy row amount otherwise.
+describe('buildQuarterlySummary — receipts and allocations', () => {
+  // September row still 'pending' with a £1,000 manual receipt allocated;
+  // October row 'paid' £1,000 from a statement import, receipt later bounced.
+  const sep = { id: 'sep', status: 'pending', amount: null, period_start: '2026-09-01', rent_allocations: [{ target: 'current_rent', amount: 1000 }] }
+  const oct = { id: 'oct', status: 'paid', amount: 1000, period_start: '2026-10-01', rent_allocations: [{ target: 'current_rent', amount: 1000 }, { target: 'current_rent', amount: -1000 }] }
+  const receipts = [
+    { id: 'r1', received_date: '2026-09-03', amount: 1000, rent_allocations: [{ rent_payment_id: 'sep', target: 'current_rent', amount: 1000 }] },
+    { id: 'r2', received_date: '2026-10-07', amount: 1000, rent_allocations: [{ rent_payment_id: 'oct', target: 'current_rent', amount: 1000 }] },
+    { id: 'r3', received_date: '2026-10-20', amount: -1000, kind: 'bounce', rent_allocations: [{ rent_payment_id: 'oct', target: 'current_rent', amount: -1000 }] },
+  ]
+
+  const Q2 = { periodFrom: '2026-07-06', periodTo: '2026-10-05' }
+  const Q3 = { periodFrom: '2026-10-06', periodTo: '2027-01-05' }
+
+  it('counts the allocated September receipt and not the bounced October row', () => {
+    expect(buildQuarterlySummary({ payments: [sep, oct], receipts, ...Q2 }).income.periodAmount).toBe(1000)
+    expect(buildQuarterlySummary({ payments: [sep, oct], receipts, ...Q3 }).income.periodAmount).toBe(0)
+  })
+
+  it('without receipts keeps the legacy row-only figures (the old mismatch)', () => {
+    // October's row (period start 1 Oct) lands in Q2; September's is missed.
+    expect(buildQuarterlySummary({ payments: [sep, oct], ...Q2 }).income.periodAmount).toBe(1000)
+    expect(buildQuarterlySummary({ payments: [sep], ...Q2 }).income.periodAmount).toBe(0)
+  })
+
+  it('recognises income on the date received, not the period start', () => {
+    // April 2026 rent (period from 1 April) paid on 15 April: 2026-27 Q1.
+    const apr = { id: 'apr', status: 'paid', amount: 1000, period_start: '2026-04-01', rent_allocations: [{ target: 'current_rent', amount: 1000 }] }
+    const rec = [{ id: 'ra', received_date: '2026-04-15', amount: 1000, rent_allocations: [{ rent_payment_id: 'apr', target: 'current_rent', amount: 1000 }] }]
+    const q1 = buildQuarterlySummary({ payments: [], receipts: rec, periodFrom: '2026-04-06', periodTo: '2026-07-05' })
+    expect(q1.income.periodAmount).toBe(1000)
+    // The 2025-26 Q4 window sees the row (period start 1 April) but its
+    // receipt is outside the window, so nothing is counted there.
+    const q4 = buildQuarterlySummary({ payments: [apr], receipts: [], periodFrom: '2026-01-06', periodTo: '2026-04-05' })
+    expect(q4.income.periodAmount).toBe(0)
+  })
+
+  it('a legacy row with no allocations still counts on its period start', () => {
+    const legacy = { id: 'jun', status: 'paid', amount: 950, period_start: '2026-06-01' }
+    const s = buildQuarterlySummary({ payments: [legacy], receipts: [], periodFrom: '2026-04-06', periodTo: '2026-07-05' })
+    expect(s.income.periodAmount).toBe(950)
+  })
+
+  it('ignores allocations to arrears, deposits and unallocated money', () => {
+    const rec = [{ id: 'x', received_date: '2026-05-01', amount: 600, rent_allocations: [
+      { rent_payment_id: null, target: 'deposit', amount: 500 },
+      { rent_payment_id: null, target: 'unallocated', amount: 100 },
+    ] }]
+    const s = buildQuarterlySummary({ receipts: rec, periodFrom: '2026-04-06', periodTo: '2026-07-05' })
+    expect(s.income.periodAmount).toBe(0)
+  })
+})
+
+describe('buildQuarterAndYearToDate — cumulative updates', () => {
+  const payments = [
+    { id: 'a', status: 'paid', amount: 1000, period_start: '2026-05-01' },
+    { id: 'b', status: 'paid', amount: 1000, period_start: '2026-08-01' },
+  ]
+  const expenses = [
+    { property_id: 'p1', amount: 200, date: '2026-05-10', category: 'repairs' },
+    { property_id: 'p1', amount: 300, date: '2026-08-10', category: 'repairs' },
+    { property_id: 'p1', amount: 50, date: '2026-05-10', category: 'mortgage_interest' },
+  ]
+  const mortgageProps = [{ id: 'p1', mortgage_amount: 100000, mortgage_rate: 0.05 }]
+
+  it('returns year-to-date figures with this quarter alongside', () => {
+    const s = buildQuarterAndYearToDate({ taxYear: '2026-27', quarter: 2, payments, expenses, receipts: [], mortgageProps })
+    expect(s.cumulative).toBe(true)
+    expect(s.fromDate).toBe('2026-04-06')
+    expect(s.toDate).toBe('2026-10-05')
+    expect(s.income.periodAmount).toBe(2000)
+    expect(s.expenses.repairsAndMaintenance).toBe(500)
+    expect(s.quarter.fromDate).toBe('2026-07-06')
+    expect(s.quarter.income.periodAmount).toBe(1000)
+    expect(s.quarter.expenses.repairsAndMaintenance).toBe(300)
+    // Interest: Q1 recorded 50 (no estimate), Q2 estimated for 92 days.
+    const q2Est = Math.round(5000 * 92 / 365 * 100) / 100
+    expect(s.quarter.expenses.residentialFinancialCost).toBe(q2Est)
+    expect(s.expenses.residentialFinancialCost).toBe(Math.round((50 + q2Est) * 100) / 100)
+  })
+
+  it('Q1 year to date equals the quarter', () => {
+    const s = buildQuarterAndYearToDate({ taxYear: '2026-27', quarter: 1, payments, expenses, mortgageProps })
+    expect(s.income).toEqual(s.quarter.income)
+    expect(s.expenses).toEqual(s.quarter.expenses)
+  })
+
+  it('returns null for an unknown quarter', () => {
+    expect(buildQuarterAndYearToDate({ taxYear: '2026-27', quarter: 5 })).toBeNull()
+  })
+})
+
+describe('sameSubmissionFigures', () => {
+  const a = { fromDate: '2026-04-06', toDate: '2026-10-05', income: { periodAmount: 2000, taxDeducted: 0 }, expenses: { repairsAndMaintenance: 500 } }
+  it('matches identical figures and ignores display-only fields', () => {
+    expect(sameSubmissionFigures(a, { ...a, totals: { net: 1 }, quarter: {} })).toBe(true)
+  })
+  it('spots a changed amount, bucket or period', () => {
+    expect(sameSubmissionFigures(a, { ...a, income: { periodAmount: 2000.01, taxDeducted: 0 } })).toBe(false)
+    expect(sameSubmissionFigures(a, { ...a, expenses: { repairsAndMaintenance: 500, other: 1 } })).toBe(false)
+    expect(sameSubmissionFigures(a, { ...a, fromDate: '2026-07-06' })).toBe(false)
+    expect(sameSubmissionFigures(a, null)).toBe(false)
   })
 })
 
