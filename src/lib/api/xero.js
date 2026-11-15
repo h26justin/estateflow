@@ -55,11 +55,12 @@ export async function runXeroSync(companyId, direction = 'to_xero') {
 
 // What a push would post (counts, totals, bank, start date) without
 // posting. The UI shows it in a confirm dialog before every manual push.
-export async function previewXeroSync(companyId) {
+// propertyIds narrows it to the same subset a per-property sync posts.
+export async function previewXeroSync(companyId, propertyIds = null) {
   if (!companyId) throw new Error('companyId required')
-  const { data, error } = await supabase.functions.invoke('xero-sync', {
-    body: { action: 'preview', company_id: companyId }
-  })
+  const body = { action: 'preview', company_id: companyId }
+  if (Array.isArray(propertyIds) && propertyIds.length > 0) body.property_ids = propertyIds
+  const { data, error } = await supabase.functions.invoke('xero-sync', { body })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
   return data
@@ -120,11 +121,14 @@ export async function fetchXeroAccounts(companyId) {
 }
 
 // Sync only specific properties (per-property "Sync just this one" button).
-export async function runXeroSyncForProperties(companyId, propertyIds) {
+// Posting ('both') is only ever asked for after the user has confirmed a
+// preview scoped to the same propertyIds; anything else pulls only.
+export async function runXeroSyncForProperties(companyId, propertyIds, mode = 'reconcile_only') {
   if (!companyId) throw new Error('companyId required')
   if (!Array.isArray(propertyIds) || propertyIds.length === 0) throw new Error('propertyIds required')
+  const action = mode === 'both' ? 'both' : 'reconcile_only'
   const { data, error } = await supabase.functions.invoke('xero-sync', {
-    body: { action: 'both', company_id: companyId, property_ids: propertyIds }
+    body: { action, company_id: companyId, property_ids: propertyIds }
   })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
