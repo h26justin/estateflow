@@ -23,12 +23,13 @@ import {
 } from '../lib/refurbInvoices'
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
+import { todayISO } from './refurbs/ui'
 
 const mono = MONO
 const fmt2 = n => '£' + (Number(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-const todayISO = () => new Date().toISOString().slice(0, 10)
-const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', outline: 'none', width: '100%', boxSizing: 'border-box' })
+// inputStyle sets no outline, so the global :focus-visible ring shows.
+const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 8px', width: '100%', boxSizing: 'border-box' })
 const lbl = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, display: 'block', marginBottom: 4 })
 const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '16px 18px', marginBottom: 14 })
 
@@ -193,6 +194,9 @@ export function ImportRefurbInvoice({ properties, companies, invoices, canEditFo
         const created = await mutations.createProject(r.property_id, { title: 'Refurbishment', stage: 'in_progress', contractor_name: inv.supplier_name.trim(), agreed_price: 0, start_date: inv.invoice_date || null })
         if (!created) throw new Error('Could not create a refurb for one of the properties')
         resolved.push({ ...r, project_id: created.id, create_project: false })
+        // Keep the new project on the row, so if the invoice save below fails
+        // a retry reuses it instead of creating another empty refurb.
+        setRows(rs => rs.map(x => x.property_id === r.property_id ? { ...x, project_id: created.id, create_project: false } : x))
       }
       // 3. Header + allocations + variation extras, reconciled, in one go.
       const payload = {

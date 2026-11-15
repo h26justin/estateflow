@@ -62,6 +62,12 @@ export function StatementImporter({properties, companies, showToast, onClose, as
     return () => { live = false }
   }, [companies])
   async function openFromDocument(doc) {
+    // The email ingest also keeps JPEG / PNG attachments; only a PDF can be
+    // read here, so say so before downloading anything.
+    if (!/\.pdf$/i.test(doc.name || '') && !/pdf/i.test(doc.file_type || '')) {
+      showToast('Only PDF statements can be imported. This attachment is not a PDF: open it from Documents instead.', 'error')
+      return
+    }
     setLoading(true)
     try {
       const url = await api.getDocumentSignedUrl(doc.file_path, 300)
@@ -85,6 +91,8 @@ export function StatementImporter({properties, companies, showToast, onClose, as
   async function handleFile(f, doc = null) {
     if (!f || !/\.pdf$/i.test(f.name)) {
       showToast('Please select a PDF file', 'error')
+      setLoading(false)
+      if (doc) setSourceDoc(null)
       return
     }
     setLoading(true)
@@ -258,7 +266,12 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                   ))}
                 </div>
               )}
-              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:14}}>Batch saved with the original statement and a line-by-line record. Undo from Data import → History.</div>
+              <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.faint,marginBottom:14}}>
+                {importResults.pdfStored
+                  ? 'Batch saved with the original statement and a line-by-line record.'
+                  : 'Batch saved with a line-by-line record. The statement PDF was not stored (no company was matched, or the upload failed): keep your copy.'}
+                {' '}Undo from Data import → History.
+              </div>
               <Button variant="primary" size="sm" onClick={onClose}>Close &amp; refresh</Button>
             </div>
           )}

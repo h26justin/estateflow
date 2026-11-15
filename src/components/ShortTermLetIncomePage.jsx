@@ -53,7 +53,9 @@ const PERIODS = [
   { v: 'custom',     l: 'Custom' },
 ]
 
-const EMPTY_ADJ = { property_id: '', booking_id: '', adjustment_date: toISO(new Date()), amount: '', kind: 'refund', channel: '', reference: '', notes: '' }
+// A function, so the default date is today when the form opens, not when the
+// module first loaded (a tab left open overnight).
+const emptyAdj = () => ({ property_id: '', booking_id: '', adjustment_date: toISO(new Date()), amount: '', kind: 'refund', channel: '', reference: '', notes: '' })
 
 export default function ShortTermLetIncomePage({ companies = [], properties = [], permissionsMap, devModeActive = false, showToast, openDetail, onPropertyUpdated }) {
   const { T, darkMode } = useTheme()
@@ -139,7 +141,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const propById = useMemo(() => Object.fromEntries(stlProps.map(p => [p.id, p])), [stlProps])
   const coById = useMemo(() => Object.fromEntries(companies.map(c => [c.id, c])), [companies])
 
-  const scopedBookings = useMemo(() => (bookings || []).filter(b => selectedIds.has(b.property_id) && bookingMatches(b, search)), [bookings, selectedIds, search])
+  // Period / company / property filtered, never searched: every money figure
+  // (tiles, month and room tables, occupancy, forward look, payouts) comes
+  // from this. The search box narrows only the bookings table rows.
+  const scopedBookings = useMemo(() => (bookings || []).filter(b => selectedIds.has(b.property_id)), [bookings, selectedIds])
   const scopedAdjustments = useMemo(() => adjustments.filter(a => selectedIds.has(a.property_id)), [adjustments, selectedIds])
 
   // Room count for occupancy. Counts the units that are actually open for
@@ -169,6 +174,13 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const yearSummary = useMemo(() => summariseStl(scopedBookings, scopedAdjustments, { from: `${yearShown}-01-01`, to: `${yearShown}-12-31`, roomCount, rates }), [scopedBookings, scopedAdjustments, yearShown, roomCount, rates])
   const payouts = useMemo(() => managerPayouts(scopedBookings, scopedAdjustments, selectedProps, managers, { from: range.from, to: range.to, rates }), [scopedBookings, scopedAdjustments, selectedProps, managers, range.from, range.to, rates])
   const managerFees = Math.round(payouts.reduce((acc, r) => acc + r.amount, 0) * 100) / 100
+  // Pay runs: what each manager is owed for the period across EVERY unit
+  // they look after, whatever the property filter shows. The ledger allows
+  // one payout row per manager per period, so recording a filtered subset
+  // would lock the period at a partial amount with no way to carry the rest.
+  const payRuns = useMemo(() => managerPayouts(bookings || [], adjustments, stlProps, managers, { from: range.from, to: range.to, rates })
+    .filter(r => coFilter.length === 0 || coFilter.includes(r.manager.company_id)), [bookings, adjustments, stlProps, managers, range.from, range.to, rates, coFilter])
+  const payRunFiltered = propFilter !== 'all' || !!search.trim()
   // Corrections carried from locked pay runs: a period that was paid and whose
   // bookings have since changed (a cancellation that arrived later, a refund
   // entered against one of them). Computed over ALL bookings, not the current
@@ -227,7 +239,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const [saving, setSaving] = useState(false)
   const setA = (k, v) => setAdjForm(f => ({ ...f, [k]: v }))
   function openAdjForm(prefill = {}) {
-    setAdjForm({ ...EMPTY_ADJ, property_id: editableProps.length === 1 ? editableProps[0].id : '', ...prefill })
+    setAdjForm({ ...emptyAdj(), property_id: editableProps.length === 1 ? editableProps[0].id : '', ...prefill })
   }
   const kindMeta = ADJUSTMENT_KINDS.find(k => k.v === adjForm?.kind)
   const formBookings = useMemo(() => {
@@ -254,7 +266,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     finally { setSaving(false) }
   }
   async function removeAdjustment(a) {
-    const go = await confirmDialog({ title: 'Delete this adjustment?', body: `${fmtMoney(a.amount)} on ${fmtDate(a.adjustment_date)} will be removed and Net will change. The booking itself is untouched.`, confirmLabel: 'Delete', danger: true })
+    const go = await confirmDialog({ title: 'Delete this adjustment?', body: `${fmtMoney(a.amount)} on ${fmtDate(a.adjustment_date)} will be removed and Net will change. The booking itself is untouched.`, confirmLabel: 'Delete', destructive: true })
     if (!go) return
     try { await api.deleteStlAdjustment(a.id); await loadAdjustments(); showToast?.('Adjustment deleted', 'success') }
     catch (e) { showToast?.(e.message || 'Could not delete adjustment', 'error') }
@@ -280,7 +292,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   }
   async function removeManager(m) {
     const assigned = stlProps.filter(p => p.stl_manager_id === m.id).length
-    const go = await confirmDialog({ title: `Remove ${m.name}?`, body: assigned ? `${assigned} propert${assigned === 1 ? 'y is' : 'ies are'} assigned to ${m.name}; they will have no manager afterwards. Recorded payouts stay in the ledger under the manager's name.` : 'Nothing is assigned to this manager.', confirmLabel: 'Remove', danger: true })
+    const go = await confirmDialog({ title: `Remove ${m.name}?`, body: assigned ? `${assigned} propert${assigned === 1 ? 'y is' : 'ies are'} assigned to ${m.name}; they will have no manager afterwards. Recorded payouts stay in the ledger under the manager's name.` : 'Nothing is assigned to this manager.', confirmLabel: 'Remove', destructive: true })
     if (!go) return
     try { await api.deleteStlManager(m.id); await loadManagers(); showToast?.('Manager removed', 'success') }
     catch (e) { showToast?.(e.message || 'Could not remove manager', 'error') }
@@ -297,6 +309,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
   const [markingPaid, setMarkingPaid] = useState(null)   // manager id in flight
   const [openPayout, setOpenPayout] = useState(null)     // ledger row whose details are expanded
   async function markPaid(r) {
+    if (payRunFiltered) return showToast?.('Clear the property filter and search before recording a payment', 'error')
     if (!range.from || !range.to) return showToast?.('Choose a period with both dates first', 'error')
     if (!canEditCompany(r.manager.company_id)) return showToast?.('You do not have permission to record payouts for this company', 'error')
     const mine = correctionsFor(r.manager.id)
@@ -323,7 +336,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     finally { setMarkingPaid(null) }
   }
   async function removePaid(l) {
-    const go = await confirmDialog({ title: 'Remove this payout record?', body: `${l.manager_name} · ${fmtDateShort(l.period_from)} – ${fmtDate(l.period_to)} · ${fmtMoney(l.amount)}. The period unlocks and goes back to "not yet paid"; the audit history keeps the removed record. Nothing is sent anywhere.`, confirmLabel: 'Remove', danger: true })
+    const go = await confirmDialog({ title: 'Remove this payout record?', body: `${l.manager_name} · ${fmtDateShort(l.period_from)} – ${fmtDate(l.period_to)} · ${fmtMoney(l.amount)}. The period unlocks and goes back to "not yet paid"; the audit history keeps the removed record. Nothing is sent anywhere.`, confirmLabel: 'Remove', destructive: true })
     if (!go) return
     try { await api.deleteStlPayout(l.id); await loadLedger(); showToast?.('Payout record removed', 'success') }
     catch (e) { showToast?.(e.message || 'Could not remove the record', 'error') }
@@ -357,7 +370,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
 
   const payoutText = () => {
     const lines = [`Short-term let manager payout · ${periodLabel}`]
-    for (const r of payouts) {
+    for (const r of payRuns) {
       const mine = correctionsFor(r.manager.id)
       lines.push(`${r.manager.name} · ${r.manager.percentage}% of ${r.manager.basis === 'gross' ? 'gross' : 'income after platform fees'} · pay ${fmtMoney(payTotal(r))}${mine.length ? ` (${fmtMoney(r.amount)} this period, ${fmtMoney(carriedFor(r.manager.id))} corrections)` : ''}`)
       for (const p of r.properties) lines.push(`  ${p.property.name || p.property.address}: gross ${fmtMoney(p.gross)}, fees ${fmtMoney(p.platformFees)}, adjustments ${fmtMoney(p.adjustments)}, net ${fmtMoney(p.netAfterFees)} → ${fmtMoney(p.amount)}`)
@@ -390,8 +403,8 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
     </div>
   )
 
-  const revenueRows = summary.revenueBookings.slice().sort((a, b) => (b.arrival || '').localeCompare(a.arrival || ''))
-  const nonRevenueRows = summary.nonRevenueBookings.slice().sort((a, b) => (b.arrival || '').localeCompare(a.arrival || ''))
+  const revenueRows = summary.revenueBookings.filter(b => bookingMatches(b, search)).sort((a, b) => (b.arrival || '').localeCompare(a.arrival || ''))
+  const nonRevenueRows = summary.nonRevenueBookings.filter(b => bookingMatches(b, search)).sort((a, b) => (b.arrival || '').localeCompare(a.arrival || ''))
   const propLabel = pid => propById[pid]?.name || propById[pid]?.address || '—'
   const roomLabel = b => {
     const base = propLabel(b.property_id)
@@ -477,7 +490,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
               )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select value={propFilter} onChange={e => setPropFilter(e.target.value)} style={{ ...inp(T), width: isMobile ? '100%' : 260, padding: '7px 10px', fontSize: 12 }}>
+              <select aria-label="Filter by property" value={propFilter} onChange={e => setPropFilter(e.target.value)} style={{ ...inp(T), width: isMobile ? '100%' : 260, padding: '7px 10px', fontSize: 12 }}>
                 <option value="all">All properties / rooms ({stlProps.filter(p => visibleCos.some(c => c.id === p.company_id)).length})</option>
                 {stlProps.filter(p => visibleCos.some(c => c.id === p.company_id)).map(p => (
                   <option key={p.id} value={p.id}>{p.name || p.address}{stlCompanies.length > 1 && coById[p.company_id]?.abbr ? ` · ${coById[p.company_id].abbr}` : ''}</option>
@@ -651,8 +664,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         { k: 'adr', l: 'ADR', title: 'Gross per night sold' }, { k: 'revpar', l: 'RevPAR', title: 'Gross per available room-night' },
                         { k: 'gross', l: 'Gross' }, { k: 'platformFees', l: 'Fees' }, { k: 'netAfterFees', l: 'Net' },
                       ].map(c => (
-                        <th key={c.k} onClick={() => toggleRoomSort(c.k)} title={c.title} style={{ ...th, textAlign: c.right === false ? 'left' : 'right', cursor: 'pointer', userSelect: 'none', color: roomSort.key === c.k ? T.text : T.muted }}>
-                          {c.l}{roomSort.key === c.k ? (roomSort.dir === 'asc' ? ' ↑' : ' ↓') : ''}
+                        <th key={c.k} title={c.title} aria-sort={roomSort.key === c.k ? (roomSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'} style={{ ...th, textAlign: c.right === false ? 'left' : 'right', color: roomSort.key === c.k ? T.text : T.muted }}>
+                          <button type="button" onClick={() => toggleRoomSort(c.k)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', cursor: 'pointer', userSelect: 'none' }}>
+                            {c.l}{roomSort.key === c.k ? (roomSort.dir === 'asc' ? ' ↑' : ' ↓') : ''}
+                          </button>
                         </th>
                       ))}
                       <th style={th}>Channels</th>
@@ -838,10 +853,10 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                 <div ref={payoutRef} style={{ ...card(T), overflowX: 'auto', scrollMarginTop: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <div style={{ ...monoLabel(T), marginBottom: 0 }}>Manager payout · {periodLabel}</div>
-                    {payouts.length > 0 && <Button variant="secondary" size="sm" onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</Button>}
+                    {payRuns.length > 0 && <Button variant="secondary" size="sm" onClick={() => { navigator.clipboard?.writeText(payoutText()).then(() => showToast?.('Payout summary copied', 'success')).catch(() => showToast?.('Could not copy', 'error')) }}>Copy summary</Button>}
                   </div>
-                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>Bookings counted by check-in date in the period. Use "This fortnight" or "Last fortnight" above for a two-weekly payout run.</div>
-                  {payouts.length === 0 ? (
+                  <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginBottom: 10 }}>Bookings counted by check-in date in the period. Use "This fortnight" or "Last fortnight" above for a two-weekly payout run. Each pay run covers every unit the manager looks after{payRunFiltered ? ': the property filter and search do not apply here' : ''}.</div>
+                  {payRuns.length === 0 ? (
                     <div style={{ fontFamily: MONO, fontSize: 12, color: T.faint }}>{managers.length ? 'No assigned units have income in this period.' : 'Add a manager and assign units to see what to pay them.'}</div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -849,7 +864,7 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                         <th style={th}>Manager / unit</th><th style={{ ...th, textAlign: 'right' }}>Net after fees</th><th style={{ ...th, textAlign: 'right' }}>%</th><th style={{ ...th, textAlign: 'right' }}>Pay</th>
                       </tr></thead>
                       <tbody>
-                        {payouts.map(r => (
+                        {payRuns.map(r => (
                           <Fragment key={r.manager.id}>
                             <tr style={{ background: stlBg }}>
                               <td style={{ ...td, fontWeight: 700, whiteSpace: 'normal' }}>{r.manager.name}
@@ -888,9 +903,11 @@ export default function ShortTermLetIncomePage({ companies = [], properties = []
                                           ? <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 400, color: T.amber, whiteSpace: 'normal', marginTop: 6 }}>Corrections exceed this period's fee; nothing to pay. The balance carries until a period can absorb it.</div>
                                           : (
                                             <div style={{ marginTop: 6 }}>
-                                              <Button variant="primary" size="sm" onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id}>
+                                              <Button variant="primary" size="sm" onClick={() => markPaid(r)} disabled={markingPaid === r.manager.id || payRunFiltered}
+                                                title={payRunFiltered ? 'Clear the property filter and search to record a payment for the whole pay run' : undefined}>
                                                 {markingPaid === r.manager.id ? 'Saving…' : 'Mark as paid'}
                                               </Button>
+                                              {payRunFiltered && <div style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 400, color: T.muted, whiteSpace: 'normal', marginTop: 4 }}>Clear the property filter and search to record this payment.</div>}
                                             </div>
                                           )
                                       )}

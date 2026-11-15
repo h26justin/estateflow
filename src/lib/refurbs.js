@@ -149,20 +149,25 @@ export function projectsFromProperties(properties) {
   return out
 }
 
-/** Portfolio-level summary for the header stats and alerts. */
-export function summariseProjects(projects, today = new Date()) {
+/**
+ * Portfolio-level summary for the header stats and alerts. Money totals
+ * cover active projects only, unless includeComplete is set (a view that
+ * lists completed refurbs, so its tiles sum what it shows).
+ */
+export function summariseProjects(projects, today = new Date(), { includeComplete = false } = {}) {
   const live = (projects || []).filter(isLiveProject)
   const byStage = Object.fromEntries(STAGES.map(s => [s, []]))
   let agreed = 0, paid = 0, remaining = 0, active = 0, overBudget = 0, overdue = 0, noPrice = 0, complete = 0
   for (const p of live) {
     const t = projectTotals(p)
     ;(byStage[p.stage] || byStage.planned).push(p)
-    if (p.stage === 'complete') { complete += 1; continue }
-    active += 1
+    if (p.stage === 'complete') { complete += 1; if (!includeComplete) continue }
+    else active += 1
     agreed += t.agreed
     paid += t.paid
     remaining += t.remaining
     if (t.over || t.overpaid > 0) overBudget += 1
+    if (p.stage === 'complete') continue
     if (isOverdue(p, today)) overdue += 1
     if (t.agreed <= 0) noPrice += 1
   }

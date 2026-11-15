@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ThemeProvider } from '../../lib/ThemeContext'
 import RefurbsPage, { RefurbPropertyTab } from '../RefurbsPage'
 
@@ -197,6 +197,36 @@ describe('RefurbPropertyTab', () => {
     expect(await screen.findByText('Original quote')).toBeInTheDocument()
     fireEvent.click(screen.getByText('All refurbs →'))
     expect(openRefurbs).toHaveBeenCalled()
+  })
+
+  it('saves the Treatment just chosen (capital vs revenue), not the previous value', async () => {
+    const api = await import('../../lib/api')
+    api.updateRefurbProject.mockClear()
+    render(<ThemeProvider>
+      <RefurbPropertyTab property={properties[0]} companies={companies} properties={properties} permissionsMap={permissionsMap} showToast={vi.fn()} onPropertyPatch={vi.fn()} />
+    </ThemeProvider>)
+    await screen.findByText('Original quote')
+    fireEvent.change(screen.getByLabelText('Treatment'), { target: { value: 'revenue' } })
+    await waitFor(() => expect(api.updateRefurbProject).toHaveBeenCalledWith('r1', { treatment: 'revenue' }))
+    expect(api.updateRefurbProject).not.toHaveBeenCalledWith('r1', { treatment: 'capital' })
+    fireEvent.change(screen.getByLabelText('Funded by'), { target: { value: screen.getByLabelText('Funded by').options[1].value } })
+    await waitFor(() => expect(api.updateRefurbProject).toHaveBeenCalledWith('r1', { funding: screen.getByLabelText('Funded by').options[1].value }))
+  })
+
+  it('a double click on Add logs the payment once', async () => {
+    const api = await import('../../lib/api')
+    api.createRefurbLine.mockClear()
+    render(<ThemeProvider>
+      <RefurbPropertyTab property={properties[0]} companies={companies} properties={properties} permissionsMap={permissionsMap} showToast={vi.fn()} onPropertyPatch={vi.fn()} />
+    </ThemeProvider>)
+    await screen.findByText('Original quote')
+    const block = screen.getByText('Log a payment').parentElement
+    fireEvent.change(block.querySelectorAll('input')[0], { target: { value: '500' } })
+    const add = within(block).getByRole('button', { name: 'Add' })
+    fireEvent.click(add); fireEvent.click(add)
+    fireEvent.keyDown(block.querySelectorAll('input')[0], { key: 'Enter' })
+    await waitFor(() => expect(api.createRefurbLine).toHaveBeenCalled())
+    expect(api.createRefurbLine).toHaveBeenCalledTimes(1)
   })
 
   it('offers to start a refurb when the property has none', () => {

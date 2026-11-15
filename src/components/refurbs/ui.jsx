@@ -1,6 +1,8 @@
 // Shared presentational bits for the refurb workspace. Same look as
 // RefurbsPage.jsx (mono labels, gold primary, card panels).
+import { useId, isValidElement, cloneElement } from 'react'
 import { MONO, FS, SANS } from '../../lib/styles'
+import MoneyInput from '../../lib/MoneyInput'
 import { STAGE_STATUS_CFG, statusLabel } from '../../lib/refurbWorkspace'
 
 export const mono = MONO
@@ -13,15 +15,22 @@ export const todayISO = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '7px 9px', outline: 'none', width: '100%', minHeight: 34, boxSizing: 'border-box' })
+// No outline: the global :focus-visible ring must show on these fields.
+export const inputStyle = T => ({ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '7px 9px', width: '100%', minHeight: 34, boxSizing: 'border-box' })
 export const panel = T => ({ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 12, minWidth: 0 })
 export const label = T => ({ fontFamily: mono, fontSize: FS.xs, color: T.muted, display: 'block', marginBottom: 4 })
 export const sectionHead = T => ({ fontFamily: mono, fontSize: FS.xs, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.muted, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 })
 
+// The label is tied to its control (htmlFor / id) when the child is a single
+// form field; any other child (a composite picker, a read-out) is left as is.
+const LABELLABLE = new Set(['input', 'select', 'textarea', MoneyInput])
 export function Field({ label: text, children, T, hint }) {
+  const autoId = useId()
+  const linkable = isValidElement(children) && LABELLABLE.has(children.type)
+  const id = linkable ? (children.props.id || autoId) : undefined
   return <div style={{ minWidth: 0 }}>
-    <label style={label(T)}>{text}</label>
-    {children}
+    <label style={label(T)} htmlFor={id}>{text}</label>
+    {linkable && !children.props.id ? cloneElement(children, { id }) : children}
     {hint && <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint, marginTop: 3 }}>{hint}</div>}
   </div>
 }

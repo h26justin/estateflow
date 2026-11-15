@@ -59,6 +59,21 @@ export async function fetchAuditStatements(seriesKey) {
     .eq('series_key', seriesKey).order('statement_number'))
 }
 
+// The stored statement text (large, so not in the list query above).
+export async function fetchAuditStatementText(id) {
+  const { data, error } = await supabase.from('statement_audit_statements').select('raw_text').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data?.raw_text || null
+}
+
+// What already holds a statement number in a run, if anything.
+export async function fetchAuditStatementByNumber(seriesKey, statementNumber) {
+  const { data, error } = await supabase.from('statement_audit_statements').select('id, status')
+    .eq('series_key', seriesKey).eq('statement_number', statementNumber).limit(1)
+  if (error) throw error
+  return data?.[0] || null
+}
+
 export async function fetchAuditStatement(id) {
   const { data, error } = await supabase.from('statement_audit_statements').select('*').eq('id', id).single()
   if (error) throw error

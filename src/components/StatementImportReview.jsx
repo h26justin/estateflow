@@ -97,7 +97,7 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
       if (sourceDoc) {
         try { await api.markStatementImported(sourceDoc.id, { batch_id: res.batchId, rent: res.receipts, fees: res.expenses, skipped: res.skipped }) } catch (e) { console.error('markStatementImported', e) }
       }
-      onDone({ ...res, learned: seen.size, summary })
+      onDone({ ...res, learned: seen.size, summary, pdfStored: !!(companyDocumentId || sourceDoc) })
     } catch (e) {
       console.error('commitStatementImport', e)
       showToast?.(e.message || 'The import could not be completed', 'error')
