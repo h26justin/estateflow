@@ -99,9 +99,15 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
 
     for (const file of Array.from(files)) {
       try {
+        // Type / size check before anything is uploaded.
+        api.validateUpload(file)
         const {data:{user:u}} = await supabase.auth.getUser()
-        const ext = file.name.split('.').pop()
-        const filePath = `${u.id}/${propertyId}/${Date.now()}-${file.name}`
+        // Storage key never contains the raw file name (which can carry
+        // path characters or personal data): {ts}_{random}.{ext}, the same
+        // shape as uploadDealDocument. The display name lives in the row.
+        const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+        const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : 'bin'
+        const filePath = `${u.id}/${propertyId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
 
         // Upload to Supabase Storage (private bucket).
         const {data:uploadData, error:uploadErr} = await supabase.storage

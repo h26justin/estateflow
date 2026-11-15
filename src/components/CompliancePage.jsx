@@ -24,6 +24,7 @@ import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUnti
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { isoToday } from '../lib/rentEngine'
 import { Button, EmptyState } from './ui'
 
 const mono = MONO
@@ -334,7 +335,7 @@ export default function CompliancePage({ user, companies = [], properties = [], 
   const bulkReqs = COMPLIANCE_CATALOGUE.filter(r => r.tier <= 2 && r.group !== 'tenancy' && r.group !== 'insurance')
   const REMINDER_DAYS = { gas_safety: 30, eicr: 60, epc: 90, hmo: 90, selective_licence: 90 }
   const openBulk = () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = isoToday()
     setBulk({ building: buildings[0]?.tail || '', key: 'gas_safety', issue: today, expiry: addMonthsISO(today, 12) })
   }
   const setBulkKey = key => setBulk(b => { const req = bulkReqs.find(r => r.key === key); return { ...b, key, expiry: addMonthsISO(b.issue, req?.cycleMonths || 12) } })
@@ -354,20 +355,27 @@ export default function CompliancePage({ user, companies = [], properties = [], 
     if (!bulk || bulkTargets.length === 0) return
     const req = bulkReqs.find(r => r.key === bulk.key)
     setBulkSaving(true)
-    let done = 0
+    let done = 0, failed = 0
     const next = { ...added }
     for (const p of bulkTargets) {
       try {
         const row = await api.createCompliance(p.id, {
           cert_type: req.key, cert_name: req.label, issue_date: bulk.issue || null, expiry_date: bulk.expiry || null,
-          reminder_days: REMINDER_DAYS[req.key] || 30, notes: `Logged for the whole building (${bulk.building}) on ${new Date().toISOString().slice(0, 10)}`,
+          reminder_days: REMINDER_DAYS[req.key] || 30, notes: `Logged for the whole building (${bulk.building}) on ${isoToday()}`,
         })
         next[p.id] = [...(next[p.id] || []), row]
         done++
-      } catch (e) { showToast?.(`${p.name}: ${e.message || 'could not save'}`, 'error') }
+      } catch (e) { failed++; showToast?.(`${p.name}: ${e.message || 'could not save'}`, 'error') }
     }
-    setAdded(next); setBulkSaving(false); setBulk(null)
-    showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
+    setAdded(next); setBulkSaving(false)
+    if (done === 0) {
+      // Nothing saved: report the failure and keep the form open to retry.
+      showToast?.(`${req.short} was not logged — all ${failed} unit${failed === 1 ? '' : 's'} failed to save`, 'error')
+      return
+    }
+    setBulk(null)
+    if (failed > 0) showToast?.(`${req.short} logged for ${done} of ${done + failed} units in ${bulk.building} — ${failed} failed`, 'error')
+    else showToast?.(`${req.short} logged for ${done} unit${done === 1 ? '' : 's'} in ${bulk.building}`, 'success')
   }
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 4 }
   const inp = { width: '100%', padding: '7px 8px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bg, color: T.text, fontFamily: mono, fontSize: 12 }

@@ -5,7 +5,7 @@ import { NotesTimeline } from './NotesTimeline'
 import { Icon } from '../../lib/icons'
 
 // ── FINANCIALS TAB ────────────────────────────────────────────────────────────
-export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast, canViewFinancial = true, canEditFinancial = true}) {
+export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYield, calcMonthlyProfit, isAdmin, user, showToast, canViewFinancial = true, canEditFinancial = true, yieldBasis = 'cost'}) {
   const { T } = useTheme()
 
   if (!canViewFinancial) {
@@ -28,12 +28,13 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
   const equity = currentVal - (selected.mortgage_amount||0)
   const ltv = currentVal ? (((selected.mortgage_amount||0)/currentVal)*100).toFixed(1) : '—'
 
-  // Yield calc — match calcGrossYield in App.jsx. yieldBasis from settings
-  // determines whether the denominator is purchase+refurb ('cost') or current value.
-  // Default is 'cost' so we describe that path; if the user has switched to 'value'
-  // the actual number from calcGrossYield reflects that, but for transparency we
-  // show the inputs that match what they'd see today.
-  const yieldDenom = (selected.purchase_price||0)+(selected.refurb_cost||0)
+  // Yield calc — matches calcGrossYield (lib/propertyCalcs). yieldBasis from
+  // settings decides the denominator: purchase + refurb ('cost') or current
+  // value ('value'). The explainer describes whichever basis is in use.
+  const valueBasis = yieldBasis === 'value'
+  const yieldDenom = valueBasis ? currentVal : (selected.purchase_price||0)+(selected.refurb_cost||0)
+  // Show profit (including a loss) whenever there is anything to calculate it from.
+  const hasProfitInputs = !!(selected.rent_pcm || mortgage > 0 || selected.insurance)
   const annualRent = (selected.rent_pcm||0)*12
   const usingCurrentValue = !!selected.current_value && selected.current_value !== selected.est_value
 
@@ -97,8 +98,12 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
       {l:'Gross Yield',      v:yield_>0?yield_.toFixed(2)+'%':'—', color:T.green,
         explain: {
           title: 'Gross Yield',
-          formula: '(Monthly Rent × 12) ÷ Cost Basis × 100',
-          inputs: [
+          formula: valueBasis ? '(Monthly Rent × 12) ÷ Current Value × 100' : '(Monthly Rent × 12) ÷ Cost Basis × 100',
+          inputs: valueBasis ? [
+            { label: 'Monthly Rent',   value: fmt(selected.rent_pcm) },
+            { label: 'Annual Rent',    value: fmt(annualRent) },
+            { label: 'Current Value',  value: fmt(yieldDenom) },
+          ] : [
             { label: 'Monthly Rent',   value: fmt(selected.rent_pcm) },
             { label: 'Annual Rent',    value: fmt(annualRent) },
             { label: 'Purchase Price', value: fmt(selected.purchase_price) },
@@ -106,9 +111,11 @@ export function FinancialsTab({selected, fmt, calcMonthlyMortgage, calcGrossYiel
             { label: 'Cost Basis',     value: fmt(yieldDenom) },
           ],
           result: yield_ > 0 ? yield_.toFixed(2) + '%' : '—',
-          note: 'Cost basis defaults to Purchase Price + Refurb. You can switch to Current Value in Settings → Display.',
+          note: valueBasis
+            ? 'Using the value basis: Current Value (Estimated Value when not set). You can switch to Purchase Price + Refurb in Settings → Display.'
+            : 'Cost basis is Purchase Price + Refurb. You can switch to Current Value in Settings → Display.',
         }},
-      {l:'Monthly Profit',   v:monthlyProfit>0?fmt(monthlyProfit):'—', color:monthlyProfit>0?T.green:T.red,
+      {l:'Monthly Profit',   v:hasProfitInputs?fmt(monthlyProfit):'—', color:!hasProfitInputs?T.text:monthlyProfit>0?T.green:monthlyProfit<0?T.red:T.text,
         explain: {
           title: 'Monthly Profit',
           formula: 'Monthly Rent − Monthly Mortgage − (Insurance ÷ 12)',

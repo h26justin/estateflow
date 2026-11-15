@@ -4,6 +4,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
+import { supabase } from '../lib/supabase'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
@@ -26,7 +27,8 @@ const fmtDate = (d) => {
 //   propertyId  — the property the document belongs to (required for create)
 //   companyId   — fallback scope when there is no property (optional)
 //   documents   — [{ id, name }] candidate documents to send (optional;
-//                 a freeform "no document" envelope is allowed)
+//                 when empty, the property's own documents are loaded).
+//                 An envelope must carry a document before it can be sent.
 //   T           — theme passthrough
 
 const STATUS_META = {
@@ -49,6 +51,19 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
   const [signerEmail, setSignerEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  // Candidate documents: the caller's list, else this property's documents.
+  const [ownDocs, setOwnDocs] = useState([])
+  useEffect(() => {
+    if (documents.length > 0 || !propertyId) return
+    let live = true
+    supabase.from('property_documents').select('id, name')
+      .eq('property_id', propertyId).is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (live) setOwnDocs(data || []) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [documents.length, propertyId])
+  const docOptions = documents.length > 0 ? documents : ownDocs
 
   const beginLoad = useLoadGuard()
   const load = useCallback(async () => {
@@ -68,34 +83,62 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
   useEffect(() => { load() }, [load])
 
   const emailValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(signerEmail.trim())
-  const canCreate = !busy && signerName.trim() && emailValid && (propertyId || companyId)
+  // A document is required: an envelope with nothing to sign can't be sent.
+  const canCreate = !busy && !!documentId && signerName.trim() && emailValid && (propertyId || companyId)
+
+  // Sending goes to a real person's inbox, so it is always confirmed first.
+  function confirmSend(name, email, docName) {
+    return confirmDialog({
+      title: 'Send for signature?',
+      body: `${docName ? `"${docName}"` : 'This document'} will be emailed to ${name} <${email}> to sign. Check the name and email address before sending.`,
+      confirmLabel: 'Send',
+    })
+  }
 
   async function createAndSend() {
     if (!canCreate) return
+    const name = signerName.trim(), email = signerEmail.trim()
+    const docName = docOptions.find(d => d.id === documentId)?.name
+    if (!await confirmSend(name, email, docName)) return
     setBusy(true)
+    let env = null
     try {
-      const env = await api.createEsignEnvelope({
+      env = await api.createEsignEnvelope({
         propertyId, companyId,
-        documentId: documentId || null,
-        signerName: signerName.trim(),
-        signerEmail: signerEmail.trim(),
+        documentId,
+        signerName: name,
+        signerEmail: email,
       })
+    } catch (e) {
+      showAppToast(`Could not create envelope: ${e.message || 'unknown error'}`, 'error')
+      setBusy(false)
+      return
+    }
+    // The draft exists from here on — report the send separately so a send
+    // failure never reads as "nothing was created".
+    setSignerName(''); setSignerEmail(''); setDocumentId('')
+    try {
       const result = await api.sendEsignEnvelope(env.id)
       if (result.inert) {
         showAppToast('Envelope saved as a draft — awaiting provider setup', 'info')
       } else {
         showAppToast('Sent for signature')
       }
-      setSignerName(''); setSignerEmail(''); setDocumentId('')
-      await load()
     } catch (e) {
-      showAppToast(e.message || 'Could not create envelope', 'error')
+      showAppToast(`Draft envelope saved, but sending failed: ${e.message || 'unknown error'}. You can retry with Send below.`, 'error')
     } finally {
+      await load()
       setBusy(false)
     }
   }
 
   async function resend(id) {
+    const env = envelopes.find(x => x.id === id)
+    if (env && !env.document_id) {
+      showAppToast('This envelope has no document attached, so it can’t be sent. Void it and create a new one with a document.', 'error')
+      return
+    }
+    if (!await confirmSend(env?.signer_name || 'the signer', env?.signer_email || '', docOptions.find(d => d.id === env?.document_id)?.name)) return
     setBusyId(id)
     try {
       const result = await api.sendEsignEnvelope(id)
@@ -148,15 +191,16 @@ export default function ESignPanel({ propertyId, companyId, documents = [], T })
       </div>
 
       <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-        {documents.length > 0 && (
-          <label style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Document</span>
-            <select value={documentId} onChange={e => setDocumentId(e.target.value)} style={fieldStyle}>
-              <option value="">— No document (placeholder envelope) —</option>
-              {documents.map(d => <option key={d.id} value={d.id}>{d.name || d.id}</option>)}
-            </select>
-          </label>
-        )}
+        <label style={{ display: 'grid', gap: 4 }}>
+          <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Document</span>
+          <select value={documentId} onChange={e => setDocumentId(e.target.value)} style={fieldStyle} disabled={docOptions.length === 0}>
+            <option value="">{docOptions.length === 0 ? '— Upload a document first —' : '— Choose a document —'}</option>
+            {docOptions.map(d => <option key={d.id} value={d.id}>{d.name || d.id}</option>)}
+          </select>
+          {docOptions.length === 0 && (
+            <span style={{ fontFamily: SANS, fontSize: FS.sm, color: theme.muted }}>Add the document on the Documents tab, then choose it here.</span>
+          )}
+        </label>
         <label style={{ display: 'grid', gap: 4 }}>
           <span style={{ fontFamily: MONO, fontSize: FS.xs, color: theme.muted }}>Signer name</span>
           <input value={signerName} onChange={e => setSignerName(e.target.value)}

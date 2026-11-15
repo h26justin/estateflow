@@ -85,8 +85,8 @@ export default function ReferencingPanel({ propertyId, canEdit = true }) {
   async function remove(it) {
     const ok = await confirmDialog({
       title: 'Delete check?',
-      message: `Remove the ${it.check_type === 'right_to_rent' ? 'Right-to-Rent' : 'reference'} check for ${it.applicant_name}?`,
-      confirmText: 'Delete', tone: 'danger',
+      body: `Remove the ${it.check_type === 'right_to_rent' ? 'Right-to-Rent' : 'reference'} check for ${it.applicant_name}?`,
+      confirmLabel: 'Delete', destructive: true,
     })
     if (!ok) return
     try { await api.deleteReferencingCheck(it.id); await load() }

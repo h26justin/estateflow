@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { monthRate } from '../../lib/rentForecast'
+import { evaluateProperty, collectionStats, arrearsSummary } from '../../lib/rentEngine'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
 import RentIncomePanel from '../RentIncomePanel'
 import { SmartAlerts } from '../DashboardComponents'
@@ -11,6 +13,7 @@ import PropertySearchBar from '../PropertySearchBar'
 import PortfolioInsightsWidget from '../PortfolioInsightsWidget'
 import { canUseInvestorFeatures } from '../../lib/tierGating'
 import { plural } from '../../lib/format'
+import { propValue } from '../../lib/propertyValue'
 import { CompanyDocumentsTab, TenantInbox, PropertyMap, AutopilotWidget } from './lazyViews'
 import { fmt } from '../../lib/appFmt'
 import { StatCard } from './StatCard'
@@ -35,6 +38,16 @@ export function DashboardView({
   // One compliance rollup per property, shared by the health ring and the
   // Portfolio Compliance card (and only recomputed when its inputs change).
   const complianceSummaries = useComplianceSummaries(dashProps, companySettings, insurancePolicies)
+  // Arrears from the rent engine (overdue rent periods + unpaid historic
+  // opening balance), matching the Rent Tracker — not the hand-typed
+  // properties.arrears, which hid a property months overdue with nothing
+  // typed. The typed figure is listed only as a labelled manual note.
+  const arrearsRows = useMemo(() => dashProps
+    .filter(p => p.status !== 'short_term_let')
+    .map(p => ({ p, owed: Math.round(((collectionStats(evaluateProperty(p)).overdue || 0) + (arrearsSummary(p).balance || 0)) * 100) / 100 }))
+    .filter(r => r.owed > 0), [dashProps])
+  const engineArrearsTotal = arrearsRows.reduce((t, r) => t + r.owed, 0)
+  const manualArrearsProps = dashProps.filter(p => (Number(p.arrears) || 0) > 0)
   return (
     <div className="fade">
       {/* First-run zero-state. Accounts with no properties land here —
@@ -88,17 +101,17 @@ export function DashboardView({
             })()}
             {activeProperties.length > 0 && <p style={{fontFamily:MONO,color:T.muted,fontSize:isMobile?11:12,lineHeight:1.5,wordBreak:'break-word',overflowWrap:'anywhere'}}>
               {plural(stats.total,'property','properties')} · {stats.rented} rented{stats.noticeGiven>0?` (${stats.noticeGiven} on notice)`:''}{stats.letAgreed>0?` · ${stats.letAgreed} let agreed`:''} · {stats.vacant} vacant{dashCoFilter.length>0?` · ${dashCoFilter.length} of ${plural(companies.length,'company','companies')}`:` · ${plural(companies.length,'company','companies')}`}
-              {dashProps.some(p=>p.current_value>0) && <>
+              {dashProps.some(p=>propValue(p)>0) && <>
                 {/* On mobile drop to a new line so the value/equity pair has its own row */}
                 {isMobile ? <br/> : ' · '}
                 <span style={{color:T.muted}}>Value </span>
                 <span style={{color:T.green,fontWeight:700}}>
-                  {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0),0))}
+                  {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+propValue(p),0))}
                 </span>
                 {' · '}
                 <span style={{color:T.muted}}>Equity </span>
                 <span style={{color:T.green,fontWeight:700}}>
-                  {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+(p.current_value||0)-(p.mortgage_amount||0),0))}
+                  {new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(dashProps.reduce((s,p)=>s+propValue(p)-(p.mortgage_amount||0),0))}
                 </span>
               </>}
             </p>}
@@ -436,15 +449,17 @@ export function DashboardView({
               )
             }},
             arrears: { icon:'alert-triangle', label:'Total Arrears', render: () => (
-              <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(stats.totalArrears)} sub={`${stats.vacant} vacant`} accent={stats.totalArrears>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
+              <StatCard icon="alert-triangle" label="Total Arrears" value={fmt(engineArrearsTotal)} sub={`${stats.vacant} vacant`} accent={engineArrearsTotal>0?T.red:T.green} onNavigate={()=>setView('rent')} navLabel="Rent"
                 breakdown={[
                   // Each property in arrears links straight to its Rent
                   // tab — that's where the payment history and arrears
                   // detail live, which is what you want next after
                   // spotting the number here.
-                  ...dashProps.filter(p=>(p.arrears||0)>0).map(p=>({label:p.name, value:fmt(p.arrears), color:T.red,
+                  ...arrearsRows.map(({p, owed})=>({label:p.name, value:fmt(owed), color:T.red,
                     onClick:()=>openDetail(p,'rent'), linkTitle:`Open ${p.name} — rent & arrears`})),
-                  ...(dashProps.filter(p=>(p.arrears||0)>0).length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green}]:[]),
+                  ...(arrearsRows.length===0?[{label:'No arrears - all clear!', value:'✓', color:T.green, note:'Overdue rent and unpaid historic arrears, from the rent records'}]:[]),
+                  ...manualArrearsProps.map((p,i)=>({label:`${p.name} · manual note`, value:fmt(p.arrears), color:T.muted, separator:i===0,
+                    note: i===0 ? 'Arrears typed on the property, not from the rent records' : undefined})),
                   {label:'Vacant units', value:stats.vacant, color:stats.vacant>0?T.amber:T.green},
                 ]}
               />

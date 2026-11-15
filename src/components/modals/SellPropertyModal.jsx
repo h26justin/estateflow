@@ -4,13 +4,14 @@ import { useTheme } from '../../lib/ThemeContext'
 import MoneyInput from '../../lib/MoneyInput'
 import { useConfirm } from '../../lib/ConfirmContext'
 import { fmt } from '../../lib/format'
+import { isoToday } from '../../lib/rentEngine'
 import { Button, Modal } from '../ui'
 
 export default function SellPropertyModal({ property, onClose, onConfirm, busy }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
   const initialPrice = property?.current_value || property?.est_value || ''
-  const initialDate  = new Date().toISOString().slice(0, 10)
+  const initialDate  = isoToday()
   const [price, setPrice] = useState(initialPrice)
   const [date,  setDate]  = useState(initialDate)
   const isDirty = String(price) !== String(initialPrice) || date !== initialDate

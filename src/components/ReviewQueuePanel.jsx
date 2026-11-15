@@ -32,7 +32,10 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
   const periodsFor = p => (p.rent_payments || []).filter(x => x.period_start).slice().sort((a, b) => (a.period_start < b.period_start ? 1 : -1))
 
   function startEdit(r) {
-    setEditing({ receipt: r, allocations: (r.rent_allocations || []).map(a => ({ _key: rowKey(), target: a.target === 'unallocated' ? 'current_rent' : a.target, rent_payment_id: a.rent_payment_id || '', amount: Number(a.amount) })) })
+    setEditing({ receipt: r, allocations: (r.rent_allocations || []).map(a => ({ _key: rowKey(), target: a.target === 'unallocated' ? 'current_rent' : a.target, rent_payment_id: a.rent_payment_id || '', amount: Number(a.amount),
+      // Carried through untouched so re-saving doesn't silently drop a
+      // payment-plan link, the tenancy the money was for, or a note.
+      payment_plan_id: a.payment_plan_id || null, tenancy_id: a.tenancy_id || null, notes: a.notes || null })) })
   }
   const setAlloc = (i, k, v) => setEditing(e => ({ ...e, allocations: e.allocations.map((a, j) => j === i ? { ...a, [k]: v } : a) }))
   const remainder = editing ? Math.round((Number(editing.receipt.amount) - editing.allocations.reduce((s, a) => s + (Number(a.amount) || 0), 0)) * 100) / 100 : 0
@@ -50,7 +53,7 @@ export default function ReviewQueuePanel({ companies, properties, companyIds, ca
     try { await api.updateReceipt(r.id, { review_status: 'ok', review_reason: null }); await load(); onChanged?.() } catch (e) { showToast?.(e.message, 'error') }
   }
   async function remove(r) {
-    const go = await confirmDialog({ title: 'Delete this receipt as a duplicate?', body: `${money(r.amount)} received ${fmtDate(r.received_date)} will be removed. The receipt it duplicates is kept.`, confirmLabel: 'Delete duplicate', danger: true })
+    const go = await confirmDialog({ title: 'Delete this receipt as a duplicate?', body: `${money(r.amount)} received ${fmtDate(r.received_date)} will be removed. The receipt it duplicates is kept.`, confirmLabel: 'Delete duplicate', destructive: true })
     if (!go) return
     try { await api.deleteReceipt(r.id); await load(); onChanged?.() } catch (e) { showToast?.(e.message, 'error') }
   }

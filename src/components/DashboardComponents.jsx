@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
+import { useConfirm } from '../lib/ConfirmContext'
 import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
+import { evaluateProperty, collectionStats, arrearsSummary } from '../lib/rentEngine'
+import { certTypeStatus } from '../lib/complianceStatus'
+import { canonicalCertType } from '../lib/complianceCatalogue'
 import { loadJsPDF } from '../lib/pdfLibs'
 import { createPdfWriter, loadPdfImage, hexToRgb, PALETTE } from '../lib/reportPdfKit'
 import { pressable } from '../lib/pressable'
@@ -26,6 +30,35 @@ function daysSince(dateStr) {
   return Math.ceil((new Date() - new Date(dateStr)) / (1000*60*60*24))
 }
 
+// Compliance rows that need attention, one per property + canonical cert type
+// (+ name, for free-text "other" certs), judged on the LATEST row via the shared
+// certTypeStatus classifier. "Renew" adds a new row and keeps the old one as
+// history, so judging each row on its own kept a renewed certificate showing
+// as EXPIRED. Deleted rows are ignored.
+// Returns [{ item, state: 'expired'|'expiring', days }].
+export function complianceAttentionRows(rows) {
+  const groups = new Map()
+  for (const c of rows || []) {
+    if (!c || c.deleted_at) continue
+    const pid = c.property?.id ?? c.property_id
+    const type = canonicalCertType(c.cert_type)
+    const key = type === 'other'
+      ? `${pid}|other|${String(c.cert_name || '').trim().toLowerCase()}`
+      : `${pid}|${type}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(c)
+  }
+  const out = []
+  for (const items of groups.values()) {
+    const status = certTypeStatus({ compliance_items: items }, items[0].cert_type)
+    if (status.state !== 'expired' && status.state !== 'expiring') continue
+    // Name the alert after the most recent certificate in the group.
+    const item = items.reduce((a, b) => String(b.expiry_date || b.issue_date || '') > String(a.expiry_date || a.issue_date || '') ? b : a)
+    out.push({ item, state: status.state, days: status.days })
+  }
+  return out
+}
+
 // ── SMART ALERTS DASHBOARD PANEL ─────────────────────────────────────────────
 export function SmartAlerts({properties, companies, fmt, openDetail}) {
   const { T } = useTheme()
@@ -36,6 +69,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
   useEffect(()=>{
     // Load compliance items expiring soon
     supabase.from('compliance_items').select('*, property:properties(id,name,company_id)')
+      .is('deleted_at', null)
       .order('expiry_date').then(({data})=>setCompliance(data||[]))
       .catch(()=>{})
 
@@ -46,17 +80,22 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
 
     // Load open maintenance jobs
     supabase.from('maintenance_jobs').select('*, property:properties(id,name,company_id)')
+      .is('deleted_at', null)
       .neq('status','complete').order('created_at').then(({data})=>setMaintenance(data||[]))
       .catch(()=>{})
   },[])
 
   const alerts = []
 
-  // Arrears alerts
-  properties.filter(p=>(p.arrears||0)>0).forEach(p=>{
+  // Arrears alerts — from the rent engine (overdue periods + unpaid historic
+  // balance), not the hand-typed properties.arrears figure.
+  properties.forEach(p=>{
+    if (p.status==='short_term_let') return
+    const owed = (collectionStats(evaluateProperty(p)).overdue||0) + (arrearsSummary(p).balance||0)
+    if (!(owed > 0)) return
     alerts.push({
       type:'arrears', priority:1, icon:'pound', color:T.red,
-      title:`${p.name}`, detail:`Arrears: ${fmt(p.arrears)}`,
+      title:`${p.name}`, detail:`Arrears: ${fmt(owed)}`,
       property:p, badge:'ARREARS'
     })
   })
@@ -72,34 +111,33 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
     })
   })
 
-  // Compliance expiring within 60 days
-  compliance.filter(c=>{
-    const d = daysUntil(c.expiry_date)
-    return d !== null && d <= 60
-  }).forEach(c=>{
-    const days = daysUntil(c.expiry_date)
+  // Compliance expired / expiring within SOON_DAYS — latest row per cert type
+  complianceAttentionRows(compliance).forEach(({item:c, state, days})=>{
     const prop = properties.find(p=>p.id===c.property?.id)
     if (!prop) return   // scope to the active company filter (properties == dashProps)
+    const expired = state === 'expired'
     alerts.push({
-      type:'compliance', priority: days < 0 ? 0 : days <= 30 ? 1 : 2,
-      icon:'shield-check', color: days < 0 ? T.red : days <= 30 ? T.red : T.amber,
-      title:`${c.cert_name}`, detail:`${c.property?.name} · ${days<0?`Expired ${Math.abs(days)}d ago`:`Expires in ${days}d`}`,
-      property:prop, badge: days<0?'EXPIRED':'EXPIRING'
+      type:'compliance', priority: expired ? 0 : days <= 30 ? 1 : 2,
+      icon:'shield-check', color: expired || days <= 30 ? T.red : T.amber,
+      title:`${c.cert_name}`, detail:`${c.property?.name} · ${expired?(days<0?`Expired ${Math.abs(days)}d ago`:'Expired today'):`Expires in ${days}d`}`,
+      property:prop, badge: expired?'EXPIRED':'EXPIRING'
     })
   })
 
-  // Tenancies ending within 60 days
+  // Fixed terms ending within 60 days. Since 1 May 2026 tenancies in England
+  // are periodic — a passed fixed-term end date is not an expiry and needs no
+  // action, so only the upcoming end is noted (neutral, not an alarm).
   tenancies.filter(t=>{
     const d = daysUntil(t.tenancy_end)
-    return d !== null && d <= 60
+    return d !== null && d >= 0 && d <= 60
   }).forEach(t=>{
     const days = daysUntil(t.tenancy_end)
     const prop = properties.find(p=>p.id===t.property?.id)
     if (!prop) return   // scope to the active company filter
     alerts.push({
-      type:'tenancy', priority: days < 0 ? 0 : 2,
-      icon:'calendar', color: days < 0 ? T.red : T.amber,
-      title:`${t.property?.name}`, detail:`Tenancy ${days<0?`expired ${Math.abs(days)}d ago`:`ends in ${days}d`}`,
+      type:'tenancy', priority: 2,
+      icon:'calendar', color: T.blue,
+      title:`${t.property?.name}`, detail:`Fixed term ends in ${days}d · continues as periodic`,
       property:prop, badge:'TENANCY'
     })
   })
@@ -126,7 +164,8 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
 
   const badgeColor = (badge) => {
     if (badge==='ARREARS'||badge==='EXPIRED') return T.red
-    if (badge==='VACANT'||badge==='EXPIRING'||badge==='TENANCY'||badge==='URGENT') return T.amber
+    if (badge==='TENANCY') return T.blue
+    if (badge==='VACANT'||badge==='EXPIRING'||badge==='URGENT') return T.amber
     if (badge==='MORTGAGE') return T.purple
     return T.muted
   }
@@ -656,7 +695,9 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
 // ── CONTRACTORS PAGE ──────────────────────────────────────────────────────────
 export function ContractorsPage({companies, showToast}) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const [contractors, setContractors] = useState([])
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const blank = {name:'',trade:'',phone:'',email:'',company_ids:[],notes:'',preferred:false}
@@ -684,7 +725,9 @@ export function ContractorsPage({companies, showToast}) {
   }
 
   async function handleSave() {
-    if (!form.name||!form.trade) return
+    if (saving) return
+    if (!form.name||!form.trade) { showToast('Name and trade are required','error'); return }
+    setSaving(true)
     try {
       const {data:{user}} = await supabase.auth.getUser()
       // Build the payload explicitly — the form state's `company_ids` array is
@@ -699,11 +742,19 @@ export function ContractorsPage({companies, showToast}) {
       setForm(blank); setShowForm(false)
       showToast('Contractor added')
     } catch(e) { showToast(e.message,'error') }
+    finally { setSaving(false) }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(c) {
+    if (!await confirm({
+      title: `Remove ${c.name || 'this contractor'}?`,
+      body: 'This permanently deletes the contact from your contractor directory.',
+      confirmLabel: 'Remove', destructive: true,
+    })) return
+    const id = c.id
     try {
-      await supabase.from('contractors').delete().eq('id',id)
+      const { error } = await supabase.from('contractors').delete().eq('id',id)
+      if (error) throw error
       setContractors(prev=>prev.filter(c=>c.id!==id))
       showToast('Removed')
     } catch(e) { showToast(e.message,'error') }
@@ -758,7 +809,7 @@ export function ContractorsPage({companies, showToast}) {
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="e.g. Available weekends, good rate for block work"/></div>
         <div style={{display:'flex',gap:8}}>
-          <Button variant="primary" size="sm" onClick={handleSave}>Save contractor</Button>
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>Save contractor</Button>
           <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}
@@ -780,7 +831,7 @@ export function ContractorsPage({companies, showToast}) {
                         </div>
                         <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{c.trade}</div>
                       </div>
-                      <button onClick={()=>handleDelete(c.id)} style={{fontFamily:SANS,fontSize:FS.sm,background:T.red+'15',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
+                      <button onClick={()=>handleDelete(c)} style={{fontFamily:SANS,fontSize:FS.sm,background:T.red+'15',color:T.red,border:`1px solid ${T.red}44`,borderRadius:6,padding:'2px 8px',cursor:'pointer',flexShrink:0}}>Remove</button>
                     </div>
                     {c.phone&&<a href={`tel:${c.phone}`} style={{display:'block',fontFamily:MONO,fontSize:12,color:T.blue,marginBottom:2,textDecoration:'none'}}><Icon name="phone" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.phone}</a>}
                     {c.email&&<a href={`mailto:${c.email}`} style={{display:'block',fontFamily:MONO,fontSize:11,color:T.muted,marginBottom:4,textDecoration:'none'}}><Icon name="mail" size={12} style={{verticalAlign:'-2px',marginRight:4}}/>{c.email}</a>}

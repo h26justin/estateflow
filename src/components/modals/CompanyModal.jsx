@@ -4,6 +4,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { isFormDirty } from '../../lib/modalUtils'
 import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
+import { showAppToast } from '../../lib/toast'
 import { pressable } from '../../lib/pressable'
 import { LegalOwnerChoice } from '../CompanyLegalOwner'
 import { COMPANY_COLORS, DEFAULT_COMPANY_COLOR } from '../../lib/companyColors'
@@ -21,10 +22,18 @@ export default function CompanyModal({ onClose, onSave }) {
   // Inline required-field highlighting — set once the user has tried to
   // save with something missing (same pattern as PropertyModal).
   const [triedSave, setTriedSave] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-  function handleSave() {
-    if (!form.name || !form.abbr) { setTriedSave(true); return }
-    onSave(form)
+  async function handleSave() {
+    if (saving) return
+    if (!form.name || !form.abbr) {
+      setTriedSave(true)
+      showAppToast('Company name and short code are required', 'error')
+      return
+    }
+    setSaving(true)
+    try { await onSave(form) }
+    finally { setSaving(false) }
   }
 
   // Duplicate-name guard. As the user types, look up other companies with
@@ -52,7 +61,7 @@ export default function CompanyModal({ onClose, onSave }) {
       title="Add company" description="Create a new company to group properties under."
       footer={<>
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="company-modal-form">
+        <Button type="submit" form="company-modal-form" loading={saving}>
           {similarCompanies.length > 0 ? 'Create anyway' : 'Add company'}
         </Button>
       </>}>

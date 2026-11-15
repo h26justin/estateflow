@@ -3,7 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from '../../lib/rentStats'
 import { propertyNeedsTenancy } from '../../lib/tenancyUtils'
-import { portfolioStats, GO_LIVE } from '../../lib/rentEngine'
+import { portfolioStats, GO_LIVE, evaluateProperty, collectionStats, arrearsSummary } from '../../lib/rentEngine'
 import { RentReviewModal } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent } from '../../lib/propertyStatus'
@@ -104,13 +104,26 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
     () => properties.filter(p => p.rent_payments?.length>0 || isPropertyEarningRent(p.status)),
     [properties],
   )
+  // Arrears per property from the rent engine (overdue periods + unpaid
+  // historic opening balance) — not the hand-typed properties.arrears, which
+  // hid a property months overdue with nothing typed. The typed figure is
+  // shown only as a labelled manual note.
+  const engineArrears = useMemo(() => {
+    const m = new Map()
+    for (const p of trackedProps) {
+      if (p.status === 'short_term_let') { m.set(p.id, 0); continue }
+      const v = (collectionStats(evaluateProperty(p)).overdue || 0) + (arrearsSummary(p).balance || 0)
+      m.set(p.id, Math.round(v * 100) / 100)
+    }
+    return m
+  }, [trackedProps])
   const visibleProps = useMemo(() => {
     const tokens = normaliseQuery(searchQ)
     return trackedProps.filter(p =>
       (statusFilter === 'all' || p.status === statusFilter) &&
-      (!arrearsOnly || (Number(p.arrears)||0) > 0) &&
+      (!arrearsOnly || (engineArrears.get(p.id) || 0) > 0) &&
       matchesQuery(p, tokens))
-  }, [trackedProps, searchQ, statusFilter, arrearsOnly])
+  }, [trackedProps, searchQ, statusFilter, arrearsOnly, engineArrears])
   // Company pills on top of that
   const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
   const shownProps = visCos.flatMap(c => visibleProps.filter(p => p.company_id===c.id))
@@ -498,7 +511,8 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
                                       {p.company.abbr || p.company.name}
                                     </span>
                                   )}
-                                  {(p.arrears||0)>0&&<span style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,fontWeight:700}}>⚠ {fmt(p.arrears)}</span>}
+                                  {(engineArrears.get(p.id)||0)>0&&<span title="Overdue rent plus unpaid historic arrears, from the rent records" style={{fontFamily:MONO,fontSize:FS.xs,color:T.red,fontWeight:700}}>⚠ {fmt(engineArrears.get(p.id))}</span>}
+                                  {(Number(p.arrears)||0)>0&&<span title="Arrears figure typed on the property (manual note)" style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted}}>manual note {fmt(p.arrears)}</span>}
                                 </div>
                                 {hasQuery && (p.address || p.tenant_name) && (
                                   <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:3,overflowWrap:'anywhere'}}>

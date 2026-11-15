@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -105,6 +105,14 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   // Inline required-field highlighting once a create is tried with no property.
   const [triedSave, setTriedSave] = useState(false)
   const [detailTab, setDetailTab] = useState('details')
+  const [loadError, setLoadError] = useState(null)
+  // Agreed-rent draft, saved on blur (not per keystroke). Tagged with the
+  // letting id so a draft never leaks onto another letting.
+  const [rentDraft, setRentDraft] = useState(null)   // { id, v } | null
+  // Checklist ticks: the latest unsaved checklist per letting, and a chain
+  // that saves them in order — two quick ticks must both survive.
+  const pendingChecklist = useRef({})
+  const checklistSave = useRef(Promise.resolve())
 
   // Mount-only fetch: load() reads `selected` to re-sync it after saves, which
   // must not turn every selection into a refetch.
@@ -120,8 +128,9 @@ export default function LettingsPipeline({ user, companies = [], properties = []
     try {
       const data = await api.fetchLettingsProgressions(user.id)
       setLettings(data)
+      setLoadError(null)
       if (selected) setSelected(data.find(l => l.id === selected.id) || null)
-    } catch(e) { showToast('Failed to load lettings pipeline', 'error') }
+    } catch(e) { setLoadError(e?.message || 'Failed to load lettings pipeline') }
     setLoading(false)
   }
 
@@ -157,10 +166,33 @@ export default function LettingsPipeline({ user, companies = [], properties = []
     } catch(e) { showToast(e.message, 'error') }
   }
 
-  async function toggleCheck(id, stage, key, current) {
-    const checklist = { ...(selected?.checklist || {}) }
-    checklist[key] = !current
-    await updateField(id, { checklist })
+  function toggleCheck(id, key) {
+    // Build from the latest checklist (an unsaved one first), never from the
+    // render-time `selected`, so a second quick tick doesn't drop the first.
+    const base = pendingChecklist.current[id] || lettings.find(l => l.id === id)?.checklist || {}
+    const checklist = { ...base, [key]: !base[key] }
+    pendingChecklist.current[id] = checklist
+    setLettings(prev => prev.map(l => l.id === id ? { ...l, checklist } : l))
+    setSelected(sel => sel?.id === id ? { ...sel, checklist } : sel)
+    checklistSave.current = checklistSave.current.then(async () => {
+      const latest = pendingChecklist.current[id]
+      if (!latest) return   // an earlier link already saved the newest state
+      try {
+        await api.updateLettingsProgression(id, { checklist: latest })
+        if (pendingChecklist.current[id] === latest) delete pendingChecklist.current[id]
+      } catch (e) {
+        delete pendingChecklist.current[id]
+        showToast(e.message || 'Could not save checklist', 'error')
+        load()
+      }
+    })
+  }
+
+  function saveRentDraft() {
+    if (!rentDraft || rentDraft.id !== selected?.id) { setRentDraft(null); return }
+    const v = rentDraft.v
+    setRentDraft(null)
+    if ((v ?? null) !== (selected.agreed_rent ?? null)) updateField(selected.id, { agreed_rent: v })
   }
 
   async function moveStage(id, newStage) {
@@ -198,7 +230,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
   return (
     <div>
       {/* ── STAT CARDS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
         {[
           { label: 'Vacant', value: stageCounts.vacant || 0, color: T.red },
           { label: 'In progress', value: lettings.filter(l => !['vacant', 'movein'].includes(l.stage)).length, color: T.blue },
@@ -279,6 +311,11 @@ export default function LettingsPipeline({ user, companies = [], properties = []
 
       {loading ? (
         <SkeletonRows rows={4} height={72}/>
+      ) : loadError ? (
+        <div role="alert" style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+          <EmptyState icon="alert-circle" title="Couldn't load the lettings pipeline" body={loadError}
+            action={<Button size="sm" variant="secondary" onClick={load}>Retry</Button>}/>
+        </div>
       ) : filtered.length === 0 ? (
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
           <EmptyState icon="home"
@@ -349,7 +386,10 @@ export default function LettingsPipeline({ user, companies = [], properties = []
             const propName = selected.property?.name || selected.property?.address || 'Unknown property'
 
             return (
-              <div style={{ position: 'sticky', top: 80 }}>
+              // Keyed by letting: the uncontrolled (defaultValue) inputs below
+              // must remount when another letting is selected, or a typed value
+              // could be saved onto the wrong one.
+              <div key={selected.id} style={{ position: 'sticky', top: 80 }}>
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 18, marginBottom: 10 }}>
                   {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
@@ -393,19 +433,20 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         <div>
                           <label style={lbl} htmlFor="lp-agreed-rent">Agreed rent</label>
                           <MoneyInput id="lp-agreed-rent" prefix="£" suffix="/mo" placeholder="e.g. 1,200"
-                            value={selected.agreed_rent}
-                            onChange={v => updateField(selected.id, { agreed_rent: v })}
+                            value={rentDraft?.id === selected.id ? rentDraft.v : selected.agreed_rent}
+                            onChange={v => setRentDraft({ id: selected.id, v })}
+                            onBlur={saveRentDraft}
                             style={inp} />
                         </div>
                         <div>
                           <label style={lbl} htmlFor="lp-available-date">Available from</label>
                           <input id="lp-available-date" style={inp} type="date" value={selected.available_date || ''}
-                            onChange={e => updateField(selected.id, { available_date: e.target.value })} />
+                            onChange={e => updateField(selected.id, { available_date: e.target.value || null })} />
                         </div>
                         <div>
                           <label style={lbl} htmlFor="lp-proposed-start">Proposed start date</label>
                           <input id="lp-proposed-start" style={inp} type="date" value={selected.proposed_start_date || ''}
-                            onChange={e => updateField(selected.id, { proposed_start_date: e.target.value })} />
+                            onChange={e => updateField(selected.id, { proposed_start_date: e.target.value || null })} />
                         </div>
                         <div>
                           <label style={lbl} htmlFor="lp-listing-url">Listing URL</label>
@@ -445,7 +486,7 @@ export default function LettingsPipeline({ user, companies = [], properties = []
                         <div style={{ height: '100%', borderRadius: 3, background: stage.color, width: `${donePct}%`, transition: 'width 0.3s' }} />
                       </div>
                       {checkItems.map(item => (
-                        <div key={item.key} {...pressable(() => toggleCheck(selected.id, selected.stage, item.key, !!checklist[item.key]), { role: 'checkbox', 'aria-checked': !!checklist[item.key] })}
+                        <div key={item.key} {...pressable(() => toggleCheck(selected.id, item.key), { role: 'checkbox', 'aria-checked': !!checklist[item.key] })}
                           style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
                           <div style={{
                             width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: `2px solid ${checklist[item.key] ? stage.color : T.border}`,

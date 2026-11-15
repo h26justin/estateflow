@@ -21,6 +21,7 @@
 import { useState, useEffect } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
+import { supabase } from '../lib/supabase'
 import { useLoadGuard } from '../lib/useLoadGuard'
 import { useConfirm } from '../lib/ConfirmContext'
 import { TAX_BAND_LABELS } from '../lib/companyPnl'
@@ -121,6 +122,12 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
   }
 
   async function removeShareholder(id) {
+    const sh = shareholders.find(x => x.id === id)
+    if (!(await confirmDialog({
+      title: `Remove ${sh?.name || 'this shareholder'}?`,
+      body: `${sh?.name || 'This shareholder'}${sh?.percentage != null ? ` (${sh.percentage}%)` : ''} will be deleted from this company's cap table and the Company P&L profit split. This cannot be undone.`,
+      confirmLabel: 'Remove shareholder', destructive: true,
+    }))) return
     try {
       await api.deleteShareholder(id)
       setShareholders(s => s.filter(x => x.id !== id))
@@ -150,8 +157,23 @@ export default function CompanyOwnershipSection({ company, companies = [], prope
   }
 
   async function removeAgent(agent) {
-    const managedHere = properties.filter(p => p.managed_by_agent_id === agent.id).length
-    if (managedHere > 0 && !(await confirmDialog({ title: `Remove ${agent.name}?`, body: (`${agent.name} manages ${managedHere} of this company's properties — remove anyway? Properties keep their data but lose the agent link.`), confirmLabel: 'Remove agent', danger: true }))) return
+    // Agents are portfolio-wide, so count every property that links to this
+    // agent (any company the user can see), not just this company's — the
+    // delete clears the link (and its fee) on all of them.
+    let managed = properties.filter(p => p.managed_by_agent_id === agent.id).length
+    try {
+      const { count, error } = await supabase.from('properties')
+        .select('id', { count: 'exact', head: true })
+        .eq('managed_by_agent_id', agent.id)
+      if (error) throw error
+      if (typeof count === 'number') managed = Math.max(managed, count)
+    } catch (e) {
+      return showToast?.(`Could not check which properties use ${agent.name}: ${e.message || 'unknown error'}`, 'error')
+    }
+    const body = managed > 0
+      ? `${agent.name} manages ${managed} ${managed === 1 ? 'property' : 'properties'} across your portfolio. Removing the agent deletes it and clears the agent link (and its fee) on all of them. This cannot be undone.`
+      : `${agent.name} isn't linked to any property. This deletes the agent and its fee settings. This cannot be undone.`
+    if (!(await confirmDialog({ title: `Remove ${agent.name}?`, body, confirmLabel: 'Remove agent', destructive: true }))) return
     try {
       await api.deleteEstateAgent(agent.id)
       setAgents(a => a.filter(x => x.id !== agent.id))

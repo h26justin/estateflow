@@ -7,6 +7,8 @@ import { requirementStatus, itemPredatesTenancy } from '../../lib/complianceStat
 import EpcBadge from '../EpcBadge'
 import InspectionsPanel from '../InspectionsPanel'
 import * as api from '../../lib/api'
+import { isoToday } from '../../lib/rentEngine'
+import { addMonthsISO } from '../../lib/possessionRules'
 import { formatDate, daysUntil, ExpiryBadge } from './helpers'
 import { NotesTimeline } from './NotesTimeline'
 import { SkeletonRows } from '../../lib/Skeleton'
@@ -36,6 +38,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   const fileRef = useRef(null)
   const [attachTarget, setAttachTarget] = useState(null)
   const [attaching, setAttaching] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   // Full requirement catalogue (insurance lives on its own register, not
   // here) plus a free-text Other. Legacy rows written under alias keys
@@ -90,12 +93,14 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   // today if the old one has already lapsed).
   function renewPrefill(row) {
     const { req, item } = row
-    const today = new Date().toISOString().slice(0,10)
+    const today = isoToday()
     let expiry = ''
     if (req.cycleMonths) {
-      const base = item?.expiry_date && new Date(item.expiry_date) > new Date() ? new Date(item.expiry_date) : new Date()
-      base.setMonth(base.getMonth() + req.cycleMonths)
-      expiry = base.toISOString().slice(0,10)
+      // Month arithmetic on the ISO date parts (local calendar dates), so the
+      // new expiry keeps the same day-of-month with no timezone drift.
+      const oldExpiry = item?.expiry_date ? String(item.expiry_date).slice(0,10) : ''
+      const base = oldExpiry && oldExpiry > today ? oldExpiry : today
+      expiry = addMonthsISO(base, req.cycleMonths) || ''
     }
     return { cert_type: req.key, cert_name: item?.cert_name || req.label, issue_date: today, expiry_date: expiry, reminder_days: item?.reminder_days ?? 30 }
   }
@@ -109,12 +114,14 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
   function closeForm() { setShowForm(false); setEditingId(null); setFormAnchor('top'); setForm(EMPTY_FORM) }
 
   async function handleSave() {
-    if (!form.cert_name) return
+    if (saving) return
+    if (!form.cert_name) { showToast('Certificate name is required','error'); return }
     const payload = {
       cert_type: form.cert_type, cert_name: form.cert_name,
       issue_date: form.issue_date || null, expiry_date: form.expiry_date || null,
       reminder_days: form.reminder_days, notes: form.notes,
     }
+    setSaving(true)
     try {
       if (editingId) {
         const updated = await api.updateCompliance(editingId, payload)
@@ -127,6 +134,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
       }
       closeForm()
     } catch(e) { showToast(e.message,'error') }
+    finally { setSaving(false) }
   }
 
   async function handleDelete(id) {
@@ -213,7 +221,7 @@ export function ComplianceTab({propertyId, property = null, companySettings = {}
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Optional notes"/></div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <Button variant="primary" size="sm" onClick={handleSave}>{editingId ? 'Update' : 'Save'}</Button>
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>{editingId ? 'Update' : 'Save'}</Button>
           <Button variant="secondary" size="sm" onClick={closeForm}>Cancel</Button>
           {editingId && canEdit && (
             <Button variant="secondary" destructive size="sm" onClick={()=>handleDelete(editingId)} style={{marginLeft:'auto'}}>Remove</Button>

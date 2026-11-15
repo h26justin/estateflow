@@ -4,6 +4,9 @@ import { MONO, FS, SANS } from '../lib/styles'
 import { showAppToast } from '../lib/toast'
 import * as api from '../lib/api'
 import { naturalCompare } from '../lib/addressUtils'
+import MoneyInput from '../lib/MoneyInput'
+import { parseMoney } from '../lib/format'
+import { isoToday } from '../lib/rentEngine'
 import { Button, Modal } from './ui'
 
 // ── RECEIPT SCAN MODAL ───────────────────────────────────────────────
@@ -46,17 +49,22 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
   const [propertyId, setPropertyId] = useState(properties[0]?.id || '')
   const [category, setCategory]     = useState('other')
   const [description, setDescription] = useState('')
-  const [amount, setAmount]         = useState('')
+  const [amount, setAmount]         = useState(null)   // number | null (MoneyInput)
   const [date, setDate]             = useState('')
+  // The property the receipt image was uploaded and recorded under. The
+  // expense is saved against the same property so the two never disagree.
+  const [uploadedFor, setUploadedFor] = useState(null)
+  const sortedProps = [...properties].sort((a,b) => naturalCompare(a.name, b.name))
 
-  // Auto-fire the file picker on open (mobile-first UX)
+  // Auto-fire the file picker on open (mobile-first UX) — only when there is
+  // a single property, so with several the user picks the property first.
   useEffect(() => {
-    if (stage === 'capture') {
+    if (stage === 'capture' && properties.length === 1) {
       // Defer so the modal mount completes before we trigger the picker
       const t = setTimeout(() => fileRef.current?.click(), 250)
       return () => clearTimeout(t)
     }
-  }, [stage])
+  }, [stage, properties.length])
 
   async function handleFile(file) {
     if (!file) return
@@ -64,18 +72,21 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
     setPreviewUrl(URL.createObjectURL(file))
     setStage('scanning')
     try {
-      // Attach to the first selected property — simplest schema-compliant
-      // path. User can re-pick the property in the review step before save.
-      const targetProperty = properties[0]?.id
-      if (!targetProperty) throw new Error('Add a property first before scanning receipts')
+      // Upload under the property chosen before scanning; the expense is
+      // saved against the same one.
+      if (!properties.length) throw new Error('Add a property first before scanning receipts')
+      const targetProperty = propertyId
+      if (!targetProperty) throw new Error('Pick the property this receipt is for, then scan it')
 
       const { extracted: ex } = await api.uploadAndExtractMortgageDocument(file, targetProperty, 'receipt')
+      setUploadedFor(targetProperty)
       if (!ex || ex._parse_error) throw new Error(ex?._parse_error || 'AI returned no structured data')
 
       setExtracted(ex)
-      // Pre-fill form from extraction
+      // Pre-fill form from extraction. parseMoney strips £ and thousands
+      // separators, so "1,250.00" is £1,250 not £1.
       if (ex.merchant_name || ex.description) setDescription(ex.merchant_name || ex.description)
-      if (ex.amount)   setAmount(String(ex.amount))
+      if (ex.amount != null && ex.amount !== '') { const n = parseMoney(ex.amount); if (!isNaN(n)) setAmount(n) }
       if (ex.date)     setDate(toIsoDate(ex.date))
       if (ex.category) setCategory(mapCategory(ex.category))
       setStage('review')
@@ -87,14 +98,15 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
 
   async function save() {
     if (!propertyId) { setError('Pick a property to attach this expense to'); return }
-    if (!amount || isNaN(parseFloat(amount))) { setError('Amount is required'); return }
+    const amt = typeof amount === 'number' ? amount : parseMoney(amount)
+    if (!amt || isNaN(amt)) { setError('Amount is required'); return }
     setStage('saving')
     try {
-      await api.createExpense(propertyId, {
+      await api.createExpense(uploadedFor || propertyId, {
         category,
         description: description || 'Scanned receipt',
-        amount: parseFloat(amount),
-        date: date || new Date().toISOString().slice(0, 10),
+        amount: amt,
+        date: date || isoToday(),
       })
       showAppToast('Expense saved')
       onSaved?.()
@@ -133,7 +145,16 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
 
           {stage === 'capture' && (
             <div style={{ textAlign: 'center', padding: '12px 0' }}>
-              <Button variant="primary" onClick={() => fileRef.current?.click()} style={{width: '100%'}}>
+              {properties.length > 1 && (
+                <div style={{ textAlign: 'left', marginBottom: 12 }}>
+                  <label htmlFor="receipt-property">Property *</label>
+                  <select id="receipt-property" value={propertyId} onChange={e => setPropertyId(e.target.value)}>
+                    <option value="">— Pick a property —</option>
+                    {sortedProps.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
+              <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={!propertyId} style={{width: '100%'}}>
                 Open camera
               </Button>
               <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginTop: 10 }}>
@@ -166,17 +187,21 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               <div style={{ display: 'grid', gap: 10 }}>
                 <div>
                   <label>Property *</label>
-                  <select aria-label="Property" value={propertyId} onChange={e => setPropertyId(e.target.value)}>
-                    <option value="">— Pick a property —</option>
-                    {[...properties].sort((a,b) => naturalCompare(a.name, b.name)).map(p => (
+                  {/* Fixed to the property the receipt was filed under — the
+                      image and the expense must point at the same one. */}
+                  <select aria-label="Property" value={uploadedFor || propertyId} disabled>
+                    {sortedProps.map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
+                  <div style={{ fontFamily: SANS, fontSize: FS.xs, color: T.muted, marginTop: 4 }}>
+                    Wrong property? Re-scan and pick another one first.
+                  </div>
                 </div>
                 <div className="g2">
                   <div>
                     <label>Amount (£) *</label>
-                    <input aria-label="Amount (£)" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"/>
+                    <MoneyInput aria-label="Amount (£)" value={amount} onChange={setAmount} placeholder="0.00"/>
                   </div>
                   <div>
                     <label>Date</label>
@@ -196,7 +221,7 @@ export default function ReceiptScanModal({ properties = [], onClose, onSaved }) 
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
-                <Button variant="secondary" size="sm" onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null) }}>
+                <Button variant="secondary" size="sm" onClick={() => { setStage('capture'); setExtracted(null); setPreviewUrl(null); setUploadedFor(null) }}>
                   ← Re-scan
                 </Button>
                 <Button variant="primary" size="sm" onClick={save}>

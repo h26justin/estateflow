@@ -11,6 +11,7 @@ import { MONO, FS, SANS } from '../../lib/styles'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
+import { useConfirm } from '../../lib/ConfirmContext'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { NotesTimeline } from '../feature/NotesTimeline'
@@ -29,7 +30,9 @@ function formatDate(d) {
 // ── MAINTENANCE TAB ───────────────────────────────────────────────────────────
 export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEdit = true, activeFlags = new Set()}) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const [jobs, setJobs] = useState([])
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editJob, setEditJob] = useState(null)
@@ -38,7 +41,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   const s = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const CATEGORIES = ['plumbing','electrical','structural','appliance','decoration','roofing','damp','other']
-  const PRIORITIES = [{v:'low',c:T.muted},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:'#FF0000'}]
+  const PRIORITIES = [{v:'low',c:T.muted},{v:'medium',c:T.amber},{v:'high',c:T.red},{v:'urgent',c:T.red}]
   const STATUSES   = [{v:'open',c:T.red,l:'Open'},{v:'in-progress',c:T.amber,l:'In Progress'},{v:'complete',c:T.green,l:'Complete'}]
 
   const beginLoad = useLoadGuard()
@@ -59,7 +62,9 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
   useEffect(()=>{ loadJobs() },[loadJobs])
 
   async function handleSave() {
-    if (!form.title) return
+    if (saving) return
+    if (!form.title) { showToast('Job title is required','error'); return }
+    setSaving(true)
     try {
       // Postgres date columns reject '' — empty date inputs must be null.
       const data = {...form, quoted_cost:parseFloat(form.quoted_cost)||null, actual_cost:parseFloat(form.actual_cost)||null, date_raised:form.date_raised||null, date_resolved:form.date_resolved||null}
@@ -74,9 +79,11 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
       }
       setShowForm(false); setEditJob(null); setForm(blank)
     } catch(e) { showToast(e.message,'error') }
+    finally { setSaving(false) }
   }
 
   async function handleDelete(id) {
+    if (!await confirm({ title:'Remove this job?', body:'It will be removed from this property\'s maintenance log.', confirmLabel:'Remove', destructive:true })) return
     try { await api.deleteMaintenance(id); setJobs(prev=>prev.filter(j=>j.id!==id)); showToast('Job removed') }
     catch(e) { showToast(e.message,'error') }
   }
@@ -105,7 +112,7 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div><label>Category</label><select aria-label="Category" value={form.category} onChange={e=>s('category',e.target.value)}>{CATEGORIES.map(c=><option key={c} style={{textTransform:'capitalize'}}>{c}</option>)}</select></div>
         </div>
         <div style={{marginBottom:12}}><label>Description</label><textarea aria-label="Description" value={form.description} onChange={e=>s('description',e.target.value)} rows={2} style={{resize:'vertical'}}/></div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))',gap:12,marginBottom:12}}>
           <div><label>Priority</label><select aria-label="Priority" value={form.priority} onChange={e=>s('priority',e.target.value)}>{PRIORITIES.map(p=><option key={p.v} value={p.v} style={{textTransform:'capitalize'}}>{p.v}</option>)}</select></div>
           <div><label>Status</label><select aria-label="Status" value={form.status} onChange={e=>s('status',e.target.value)}>{STATUSES.map(p=><option key={p.v} value={p.v}>{p.l}</option>)}</select></div>
           <div><label>Date raised</label><input aria-label="Date Raised" type="date" value={form.date_raised} onChange={e=>s('date_raised',e.target.value)}/></div>
@@ -114,13 +121,13 @@ export function MaintenanceTab({propertyId, showToast, fmt, isAdmin, user, canEd
           <div><label>Contractor</label><input aria-label="Contractor" value={form.contractor} onChange={e=>s('contractor',e.target.value)} placeholder="e.g. Bob's Plumbing"/></div>
           <div><label>Contractor phone</label><input aria-label="Contractor Phone" value={form.contractor_phone} onChange={e=>s('contractor_phone',e.target.value)}/></div>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))',gap:12,marginBottom:12}}>
           <div><label>Quoted cost</label><MoneyInput aria-label="Quoted Cost" prefix="£" value={form.quoted_cost} onChange={v=>s('quoted_cost',v)}/></div>
           <div><label>Actual cost</label><MoneyInput aria-label="Actual Cost" prefix="£" value={form.actual_cost} onChange={v=>s('actual_cost',v)}/></div>
           <div><label>Date resolved</label><input aria-label="Date Resolved" type="date" value={form.date_resolved} onChange={e=>s('date_resolved',e.target.value)}/></div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <Button variant="primary" size="sm" onClick={handleSave}>{editJob?'Update Job':'Add Job'}</Button>
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>{editJob?'Update Job':'Add Job'}</Button>
           <Button variant="secondary" size="sm" onClick={()=>{setShowForm(false);setEditJob(null);setForm(blank)}}>Cancel</Button>
         </div>
       </div>}

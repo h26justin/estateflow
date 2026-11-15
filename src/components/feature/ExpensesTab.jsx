@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
+import { useConfirm } from '../../lib/ConfirmContext'
 import { MONO, FS, SANS } from '../../lib/styles'
 import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
@@ -16,7 +17,9 @@ import { Button, EmptyState } from '../ui'
 // ── EXPENSES TAB ──────────────────────────────────────────────────────────────
 export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user, canEdit = true, canViewFinancial = true}) {
   const { T } = useTheme()
+  const confirm = useConfirm()
   const [expenses, setExpenses] = useState([])
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const blank = {category:'repairs',description:'',amount:'',date:'',recurring:false,recurring_freq:'',notes:''}
@@ -54,16 +57,23 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
   useEffect(()=>{ loadExpenses() },[loadExpenses])
 
   async function handleSave() {
-    if (!form.description||!form.amount||!form.date) return
+    if (saving) return
+    if (!form.description||!form.amount||!form.date) {
+      showToast('Description, amount and date are required','error')
+      return
+    }
+    setSaving(true)
     try {
       const created = await api.createExpense(propertyId, {...form, amount:parseFloat(form.amount)})
       setExpenses(prev=>[created,...prev])
       setForm(blank); setShowForm(false)
       showToast('Expense added')
     } catch(e) { showToast(e.message,'error') }
+    finally { setSaving(false) }
   }
 
   async function handleDelete(id) {
+    if (!await confirm({ title:'Remove this expense?', body:'It will be removed from this property\'s expense log and totals.', confirmLabel:'Remove', destructive:true })) return
     try { await api.deleteExpense(id); setExpenses(prev=>prev.filter(e=>e.id!==id)); showToast('Removed') }
     catch(e) { showToast(e.message,'error') }
   }
@@ -119,7 +129,7 @@ export function ExpensesTab({propertyId, showToast, fmt, rentPcm, isAdmin, user,
         </div>
         <div style={{marginBottom:12}}><label>Notes</label><input aria-label="Notes" value={form.notes} onChange={e=>s('notes',e.target.value)}/></div>
         <div style={{display:'flex',gap:8}}>
-          <Button variant="primary" size="sm" onClick={handleSave}>Save expense</Button>
+          <Button variant="primary" size="sm" onClick={handleSave} loading={saving}>Save expense</Button>
           <Button variant="secondary" size="sm" onClick={()=>setShowForm(false)}>Cancel</Button>
         </div>
       </div>}

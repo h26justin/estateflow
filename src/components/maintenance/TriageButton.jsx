@@ -38,7 +38,7 @@ export default function TriageButton({ job, canTriage = true, onTriaged, onApply
   const [triagedAt, setTriagedAt] = useState(job?.ai_triaged_at || null)
 
   function sevColor(sev) {
-    if (sev === 'emergency') return '#FF0000'
+    if (sev === 'emergency') return T.red
     if (sev === 'high') return T.red
     if (sev === 'medium') return T.amber
     return T.muted

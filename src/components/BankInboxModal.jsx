@@ -16,6 +16,12 @@ import { SkeletonRows } from '../lib/Skeleton'
 // We deliberately keep the picker tight (only unpaid months for active
 // properties) so the list of options is small and obvious.
 
+// Every status that means the month has not been fully paid. ('paid' is
+// settled and 'refurb' has no rent due; anything else — overdue, missed,
+// pending, partial, late, void, blank — can still be matched to a payment.)
+const SETTLED_STATUSES = ['paid', 'refurb']
+export const isMatchableRentRow = rp => !SETTLED_STATUSES.includes(rp?.status)
+
 function fmtAmount(n, c = 'GBP') {
   const sign = n < 0 ? '-' : ''
   return sign + new Intl.NumberFormat('en-GB', { style: 'currency', currency: c }).format(Math.abs(n))
@@ -35,6 +41,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const [matchingId, setMatchingId] = useState(null)
   const [selPropId, setSelPropId]   = useState('')
   const [selRpId, setSelRpId]       = useState('')
+  const [busy, setBusy]             = useState(false)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -56,9 +63,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
   const unpaidByProperty = useMemo(() => {
     const map = {}
     for (const p of properties) {
-      const unpaid = (p.rent_payments || []).filter(
-        rp => rp.status === 'void' || rp.status === 'late' || rp.status === 'partial'
-      )
+      const unpaid = (p.rent_payments || []).filter(isMatchableRentRow)
       if (unpaid.length > 0) map[p.id] = { property: p, unpaid: unpaid.sort((a, b) => (b.year - a.year) || (b.month - a.month)) }
     }
     return map
@@ -70,8 +75,11 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
     setSelRpId('')
   }
 
+  // The data layer throws when nothing was updated, so the success toast
+  // only follows a write that actually landed.
   async function confirmMatch() {
-    if (!matchingId || !selRpId) return
+    if (busy || !matchingId || !selRpId) return
+    setBusy(true)
     try {
       await api.matchTransactionToRentPayment(matchingId, selRpId)
       showAppToast('Matched.')
@@ -79,19 +87,21 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
       reload()
       onMatched?.()
     } catch (e) {
-      showAppToast(e.message || 'Match failed', 'error')
-    }
+      showAppToast(`Match failed: ${e?.message || 'unknown error'}`, 'error')
+    } finally { setBusy(false) }
   }
 
   async function unmatch(txId) {
+    if (busy) return
+    setBusy(true)
     try {
       await api.unmatchTransaction(txId)
       showAppToast('Unmatched.')
       reload()
       onMatched?.()
     } catch (e) {
-      showAppToast(e.message || 'Unmatch failed', 'error')
-    }
+      showAppToast(`Unmatch failed: ${e?.message || 'unknown error'}`, 'error')
+    } finally { setBusy(false) }
   }
 
   async function syncNow() {
@@ -191,7 +201,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                       </div>
                       <div style={{ flexShrink: 0 }}>
                         {matched ? (
-                          <Button variant="secondary" size="sm" onClick={() => unmatch(t.id)}>
+                          <Button variant="secondary" size="sm" onClick={() => unmatch(t.id)} disabled={busy}>
                             Unmatch
                           </Button>
                         ) : isCredit ? (
@@ -234,7 +244,7 @@ export default function BankInboxModal({ onClose, properties = [], onMatched }) 
                         )}
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                           <Button variant="secondary" size="sm" onClick={() => setMatchingId(null)}>Cancel</Button>
-                          <Button variant="primary" size="sm" onClick={confirmMatch} disabled={!selRpId}>Confirm match</Button>
+                          <Button variant="primary" size="sm" onClick={confirmMatch} disabled={!selRpId} loading={busy}>Confirm match</Button>
                         </div>
                       </div>
                     )}

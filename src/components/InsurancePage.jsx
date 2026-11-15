@@ -22,6 +22,8 @@ import * as api from '../lib/api'
 import { fmt, plural, fmtDate } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import MoneyInput from '../lib/MoneyInput'
+import { isoToday, daysBetween } from '../lib/rentEngine'
+import { addMonthsISO } from '../lib/possessionRules'
 import { isFormDirty } from '../lib/modalUtils'
 import { Button, EmptyState, Modal } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
@@ -31,25 +33,23 @@ const mono = MONO
 // Bucket each policy by how urgent its renewal is. Anything past today is
 // 'expired'; otherwise we look at days-to-go and classify.
 function expiryBucket(expiryDate) {
-  if (!expiryDate) return 'unknown'
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const expiry = new Date(expiryDate)
-  if (isNaN(expiry.getTime())) return 'unknown'
-  const days = Math.floor((expiry - today) / (1000 * 60 * 60 * 24))
+  const days = daysUntil(expiryDate)
+  if (days === null) return 'unknown'
   if (days < 0)   return 'expired'
   if (days <= 30) return 'urgent'
   if (days <= 90) return 'soon'
   return 'ok'
 }
 
+// Whole calendar days from today (local date) to the expiry date: 0 on the
+// expiry day, negative once past. The one helper every insurance surface uses
+// (list rows, buckets, the property picker, By Property) so they can't disagree.
 function daysUntil(expiryDate) {
   if (!expiryDate) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const expiry = new Date(expiryDate)
-  if (isNaN(expiry.getTime())) return null
-  return Math.floor((expiry - today) / (1000 * 60 * 60 * 24))
+  const iso = String(expiryDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const days = daysBetween(isoToday(), iso) - 1
+  return Number.isFinite(days) ? days : null
 }
 
 const TYPE_LABEL = Object.fromEntries(api.POLICY_TYPES.map(t => [t.v, t.l]))
@@ -71,6 +71,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   // picker rather than opening one of them by guesswork. Tracks the property
   // whose picker is open; null means no picker showing.
   const [propertyPicker, setPropertyPicker] = useState(null)
+  const [loadError, setLoadError] = useState(null)
 
 
   const reload = useCallback(async () => {
@@ -78,11 +79,12 @@ export default function InsurancePage({ user, companies = [], properties = [], s
     try {
       const data = await api.fetchInsurancePolicies()
       setPolicies(data)
+      setLoadError(null)
     } catch (e) {
-      showToast(e.message || 'Failed to load policies', 'error')
+      setLoadError(e.message || 'Failed to load policies')
     }
     setLoading(false)
-  }, [showToast])
+  }, [])
   useEffect(() => { reload() }, [reload])
 
   // Filter: by company first, then by view
@@ -117,6 +119,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
     return chain
   }, [historyChainId, policies])
 
+  // Resolves true on success so the modal can keep its saving state honest.
   async function handleSave(policyData, propertyIds) {
     try {
       if (editing?.id) {
@@ -128,8 +131,10 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       }
       setEditing(null)
       await reload()
+      return true
     } catch (e) {
       showToast(e.message || 'Save failed', 'error')
+      return false
     }
   }
 
@@ -152,10 +157,10 @@ export default function InsurancePage({ user, companies = [], properties = [], s
   async function handleRenew(policy) {
     // Pre-fill the modal with renewal defaults. We don't save to DB until
     // the user confirms — they may want to adjust the new premium first.
-    const oldExpiry = new Date(policy.expiry_date)
-    const newStart = oldExpiry.toISOString().slice(0, 10)
-    const newExpiry = new Date(oldExpiry)
-    newExpiry.setFullYear(newExpiry.getFullYear() + 1)
+    // Year arithmetic on the ISO date string — no Date/timezone round trip
+    // (29 Feb clamps to 28 Feb).
+    const newStart = String(policy.expiry_date || '').slice(0, 10)
+    const newExpiry = addMonthsISO(newStart, 12) || ''
     setEditing({
       company_id:         policy.company_id,
       policy_type:        policy.policy_type,
@@ -164,7 +169,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       broker:             policy.broker,
       policy_number:      policy.policy_number,
       start_date:         newStart,
-      expiry_date:        newExpiry.toISOString().slice(0, 10),
+      expiry_date:        newExpiry,
       premium:            policy.premium,
       payment_freq:       policy.payment_freq,
       previous_policy_id: policy.id,
@@ -261,6 +266,12 @@ export default function InsurancePage({ user, companies = [], properties = [], s
       {/* Body */}
       {loading ? (
         <div aria-busy="true" aria-label="Loading policies"><SkeletonRows rows={4} height={64}/></div>
+      ) : loadError ? (
+        <div style={card} role="alert">
+          <EmptyState compact icon="alert-circle" title="Couldn't load your policies"
+            body={loadError}
+            action={<Button size="sm" variant="secondary" onClick={reload}>Retry</Button>}/>
+        </div>
       ) : view === 'by_property' ? (
         <ByPropertyView
           properties={properties}
@@ -334,7 +345,7 @@ export default function InsurancePage({ user, companies = [], properties = [], s
             </div>
             <div style={{ padding: '0 26px 22px', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {propertyPicker.policies.map(pol => {
-                const days = Math.floor((new Date(pol.expiry_date) - new Date()) / 86400000)
+                const days = daysUntil(pol.expiry_date) ?? 0
                 const color = days < 0 ? T.red : days <= 30 ? T.amber : days <= 90 ? T.gold : T.green
                 return (
                   <button
@@ -551,11 +562,10 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
     if (covering.length === 0) {
       return { kind: 'not_insured', label: 'Not insured', color: T.red }
     }
-    const today = new Date(); today.setHours(0, 0, 0, 0)
     // For each policy, compute days-to-expiry. The "best" is the largest
     // (or least-negative if all expired).
     const ranked = covering
-      .map(p => ({ pol: p, days: Math.floor((new Date(p.expiry_date) - today) / 86400000) }))
+      .map(p => ({ pol: p, days: daysUntil(p.expiry_date) ?? -99999 }))
       .sort((a, b) => b.days - a.days)
     const best = ranked[0]
     const days = best.days
@@ -608,7 +618,7 @@ function ByPropertyView({ properties, companies, policies, coFilter, policiesFor
     <div style={{ display: 'grid', gap: 14 }}>
       {/* Summary strip */}
       <div style={card}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
           {[
             { l: 'Insured',     v: insuredCount,    c: T.green,  i: 'check-circle' },
             { l: 'Renewing',    v: renewingCount,   c: T.amber,  i: 'alert-triangle' },
@@ -884,8 +894,10 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
   // Inline required-field highlighting — set once the user has tried to
   // save with something missing (same pattern as PropertyModal).
   const [triedSave, setTriedSave] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   async function handleSubmit() {
+    if (saving) return
     if (!form.policy_name || !form.company_id || !form.start_date || !form.expiry_date) {
       setTriedSave(true)
       showAppToast('Policy name, company, start date and expiry date are required.', 'error')
@@ -894,8 +906,10 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
     const data = {
       ...form,
       premium: parseFloat(form.premium) || 0,
-      reminder_days: parseInt(form.reminder_days) || 30,
+      // An entered 0 ("remind on the day") is valid; only blank/invalid → 30.
+      reminder_days: Number.isFinite(parseInt(form.reminder_days, 10)) ? parseInt(form.reminder_days, 10) : 30,
     }
+    setSaving(true)
     // Upload the chosen schedule first so the policy row saves with its
     // document link in one write. A failed upload blocks the save rather
     // than silently dropping the file.
@@ -905,10 +919,12 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
         data.document_id = doc.id
       } catch (e) {
         showAppToast(`Document upload failed: ${e.message}`, 'error')
+        setSaving(false)
         return
       }
     }
-    onSave(data, propertyIds)
+    try { await onSave(data, propertyIds) }
+    finally { setSaving(false) }
   }
 
   const lbl = { fontFamily: SANS, fontSize: FS.sm, fontWeight: 600, color: T.muted, marginBottom: 4, display: 'block' }
@@ -980,7 +996,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <div>
               <label style={lbl} htmlFor="policy-number">Policy number</label>
               <input id="policy-number" style={inp} value={form.policy_number} onChange={e => s('policy_number', e.target.value)} />
@@ -1091,7 +1107,7 @@ function PolicyModal({ policy, companies, properties, onClose, onSave }) {
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
             <Button variant="secondary" size="sm" type="button" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" size="sm" type="submit">
+            <Button variant="primary" size="sm" type="submit" loading={saving}>
               {isRenewal ? 'Save renewal' : isNew ? 'Add policy' : 'Save changes'}
             </Button>
           </div>
