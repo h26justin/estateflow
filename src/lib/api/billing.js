@@ -62,9 +62,31 @@ export async function setCompanyFreeTier(companyId, isFreeTier, grantedBy) {
     })
     .eq('id', companyId)
   if (error) throw error
-  // Update subscription status too
-  await supabase
+  // Mirror the grant on the subscription row — but only where Stripe holds no
+  // subscription. A real Stripe subscription's status belongs to the
+  // webhook; overwriting it here (e.g. 'trialing' on revoke) would misstate
+  // what the customer is actually paying.
+  const { error: subErr } = await supabase
     .from('subscriptions')
     .update({ status: isFreeTier ? 'free_tier' : 'trialing' })
     .eq('company_id', companyId)
+    .is('stripe_subscription_id', null)
+  if (subErr) throw subErr
+}
+
+// Live billable property count per company (not in Trash; archived and sold
+// still count) — the same count create-checkout bills on. Returns
+// { [companyId]: number }.
+export async function fetchBillablePropertyCounts(companyIds) {
+  const out = {}
+  await Promise.all((companyIds || []).map(async id => {
+    const { count, error } = await supabase
+      .from('properties')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', id)
+      .is('deleted_at', null)
+    if (error) throw error
+    out[id] = count ?? 0
+  }))
+  return out
 }

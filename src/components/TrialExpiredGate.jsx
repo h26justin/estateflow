@@ -4,6 +4,7 @@ import { MONO, FS, SANS } from '../lib/styles'
 import * as api from '../lib/api'
 import { ChromeLogo } from './Logo'
 import { Button } from './ui'
+import { calcMonthlyPrice, billingTierFor, billablePropertyCount } from '../lib/tierGating'
 
 // ── TRIAL EXPIRED GATE ─────────────────────────────────────────────────
 // Full-screen blocker that appears the moment a user signs in and any
@@ -76,14 +77,18 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
   // we already have client-side. Previously we tried co.real_property_count
   // which is only populated by the admin-only fetchAllCompaniesAdmin.
   function propsFor(coId) {
-    return properties.filter(p => p.company_id === coId).length
+    return billablePropertyCount(properties, coId)
   }
+  const subFor = coId => subs?.find(s => s.company_id === coId)
 
   async function payNow(companyId) {
     setWorkingCoId(companyId)
     setError(null)
     try {
-      const url = await api.createCheckoutSession(companyId, 'checkout')
+      // past_due already has a Stripe subscription — fix the card in the
+      // billing portal. A second checkout would open a second subscription.
+      const action = subFor(companyId)?.status === 'past_due' ? 'portal' : 'checkout'
+      const url = await api.createCheckoutSession(companyId, action)
       if (!url) throw new Error('Checkout returned no URL')
       window.location.href = url
     } catch (e) {
@@ -117,7 +122,7 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           </div>
           <div style={{ fontFamily:SANS, fontSize:FS.base, color:T.text, lineHeight:1.7 }}>
             To keep using Properly, please add a payment method. Just <strong>£2 per
-            property per month</strong> — no setup fees, cancel any time. Your data is
+            property per month</strong> (£10/month minimum) — no setup fees, cancel any time. Your data is
             safe; nothing is deleted while access is paused.
           </div>
         </div>
@@ -142,8 +147,10 @@ export default function TrialExpiredGate({ companies, subs, properties = [], use
           {companies.map(co => {
             // Property count derived from the loaded properties list,
             // not from any field on the company row (those are admin-only).
+            // Priced exactly as checkout bills it: live billable count on
+            // the tier that will be charged, with the £10/month minimum.
             const props = propsFor(co.id)
-            const monthly = props * 2
+            const monthly = calcMonthlyPrice(props, billingTierFor(subFor(co.id)))
             const isWorking = workingCoId === co.id
             return (
               <div key={co.id} style={{

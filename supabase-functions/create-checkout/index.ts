@@ -22,9 +22,14 @@
 //
 //   3. Cancel URL points back through the trial gate, not /billing
 //      success page. Cleaner UX — user just lands where they were.
+//
+// Nov 2026: a checkout request for a customer that already has a live
+// Stripe subscription returns a billing-portal URL instead (still { url }),
+// so "Upgrade" / "Add payment method" can never open a second subscription.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { billedQuantity, countBillableProperties, floorQuantity } from './billing.ts'
+import { companyRoleFor, roleIsAdmin } from './authz.ts'
 
 const STRIPE_SECRET_KEY  = Deno.env.get('STRIPE_SECRET_KEY')!
 const SUPABASE_URL       = Deno.env.get('SUPABASE_URL')!
@@ -94,27 +99,36 @@ Deno.serve(async (req) => {
     //     overwrite their stripe_customer_id with the attacker's metadata,
     //     diverting future invoice events to the attacker's row.
     //
-    // Allowed: company owner, OR a row in user_company_access with
-    // is_owner / is_admin (mirrors the in-app "Billing" panel gating).
+    // Allowed: platform admin, company owner, or an access row whose
+    // effective role (role-first, see ./authz.ts) is owner / admin — the
+    // same rules as has_company_write's admin tier.
     if (!company) return err('Company not found', 404)
-    let allowed = company.owner_id === user.id
-    if (!allowed) {
-      const { data: access } = await supabase
-        .from('user_company_access')
-        .select('is_owner, is_admin')
-        .eq('user_id', user.id).eq('company_id', company_id)
-        .maybeSingle()
-      allowed = !!(access?.is_owner || access?.is_admin)
+    const role = await companyRoleFor(supabase, user.id, user.email, company_id)
+    if (!roleIsAdmin(role)) return err('You do not have permission to manage billing for this company', 403)
+
+    const portalUrl = async (customer: string) => {
+      const portalRes = await stripe('POST', '/billing_portal/sessions', {
+        customer,
+        return_url: `${baseUrl}?billing=success`,
+      })
+      return portalRes.url
     }
-    if (!allowed) return err('You do not have permission to manage billing for this company', 403)
 
     if (action === 'portal') {
       if (!sub?.stripe_customer_id) return err('No subscription found')
-      const portalRes = await stripe('POST', '/billing_portal/sessions', {
-        customer: sub.stripe_customer_id,
-        return_url: `${baseUrl}?billing=success`,
-      })
-      return ok({ url: portalRes.url })
+      return ok({ url: await portalUrl(sub.stripe_customer_id) })
+    }
+
+    // Never open a second subscription. If Stripe already holds a live
+    // subscription for this customer (paying, trialing, or failing payment),
+    // send the caller to the billing portal instead — card updates and plan
+    // changes happen there, by the customer, in Stripe's own UI. Checked
+    // against Stripe, not just our row, so a missed webhook can't let a
+    // second subscription through. Response shape stays { url }.
+    if (sub?.stripe_customer_id) {
+      const live = await hasLiveStripeSubscription(sub.stripe_customer_id)
+      const rowLive = !!sub.stripe_subscription_id && LIVE_STRIPE_STATUSES.includes(sub.status)
+      if (live || rowLive) return ok({ url: await portalUrl(sub.stripe_customer_id) })
     }
 
     // Real billable count (Trash excluded). Fail rather than bill on a guess.
@@ -183,6 +197,22 @@ Deno.serve(async (req) => {
     return err('Billing is temporarily unavailable — please try again', 500)
   }
 })
+
+// Subscription statuses where the customer still has a subscription that
+// bills (or is trying to). A new checkout for any of these double-bills.
+const LIVE_STRIPE_STATUSES = ['active', 'trialing', 'past_due', 'unpaid']
+
+// True if any of the customer's Stripe subscriptions is live. Read-only.
+// Throws on a Stripe error — we must not open checkout on a guess.
+async function hasLiveStripeSubscription(customerId: string): Promise<boolean> {
+  const qs = new URLSearchParams({ customer: customerId, status: 'all', limit: '100' })
+  const res = await fetch(`https://api.stripe.com/v1/subscriptions?${qs}`, {
+    headers: { 'Authorization': `Bearer ${STRIPE_SECRET_KEY}` },
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error?.message || 'Stripe error')
+  return (data.data || []).some((s: any) => LIVE_STRIPE_STATUSES.includes(s?.status))
+}
 
 async function stripe(method: string, path: string, body: object) {
   const res = await fetch(`https://api.stripe.com/v1${path}`, {

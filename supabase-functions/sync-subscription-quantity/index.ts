@@ -45,12 +45,22 @@ Deno.serve(async (req) => {
   const dryRun = body?.dry_run === true
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-  const { data: subs, error } = await supabase
-    .from('subscriptions')
-    .select('company_id, owner_id, stripe_subscription_id, tier, status, property_count')
-    .in('status', SYNCABLE)
-    .not('stripe_subscription_id', 'is', null)
-  if (error) return json({ error: error.message }, 500)
+  // Page through every syncable row — PostgREST caps a single read (assume
+  // 1,000), and a silently truncated list would leave customers unsynced.
+  const PAGE = 1000
+  const subs: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('company_id, owner_id, stripe_subscription_id, tier, status, property_count')
+      .in('status', SYNCABLE)
+      .not('stripe_subscription_id', 'is', null)
+      .order('company_id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) return json({ error: error.message }, 500)
+    subs.push(...(data || []))
+    if (!data || data.length < PAGE) break
+  }
 
   const results: any[] = []
   for (const row of subs || []) {
@@ -76,12 +86,19 @@ Deno.serve(async (req) => {
 
       if (!dryRun) {
         await stripe('POST', `/subscription_items/${item.id}`, { quantity: desired, proration_behavior: 'none' })
-        await supabase.from('audit_log').insert({
+        const { error: auditErr } = await supabase.from('audit_log').insert({
           user_id: row.owner_id,
           action: 'billing.quantity_synced',
           entity_type: 'subscription',
           metadata: { company_id: row.company_id, stripe_subscription_id: row.stripe_subscription_id, from: current, to: desired, properties: count, min_quantity: minQuantity, tier },
         })
+        if (auditErr) {
+          // The Stripe change already happened — report it loudly rather than
+          // leave a billing change with no audit trail unnoticed.
+          console.error('[sync-subscription-quantity] audit_log insert failed:', row.company_id, auditErr.message)
+          results.push({ company_id: row.company_id, status: 'changed_unaudited', from: current, to: desired, properties: count, audit_error: auditErr.message })
+          continue
+        }
       }
       results.push({ company_id: row.company_id, status: dryRun ? 'would_change' : 'changed', from: current, to: desired, properties: count })
     } catch (e) {

@@ -7,13 +7,17 @@ import { fmt, plural } from '../lib/format'
 import { showAppToast } from '../lib/toast'
 import { calcMonthlyPrice, TIERS } from '../lib/tierGating'
 import { SkeletonList } from '../lib/Skeleton'
-import { billingDisplayStatus } from '../lib/subscriptionLive'
+import { billingDisplayStatus, subscriptionGrantsLive } from '../lib/subscriptionLive'
 import { Button } from './ui'
 
 export default function BillingPage({ companies, user, isPlatformAdmin }) {
   const { T } = useTheme()
   const mono = MONO
   const [subs, setSubs]         = useState([])
+  // Live billable property count per company — what checkout bills on.
+  // subscriptions.property_count is only written once Stripe holds a
+  // subscription, so it reads 0 during a trial.
+  const [propCounts, setPropCounts] = useState({})
   const [loading, setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [working, setWorking]   = useState(null)
@@ -33,8 +37,16 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
     setLoading(true)
     setLoadError(null)
     try {
-      const data = await api.fetchSubscriptions(companies.map(c => c.id))
+      const ids = companies.map(c => c.id)
+      const data = await api.fetchSubscriptions(ids)
       setSubs(data)
+      try {
+        setPropCounts(await api.fetchBillablePropertyCounts(ids))
+      } catch (e) {
+        // Fall back to the subscription row's count rather than blocking billing.
+        console.warn('BillingPage: billable property count failed', e)
+        setPropCounts({})
+      }
       if (isPlatformAdmin) {
         const all = await api.fetchAllCompaniesAdmin()
         setAllCompanies(all)
@@ -122,7 +134,11 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
           {companies.map(co => {
             const sub = subs.find(s => s.company_id === co.id)
             const status = billingDisplayStatus(co, sub)
-            const propCount = sub?.property_count || 0
+            const propCount = propCounts[co.id] ?? sub?.property_count ?? 0
+            // A company with a live Stripe subscription changes payment
+            // details and plan in the Stripe portal — a new checkout would
+            // open a second subscription on the same customer.
+            const hasLiveStripeSub = subscriptionGrantsLive(sub)
             const tierKey  = sub?.tier || 'starter'
             const monthly  = calcMonthlyPrice(propCount, tierKey)
             const tierMeta = TIERS[tierKey] || TIERS.starter
@@ -173,9 +189,14 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                 {periodEnd && <div style={{ fontFamily: mono, fontSize: 11, color: T.muted, marginBottom: 14 }}>Next billing date: {periodEnd}</div>}
 
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {(status === 'trialing' || status === 'past_due') && (
+                  {status === 'trialing' && !hasLiveStripeSub && (
                     <Button variant="primary" size="sm" onClick={() => handleCheckout(co.id, 'checkout')} disabled={!!working}>
                       {working===co.id ? 'Redirecting…' : 'Add payment method'}
+                    </Button>
+                  )}
+                  {(status === 'past_due' || (status === 'trialing' && hasLiveStripeSub)) && (
+                    <Button variant="primary" size="sm" onClick={() => handleCheckout(co.id, 'portal')} disabled={!!working}>
+                      {working===co.id ? 'Redirecting…' : 'Update payment method'}
                     </Button>
                   )}
                   {status === 'active' && (
@@ -184,7 +205,7 @@ export default function BillingPage({ companies, user, isPlatformAdmin }) {
                     </Button>
                   )}
                   {(status === 'active' || status === 'trialing') && tierKey !== 'investor' && !investorUnavailable && (
-                    <Button variant="secondary" size="sm" onClick={() => handleCheckout(co.id, 'subscribe', 'investor')} disabled={!!working} style={{color: TIERS.investor.color, borderColor: TIERS.investor.color}}>
+                    <Button variant="secondary" size="sm" onClick={() => hasLiveStripeSub ? handleCheckout(co.id, 'portal') : handleCheckout(co.id, 'subscribe', 'investor')} disabled={!!working} style={{color: TIERS.investor.color, borderColor: TIERS.investor.color}}>
                       {working===co.id ? 'Redirecting…' : <><Icon name="star" size={13} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }}/>{`Upgrade to Investor — £${TIERS.investor.pricePerProp}/property`}</>}
                     </Button>
                   )}
