@@ -1564,14 +1564,13 @@ function ManageAccessModal({ targetUser, companies, accessRows, setAccessRows, o
       // Only shared companies (not owned) get written to user_company_access
       const sharedToGrant = [...selectedIds].filter(id => !ownedIds.has(id))
       await api.setAllCompanyAccess(targetUser.id, targetUser.email, sharedToGrant)
-      // Update local state: drop all existing rows for this user, add fresh ones
-      setAccessRows(prev => {
-        const filtered = prev.filter(r => r.user_id !== targetUser.id)
-        const newRows = sharedToGrant.map(cid => ({
-          user_id: targetUser.id, company_id: cid, email: targetUser.email, is_admin: false
-        }))
-        return [...filtered, ...newRows]
-      })
+      // setAllCompanyAccess keeps existing rows (and their roles) and only
+      // adds / removes the difference, so reload the real rows rather than
+      // guessing them locally (a guess showed kept admins as is_admin:false).
+      // The save itself has succeeded; a failed reload only leaves the list
+      // stale until the page is refreshed.
+      try { setAccessRows(await api.fetchAllAccessRows()) }
+      catch (e) { console.error('ManageAccessModal: reload access rows', e) }
       onClose()
     } catch(e) { setError(e.message || 'Failed to save') }
     setSaving(false)

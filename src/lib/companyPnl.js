@@ -198,6 +198,8 @@ export const EXPENSE_CATEGORY_LABELS = {
   // records carry no split, so it is shown as such rather than as interest.
   mortgage: 'Mortgage Payment (incl. capital)', legal: 'Legal Fees',
   accountancy: 'Accountancy', other: 'Other',
+  // Written by CSV import and the receipt scanner.
+  mortgage_interest: 'Mortgage interest', compliance: 'Compliance certificates',
 }
 
 export function expenseCategoryLabel(cat) {

@@ -18,6 +18,25 @@ import { canWriteCompany, canAdminCompany } from '../lib/permissions'
 // Per-connection settings: toggles for what to sync, account-code
 // pickers, per-property bank account overrides, etc.
 
+// Plain-English notes for a Hostaway / Lodgify sync result (the response of
+// the sync action, see runHostawaySync / runLodgifySync). `warn` is true
+// when the run was incomplete or something was left out of rent, so the
+// result is shown as a warning rather than a success.
+function channelSyncNotes(r) {
+  if (!r) return { notes: [], warn: false }
+  const n = (v) => Number(v) || 0
+  const list = (v) => (Array.isArray(v) ? v : [])
+  const notes = []
+  if (r.partial) notes.push('sync incomplete — more bookings than one run can read; the next sync carries on from the same point')
+  if (n(r.skippedNonGbp)) notes.push(`${n(r.skippedNonGbp)} non-GBP booking${n(r.skippedNonGbp) === 1 ? ' was' : 's were'} not written as rent`)
+  if (list(r.conflicts).length) notes.push(`${list(r.conflicts).length} same-night booking clash${list(r.conflicts).length === 1 ? '' : 'es'}: only the earlier booking counts as income`)
+  if (list(r.rejectedMappings).length) notes.push(`${list(r.rejectedMappings).length} mapping${list(r.rejectedMappings).length === 1 ? '' : 's'} skipped: the property is not in this company or you can no longer edit it`)
+  if (list(r.errors).length) notes.push(`${list(r.errors).length} booking${list(r.errors).length === 1 ? '' : 's'} could not be written and will be retried`)
+  if (n(r.repaired)) notes.push(`${n(r.repaired)} booking${n(r.repaired) === 1 ? '' : 's'} missing from the Rent Tracker ${n(r.repaired) === 1 ? 'was' : 'were'} repaired`)
+  const warn = !!r.partial || n(r.skippedNonGbp) > 0 || list(r.conflicts).length > 0 || list(r.rejectedMappings).length > 0 || list(r.errors).length > 0
+  return { notes, warn }
+}
+
 export default function IntegrationsPanel({ T, mono, companies = [], properties = [], permissionsMap = null, devModeActive = false }) {
   const [connections, setConnections] = useState([])
   const [lodgifyConnections, setLodgifyConnections] = useState([])
@@ -201,7 +220,8 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
         r.updated ? `${r.updated} updated` : null,
         r.removed ? `${r.removed} cancelled` : null,
       ].filter(Boolean).join(', ') || 'nothing new'
-      showAppToast(`Hostaway (${company.abbr || company.name}): ${parts} (${r.bookings} reservations checked)`)
+      const { warn } = channelSyncNotes(r)
+      showAppToast(`Hostaway (${company.abbr || company.name}): ${parts} (${r.bookings} reservations checked)${warn ? ' — some bookings need attention, see the notes' : ''}`)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -318,12 +338,16 @@ function HostawayCard({ T, mono, company, connection, savedMappings, properties,
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
-          {lastSync && (
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
-              {lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
-              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
-            </div>
-          )}
+          {lastSync && (() => {
+            const { notes, warn } = channelSyncNotes(lastSync)
+            return (
+              <div role={warn ? 'status' : undefined} style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.amber : T.muted, marginBottom: 8 }}>
+                {warn ? 'Sync finished with warnings: ' : ''}{lastSync.bookings} reservations checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+                {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+                {notes.length > 0 && <div style={{ marginTop: 4 }}>{notes.join('. ')}.</div>}
+              </div>
+            )
+          })()}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
             <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}
@@ -452,7 +476,8 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
         r.updated ? `${r.updated} updated` : null,
         r.removed ? `${r.removed} cancelled` : null,
       ].filter(Boolean).join(', ') || 'nothing new'
-      showAppToast(`Lodgify (${company.abbr || company.name}): ${parts} (${r.bookings} bookings checked)`)
+      const { warn } = channelSyncNotes(r)
+      showAppToast(`Lodgify (${company.abbr || company.name}): ${parts} (${r.bookings} bookings checked)${warn ? ' — some bookings need attention, see the notes' : ''}`)
       onChanged?.()
     } catch (e) { showAppToast(`Sync failed: ${e.message}`, 'error') }
     setBusy(null)
@@ -560,12 +585,16 @@ function LodgifyCard({ T, mono, company, connection, savedMappings, properties, 
           {(connection.last_sync_status === 'error' || connection.last_sync_status === 'partial') && connection.last_sync_error && (
             <div style={{ fontFamily: mono, fontSize: FS.xs, color: connection.last_sync_status === 'partial' ? T.amber : T.red, marginBottom: 8 }}>{connection.last_sync_error}</div>
           )}
-          {lastSync && (
-            <div style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 8 }}>
-              {lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
-              {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
-            </div>
-          )}
+          {lastSync && (() => {
+            const { notes, warn } = channelSyncNotes(lastSync)
+            return (
+              <div role={warn ? 'status' : undefined} style={{ fontFamily: SANS, fontSize: FS.sm, color: warn ? T.amber : T.muted, marginBottom: 8 }}>
+                {warn ? 'Sync finished with warnings: ' : ''}{lastSync.bookings} bookings checked · {lastSync.created} new · {lastSync.updated} updated · {lastSync.removed} cancelled
+                {lastSync.skippedUnmapped ? ` · ${lastSync.skippedUnmapped} on unmapped listings` : ''}
+                {notes.length > 0 && <div style={{ marginTop: 4 }}>{notes.join('. ')}.</div>}
+              </div>
+            )
+          })()}
           <div style={{ display:'flex', gap: 8, flexWrap:'wrap', marginTop: 10 }}>
             <Button variant="primary" size="sm" onClick={syncNow} disabled={!!busy || mappings.length === 0}>
               {busy==='sync' ? 'Syncing…' : 'Sync now'}

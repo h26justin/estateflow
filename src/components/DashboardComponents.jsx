@@ -6,7 +6,7 @@ import { Icon, ICON_NAMES } from '../lib/icons'
 import { supabase } from '../lib/supabase'
 import { isPropertyEarningRent, isPropertyOccupied } from '../lib/propertyStatus'
 import { propValue } from '../lib/propertyValue'
-import { evaluateProperty, collectionStats, arrearsSummary } from '../lib/rentEngine'
+import { propertyArrears } from '../lib/rentEngine'
 import { certTypeStatus } from '../lib/complianceStatus'
 import { canonicalCertType } from '../lib/complianceCatalogue'
 import { loadJsPDF } from '../lib/pdfLibs'
@@ -91,7 +91,7 @@ export function SmartAlerts({properties, companies, fmt, openDetail}) {
   // balance), not the hand-typed properties.arrears figure.
   properties.forEach(p=>{
     if (p.status==='short_term_let') return
-    const owed = (collectionStats(evaluateProperty(p)).overdue||0) + (arrearsSummary(p).balance||0)
+    const owed = propertyArrears(p)
     if (!(owed > 0)) return
     alerts.push({
       type:'arrears', priority:1, icon:'pound', color:T.red,
@@ -490,7 +490,8 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
         const CATEGORY_LABELS = {
           insurance:'Insurance', agent_fees:'Agent / Management Fees', repairs:'Repairs & Maintenance',
           ground_rent:'Ground Rent', service_charge:'Service Charge', utilities:'Utilities',
-          mortgage:'Mortgage Payment', legal:'Legal Fees', accountancy:'Accountancy', other:'Other'
+          mortgage:'Mortgage Payment', legal:'Legal Fees', accountancy:'Accountancy', other:'Other',
+          mortgage_interest:'Mortgage interest', compliance:'Compliance certificates'
         }
         const barW = totalExpenses > 0 ? ((amt / totalExpenses) * 100) : 0
         const barPx = (barW / 100) * 120
@@ -549,7 +550,8 @@ export function ReportsPage({properties, companies, fmt, onImport, companySettin
   const CATEGORY_LABELS = {
     insurance:'Insurance', agent_fees:'Agent Fees', repairs:'Repairs',
     ground_rent:'Ground Rent', service_charge:'Service Charge',
-    utilities:'Utilities', mortgage:'Mortgage', legal:'Legal', accountancy:'Accountancy', other:'Other'
+    utilities:'Utilities', mortgage:'Mortgage', legal:'Legal', accountancy:'Accountancy', other:'Other',
+    mortgage_interest:'Mortgage interest', compliance:'Compliance certificates'
   }
 
   return (

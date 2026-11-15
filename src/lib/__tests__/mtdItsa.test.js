@@ -418,3 +418,33 @@ describe('isMissingLegalOwnerColumnError', () => {
     expect(isMissingLegalOwnerColumnError({ code: '42501', message: 'permission denied for table companies' })).toBe(false)
   })
 })
+
+describe('buildQuarterlySummary — refunds (negative expenses)', () => {
+  const range = { periodFrom: '2026-04-06', periodTo: '2026-07-05' }
+  it('a repair refunded in full leaves £0 in that bucket', () => {
+    const s = buildQuarterlySummary({ ...range, expenses: [
+      { amount: 500, date: '2026-05-01', category: 'repairs' },
+      { amount: -500, date: '2026-05-10', category: 'repairs' },
+    ] })
+    expect(s.expenses.repairsAndMaintenance).toBeUndefined()
+    expect(s.totals.expenses).toBe(0)
+  })
+  it('a partial refund reduces the bucket', () => {
+    const s = buildQuarterlySummary({ ...range, expenses: [
+      { amount: 500, date: '2026-05-01', category: 'repairs' },
+      { amount: -200, date: '2026-05-10', category: 'maintenance' },
+    ] })
+    expect(s.expenses.repairsAndMaintenance).toBe(300)
+    expect(s.totals.expenses).toBe(300)
+  })
+  it('a lone refund floors at £0 and never nets against another bucket', () => {
+    const s = buildQuarterlySummary({ ...range, expenses: [
+      { amount: -150, date: '2026-05-10', category: 'repairs' },
+      { amount: 400, date: '2026-05-01', category: 'insurance' },
+    ] })
+    expect(s.expenses.repairsAndMaintenance).toBeUndefined()
+    expect(s.expenses.premisesRunningCosts).toBe(400)
+    expect(s.totals.expenses).toBe(400)
+    expect(Object.values(s.expenses).every(v => v >= 0)).toBe(true)
+  })
+})

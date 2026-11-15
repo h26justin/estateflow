@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  canDo, roleFromAccessRow, roleUpdateFor, isAdminDemotion,
+  canDo, roleFromAccessRow, roleUpdateFor, isAdminDemotion, withReadOnly, canWriteCompany, canAdminCompany,
   ROLE_OPTIONS, ROLE_OPTION_LABELS, RENT_EDITOR_OVERRIDES,
 } from '../permissions'
 
@@ -117,5 +117,32 @@ describe('isAdminDemotion', () => {
     expect(isAdminDemotion('admin', 'admin')).toBe(false)
     expect(isAdminDemotion('editor', 'viewer')).toBe(false)
     expect(isAdminDemotion('viewer', 'admin')).toBe(false)
+  })
+})
+
+describe('read-only flag (impersonation)', () => {
+  const base = { __owner: { own: true }, c1: { _role: 'admin', view_rent: true, edit_rent: true, edit_properties: true } }
+  const ro = withReadOnly(base)
+
+  it('denies every write action, even for an owner or admin', () => {
+    expect(canDo(ro, 'c1', 'edit_rent')).toBe(false)
+    expect(canDo(ro, 'c1', 'edit_properties')).toBe(false)
+    expect(canDo(ro, 'own', 'manage_users')).toBe(false)
+    expect(canWriteCompany(ro, 'c1')).toBe(false)
+    expect(canWriteCompany(ro, 'own')).toBe(false)
+    expect(canAdminCompany(ro, 'c1')).toBe(false)
+  })
+
+  it('still answers view keys from the map', () => {
+    expect(canDo(ro, 'c1', 'view_rent')).toBe(true)
+    expect(canDo(ro, 'c1', 'view_financial')).toBe(false)
+    expect(canDo(ro, 'own', 'view_financial')).toBe(true)
+  })
+
+  it('leaves the normal map behaviour unchanged without the flag', () => {
+    expect(canDo(base, 'c1', 'edit_rent')).toBe(true)
+    expect(canWriteCompany(base, 'c1')).toBe(true)
+    expect(canAdminCompany(base, 'own')).toBe(true)
+    expect(base.__readOnly).toBeUndefined()   // withReadOnly does not mutate
   })
 })

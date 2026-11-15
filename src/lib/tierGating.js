@@ -33,7 +33,10 @@ export function canUseInvestorFeatures({ subs = [], companies = [], isPlatformAd
   if (isPlatformAdmin) return true
   // free_tier companies get everything (admin manually granted)
   if (companies.some(c => c?.is_free_tier)) return true
-  if (subs.some(s => s?.tier === 'investor' && (s.status === 'active' || s.status === 'trialing'))) return true
+  // Same rule as highestTier(): only a subscription that still grants
+  // liveness counts — a bare 'trialing' placeholder or a cancelled /
+  // incomplete Investor row does not unlock Investor features.
+  if (subs.some(s => s?.tier === 'investor' && subscriptionGrantsLive(s))) return true
   return false
 }
 

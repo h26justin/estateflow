@@ -20,11 +20,12 @@ import * as api from '../lib/api'
 import { MONO, FS, SANS } from '../lib/styles'
 import InsurancePage from './InsurancePage'
 import { COMPLIANCE_CATALOGUE, TIER_LABELS, trackedRequirements, isOptedOut, EPC_BAND_COLOR, MEES_DEADLINE_ISO, epcBand, epcNeedsUpgrade, epcBelowLegalMinimum, isLetProperty, meesTargetLabel } from '../lib/complianceCatalogue'
-import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness } from '../lib/complianceStatus'
+import { propertyComplianceSummary, certTypeStatus, insuranceStatusFor, daysUntilDate, prsReadiness, addMonths } from '../lib/complianceStatus'
 import { groupPropertiesByBuilding } from '../lib/addressUtils'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
 import { isoToday } from '../lib/rentEngine'
+import { readableOn } from '../lib/contrast'
 import { Button, EmptyState } from './ui'
 
 const mono = MONO
@@ -103,7 +104,7 @@ function ReqRow({ req, status, T, onClick, property }) {
       <Icon name={iconName} size={14} color={color} />
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, fontSize: 12, color: T.text, overflow: 'hidden', whiteSpace: 'nowrap' }}>
         {req.short}
-        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
+        {band && <span style={{ width: 16, height: 16, borderRadius: 4, background: EPC_BAND_COLOR[band], color: readableOn(EPC_BAND_COLOR[band]), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: mono, fontSize: FS.xs, fontWeight: 700, flexShrink: 0 }}>{band}</span>}
       </span>
       <span style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, color, whiteSpace: 'nowrap' }}>{detail}</span>
     </button>
@@ -278,12 +279,9 @@ function ComplianceMatrix({ properties, companies, settingsFor, policies, openDe
   )
 }
 
-function addMonthsISO(iso, months) {
-  if (!iso) return ''
-  const [y, m, d] = iso.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1 + months, d))
-  return dt.toISOString().slice(0, 10)
-}
+// Expiry `months` after `iso` for the bulk form: the shared helper clamps to
+// month end (31 Jan + 1 month is 28/29 Feb, not 3 Mar); '' while no date.
+const addMonthsISO = (iso, months) => (iso && addMonths(iso, months)) || ''
 
 export default function CompliancePage({ user, companies = [], properties = [], companySettings = {}, showToast, openDetail }) {
   const { T } = useTheme()

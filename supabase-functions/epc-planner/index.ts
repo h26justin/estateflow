@@ -3,7 +3,7 @@
 // Input:  { property_id: string, current_rating?: "A".."G", property_type?: string,
 //           region?: string, floor_area_sqm?: number, save?: boolean }
 // Output: { current_rating, target_rating: "C", measures: [...], est_total_cost,
-//           deadline: "2030-12-31", source: "epc_register"|"manual"|"unknown",
+//           deadline: "2030-10-01", source: "epc_register"|"manual"|"unknown",
 //           disclaimer, saved_id?: string }
 //
 // Flow:
@@ -31,7 +31,8 @@ const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RATE_LIMIT = { perHour: 10, perDay: 40 }
 
 const TARGET_RATING = 'C'
-const DEADLINE      = '2030-12-31'
+// Planned date (government response, Jan 2026), subject to Parliamentary approval.
+const DEADLINE      = '2030-10-01'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -78,7 +79,7 @@ function normaliseRating(r: unknown): string | null {
 }
 
 function buildPrompt(rating: string | null, propertyType: string, region: string, floorArea: number | null): string {
-  return `You are a UK domestic energy-efficiency adviser. A landlord needs to bring a rental property up to EPC band ${TARGET_RATING} to meet the proposed 2030 Minimum Energy Efficiency Standard (MEES) for the private rented sector.
+  return `You are a UK domestic energy-efficiency adviser. A landlord needs to bring a rental property up to EPC band ${TARGET_RATING} to meet the proposed Minimum Energy Efficiency Standard (MEES) for the private rented sector, planned for 1 October 2030 (subject to Parliamentary approval).
 
 Property details:
 - Current EPC rating: ${rating || 'unknown (assume band D/E typical of UK rental stock)'}

@@ -9,13 +9,14 @@ import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE, isoToday } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
-import { CT_MORTGAGE_NOTE, buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
+import { CT_MORTGAGE_NOTE, expenseCategoryLabel, buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
 import { buildOwnershipRegister, ownersLabel } from '../lib/ownershipReport'
 import { planToC, fmtCostRange, BELOW_C } from '../lib/epcUpgrade'
 import { EPC_BAND_COLOR } from '../lib/complianceCatalogue'
+import { readableOn } from '../lib/contrast'
 import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport'
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
@@ -685,7 +686,7 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
   }
   return (
     <Button size="sm" onClick={run} disabled={busy}
-      title="Bundle the 5 HMRC tax reports into one PDF">
+      title={`Bundle the ${TAX_PACK_REPORTS.length} HMRC tax reports into one PDF`}>
       {busy ? 'Generating pack…' : 'Year-end tax pack'}
     </Button>
   )
@@ -1054,7 +1055,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       const byCat = filtExp.reduce((a,e)=>{a[e.category||'Other']=(a[e.category||'Other']||0)+(e.amount||0);return a},{})
       const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1])
       const total = cats.reduce((s,[,v])=>s+v,0)
-      return { title:'Expense breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?cats[0][0]:'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[cat,fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
+      return { title:'Expense breakdown', kpis:[['Total expenses',fmt(total)],['Largest category',cats[0]?expenseCategoryLabel(cats[0][0]):'—'],['Items',filtExp.length.toString()]], headers:['Category','Amount','% of Total','Items'], rows:cats.map(([cat,amt])=>[expenseCategoryLabel(cat),fmt(amt),fmtPct(amt/total*100),filtExp.filter(e=>(e.category||'Other')===cat).length.toString()]), totals:['Total',fmt(total),'100%',filtExp.length.toString()] }
     }
     case 'mortgage_interest': {
       // For interest-only mortgages: annual_interest = balance × rate.
@@ -2001,13 +2002,13 @@ function ReportExpenseBreakdown({ filtExp, T, accent, fmt }) {
     <>
       <StatCards T={T} items={[
         {label:'Total expenses',value:fmt(total),color:T.red},
-        {label:'Largest category',value:cats[0]?cats[0][0]:'—',color:accent},
+        {label:'Largest category',value:cats[0]?expenseCategoryLabel(cats[0][0]):'—',color:accent},
         {label:'Expense items',value:filtExp.length,color:T.text},
       ]}/>
       <ReportTable T={T} accent={accent}
         headers={[{label:'Category'},{label:'Amount',right:true,width:'140px'},{label:'% of total',right:true,width:'120px'},{label:'Items',right:true,width:'80px'}]}
         rows={cats.map(([cat,amount])=>[
-          cat,
+          expenseCategoryLabel(cat),
           {v:fmt(amount),color:T.red,right:true},
           {v:fmtPct((amount/total)*100),right:true},
           {v:filtExp.filter(e=>(e.category||'Other')===cat).length,right:true},
@@ -2398,6 +2399,9 @@ function rentOutstandingData(filtProps) {
       if (b.bucket === 'inWindow' || b.bucket === 'dueToday') { add('window', b.owed); add('outstanding', b.owed) }
       if (b.bucket === 'pendingReview') add('pendingReview', b.owed)
       if (b.bucket === 'notYetDue') add('notYetDue', b.owed)
+      // A non-monthly period part way through: instalments still ahead are
+      // not yet due, alongside whatever bucket the fallen-due part sits in.
+      else if (b.notYetDue > 0) add('notYetDue', b.notYetDue)
       add('needsInfo', b.needsInfo)
       const history = (p.rent_overrides || []).filter(o => o.rent_payment_id === e.id).sort((x, y) => (x.created_at < y.created_at ? -1 : 1))
       rows.push({ company: p.company?.name || '', property: p.name, e, history, ...b })
@@ -2865,7 +2869,7 @@ function ReportCompliance({ filtComp, T, accent }) {
 function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
   const d = computeEpcUpgrade(filtProps, filtEpc)
   const Band = ({ b }) => (
-    <span style={{width:22,height:22,borderRadius:6,background:EPC_BAND_COLOR[b]||T.border,color:'#fff',display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700}}>{b||'?'}</span>
+    <span style={{width:22,height:22,borderRadius:6,background:EPC_BAND_COLOR[b]||T.border,color:EPC_BAND_COLOR[b]?readableOn(EPC_BAND_COLOR[b]):T.text,display:'inline-flex',alignItems:'center',justifyContent:'center',fontFamily:mono,fontSize:12,fontWeight:700}}>{b||'?'}</span>
   )
   return (
     <>

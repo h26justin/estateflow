@@ -233,16 +233,19 @@ export function buildQuarterlySummary({ payments = [], expenses = [], receipts =
     periodAmount += paid
   }
 
-  // Expenses
+  // Expenses. A refund is a negative expense (CSV import writes it that way):
+  // it nets against the costs in its own HMRC bucket, and each bucket is then
+  // floored at zero so a refund never produces a negative HMRC expense field.
   const buckets = Object.fromEntries(HMRC_EXPENSE_CATEGORIES.map(c => [c, 0]))
   for (const e of expenses) {
     const amt = Number(e?.amount || 0)
-    if (amt <= 0) continue
+    if (!amt || !Number.isFinite(amt)) continue
     if (!inRange(e?.date)) continue
     const bucket = mapExpenseCategoryToHmrc(e?.category)
     if (!bucket) continue   // not an allowable expense (mortgage capital)
     buckets[bucket] = (buckets[bucket] || 0) + amt
   }
+  for (const k of Object.keys(buckets)) if (buckets[k] < 0) buckets[k] = 0
 
   // Layer on the estimated mortgage interest (from the mortgage record) for
   // properties that have no recorded interest in the period.

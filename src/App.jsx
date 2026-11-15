@@ -5,8 +5,9 @@ import { useIsMobile } from './lib/useWindowSize'
 import { getSubdomain } from './lib/subdomain'
 import { ALL_NAV, DEFAULT_NAV_KEYS, VIEW_LABELS, SETTINGS_TABS, AUTO_ENABLE_NAV_KEYS, navSeenMarker } from './lib/nav'
 import { REPORT_CATALOGUE } from './lib/reportCatalogue'
-import { canDo } from './lib/permissions'
+import { canDo, withReadOnly } from './lib/permissions'
 import { rentMonthSnapshot } from './lib/rentForecast'
+import { propertyArrears } from './lib/rentEngine'
 import { MarketingSite } from './lib/lazyPages'
 import { supabase } from './lib/supabase'
 import { useAuth } from './lib/AuthContext'
@@ -108,13 +109,14 @@ function dropSuspended({ cos, props, subs, userId, devActive }) {
     suspended: cos.filter(c => c.owner_id !== userId && !liveIds.has(c.id)),
   }
 }
-// Impersonation is read-only: every visible company gets the viewer preset
-// (view keys only, no owner map), so canDo() denies every write action and
-// canWriteCompany() sees a viewer.
+// Impersonation is read-only: the map carries the explicit read-only flag
+// (canDo / canWriteCompany / canAdminCompany deny every write while it is
+// set), and every visible company also gets the viewer preset (view keys
+// only, no owner map) as a second guard.
 function readOnlyPermissionsFor(companyIds) {
   const map = { __owner: {} }
   for (const id of companyIds) map[id] = { ...ROLE_DEFAULTS.viewer, _role: 'viewer' }
-  return map
+  return withReadOnly(map)
 }
 
 // Hoisted out of App's render (2026-11): defined inline it was a new
@@ -1290,11 +1292,15 @@ export default function App({ initialLoginMode = null } = {}) {
   // Uses isPropertyEarningRent/isPropertyOccupied helpers so 'notice_given'
   // counts toward income and occupancy (tenant is still paying), while
   // 'let_agreed' does NOT (no tenant has moved in yet).
+  // Rent-engine arrears per property (overdue periods + unpaid historic
+  // balance), the same figure as the dashboard tiles and Rent Tracker — not
+  // the hand-typed properties.arrears.
+  const arrearsById = useMemo(()=>new Map(dashProps.map(p=>[p.id, propertyArrears(p)])),[dashProps])
   const stats = useMemo(()=>({
     totalInvested:       dashProps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
     totalEstVal:         dashProps.reduce((s,p)=>s+propValue(p),0),
     monthlyRent:         dashProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
-    totalArrears:        dashProps.reduce((s,p)=>s+(p.arrears||0),0),
+    totalArrears:        dashProps.reduce((s,p)=>s+(arrearsById.get(p.id)||0),0),
     totalMortgage:       dashProps.reduce((s,p)=>s+(p.mortgage_amount||0),0),
     totalEquity:         dashProps.reduce((s,p)=>s+propValue(p)-(p.mortgage_amount||0),0),
     monthlyMortgageCost: dashProps.reduce((s,p)=>{
@@ -1311,7 +1317,7 @@ export default function App({ initialLoginMode = null } = {}) {
     inRefurb:            dashProps.filter(p=>p.refurb_status==='in-progress').length,
     total:               dashProps.length,
     occupancy:           occupancySummary(dashProps),
-  }),[dashProps])
+  }),[dashProps, arrearsById])
 
   // Forecast vs received rent for this month and the two before it, plus next
   // month's forecast, for the dashboard's Rent Forecast / Rent Received cards.
@@ -1334,11 +1340,11 @@ export default function App({ initialLoginMode = null } = {}) {
       invested:    ps.reduce((s,p)=>s+(p.purchase_price||0)+(p.refurb_cost||0),0),
       estVal:      ps.reduce((s,p)=>s+propValue(p),0),
       monthlyRent: ps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0),
-      arrears:     ps.reduce((s,p)=>s+(p.arrears||0),0),
+      arrears:     ps.reduce((s,p)=>s+(arrearsById.get(p.id)||0),0),
       rented:      ps.filter(p=>isPropertyOccupied(p.status)).length,
       vacant:      ps.filter(p=>p.status==='vacant').length,
     }
-  }),[dashCos, dashProps])
+  }),[dashCos, dashProps, arrearsById])
 
 
   // Success/info toasts auto-dismiss; ERROR toasts stay until dismissed —
@@ -1788,11 +1794,12 @@ export default function App({ initialLoginMode = null } = {}) {
       const { error } = await supabase.auth.signInWithPassword({
         email: user.email, password
       })
-      if (error) { showToast('Incorrect password - property not deleted', 'error'); return false }
+      // Failures return a reason string for DeleteConfirmModal to show.
+      if (error) { showToast('Incorrect password - property not deleted', 'error'); return 'the password was not accepted' }
       // The password re-auth replaced the session with an aal1 one; a 2FA
       // account steps back up to aal2 before carrying on.
       const step = await ensureAal2(totpPrompt(confirmDialog, 'Enter the 6-digit code from your authenticator app to delete this property.'))
-      if (step === 'cancelled') { showToast('Two-factor verification is required - property not deleted', 'error'); return false }
+      if (step === 'cancelled') { showToast('Two-factor verification is required - property not deleted', 'error'); return 'two-factor verification is required' }
       // Soft-delete: flips deleted_at instead of hard-deleting. The property
       // moves to Trash where it can be restored within 30 days; the auto-purge
       // handles permanent removal. This means accidental deletes are
@@ -1805,7 +1812,7 @@ export default function App({ initialLoginMode = null } = {}) {
       setShowDeleteConfirm(null)
       showToast('Property moved to Trash')
       return true
-    }catch(e){showToast(e.message,'error'); return false}
+    }catch(e){showToast(e.message,'error'); return e?.message || 'something went wrong, please try again'}
   }
 
   async function handleDuplicateProp(id) {

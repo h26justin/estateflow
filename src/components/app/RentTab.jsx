@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTheme } from '../../lib/ThemeContext'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, stlPaymentIds } from '../../lib/rentStats'
-import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE } from '../../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, GO_LIVE, propertyArrears } from '../../lib/rentEngine'
 import * as api from '../../lib/api'
 import { MONO, CV, FS, SANS } from '../../lib/styles'
 import { NotesTimeline, ReceiptsPanel, ArrearsPanel } from './lazyViews'
@@ -26,8 +26,7 @@ export function RentTab({selected, fmt, setEditingPayment, isAdmin, user, showTo
   // opening balance), not the hand-typed properties.arrears — a property
   // months overdue with nothing typed must still show arrears. The typed
   // figure is kept only as a labelled manual note.
-  const engineArrears = selected.status === 'short_term_let' ? 0
-    : (collectionStats(evaluateProperty(selected)).overdue || 0) + (arrearsSummary(selected).balance || 0)
+  const engineArrears = propertyArrears(selected)
   const manualArrears = Number(selected.arrears) || 0
 
   return (

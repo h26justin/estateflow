@@ -275,7 +275,7 @@ export function PropertyDetailView({
               but never present in the tab strip, so it was reachable
               only by hand-typed URL with nothing highlighted. Property-
               scoped contractor history lives in Maintenance. */}
-          {(detailTab==='overview'||detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T}/>}
+          {(detailTab==='overview'||detailTab==='tenancy'||['right-to-rent','deposit','notices','rent-history'].includes(detailTab))&&<TenancyRenewalAlert propertyId={selected.id} rentPcm={selected.rent_pcm} userId={user?.id} showToast={showToast} T={T} onChanged={(patch)=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,...patch}:p))}/>}
           {detailTab==='compliance'&&<ComplianceTab propertyId={selected.id} property={selected} companySettings={companySettings[selected.company_id]||{}}
             onPropertyChange={(patch)=>setProperties(prev=>prev.map(p=>p.id===selected.id?{...p,...patch}:p))}
             showToast={showToast} isAdmin={isAdmin} user={user} category="compliance" canEdit={canDo(permissionsMap, selected.company_id, 'edit_compliance') || devModeActive}/>}

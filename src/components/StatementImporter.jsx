@@ -172,6 +172,7 @@ export function StatementImporter({properties, companies, showToast, onClose, as
                           <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.muted,width:84}}>{new Date(d.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                           <span style={{fontSize:12,color:T.text,flex:1,minWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</span>
                           {co && <span style={{fontFamily:SANS,fontSize:FS.sm,color:co.color||T.goldText}}>{co.abbr||co.name}</span>}
+                          {!done && d.extracted_fields?.reconciliation?.ok === false && <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber}} title="Line items do not add up to the statement totals — check before importing">Totals do not add up</span>}
                           {done
                             ? <span style={{fontFamily:MONO,fontSize:FS.xs,color:T.green}}>Imported {new Date(done).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
                             : <Button variant="primary" size="sm" onClick={()=>openFromDocument(d)} disabled={loading}>Review &amp; import</Button>}

@@ -8,10 +8,12 @@ import { fetchLatestEpcAssessment, generateEpcPlan, deleteEpcAssessment, fetchEp
 import { Skeleton } from '../lib/Skeleton'
 import { Button, EmptyState } from './ui'
 import { readableOn } from '../lib/contrast'
+import { MEES_DEADLINE_ISO } from '../lib/complianceCatalogue'
 
 const mono = MONO
 const RATINGS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-const DEADLINE_ISO = '2030-12-31'
+// Planned date (government response, Jan 2026), subject to Parliamentary approval.
+const DEADLINE_ISO = MEES_DEADLINE_ISO
 
 // Band colours roughly mirror the EPC certificate gradient (green → red).
 const BAND_COLOR = {
@@ -199,12 +201,12 @@ export default function EpcPlanner({ property, T: TProp, canWrite = true }) {
           <RatingBadge rating={targetRating} label="Target" T={T} />
         </div>
         <div style={{ flex: 1, minWidth: 160 }}>
-          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>2030 MEES deadline</div>
+          <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>Planned MEES deadline (1 Oct 2030)</div>
           <div style={{ fontFamily: mono, fontSize: 18, color: cd.passed ? T.goldText : T.text, marginTop: 4 }}>
             {cd.passed ? 'Deadline passed' : `${cd.years}y ${cd.months}m left`}
           </div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted, marginTop: 2 }}>
-            {cd.passed ? '' : `${cd.days.toLocaleString('en-GB')} days · target 31 Dec 2030`}
+            {cd.passed ? '' : `${cd.days.toLocaleString('en-GB')} days · planned 1 Oct 2030, subject to Parliamentary approval`}
           </div>
         </div>
         <div style={{ textAlign: 'right', minWidth: 130 }}>

@@ -213,9 +213,12 @@ export async function uploadAndExtractMortgageDocument(file, firstPropertyId, ca
   if (!file)            throw new Error('No file provided')
   if (!firstPropertyId) throw new Error('Need at least one property to attach the document to')
 
-  // Storage path: userId/propertyId/timestamp_filename
-  const safeName = (file.name || 'mortgage.pdf').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
-  const path = `${uid}/${firstPropertyId}/${Date.now()}_${safeName}`
+  // Storage path: userId/propertyId/{ts}_{n}.{ext} — no user-supplied file
+  // name in the key (as uploadDealDocument); the display name lives on the
+  // row. The random suffix keeps two uploads in the same millisecond apart.
+  const rawExt = String(file.name || '').includes('.') ? (file.name.split('.').pop() || '').toLowerCase() : ''
+  const ext = /^[a-z0-9]{1,8}$/.test(rawExt) ? rawExt : (file.type === 'application/pdf' || !file.type ? 'pdf' : 'bin')
+  const path = `${uid}/${firstPropertyId}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
   const { error: upErr } = await supabase.storage.from('property-documents').upload(path, file, {
     contentType: file.type || 'application/pdf',
     upsert: false,

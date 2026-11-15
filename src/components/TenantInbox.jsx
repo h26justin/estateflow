@@ -23,6 +23,9 @@ const statusCfg = (T) => ({
   complete:      { bg:T.green+'22', color:T.green, label:'Complete' },
 })
 
+// One conversation per (property, tenant).
+const threadKey = (propertyId, tenantUserId) => `${propertyId}|${tenantUserId || ''}`
+
 export default function TenantInbox({ user, companies, showToast, companySettings = {} }) {
   const { T } = useTheme()
   const [view, setView]               = useState('inbox')   // inbox | messages | repairs | all
@@ -71,25 +74,32 @@ export default function TenantInbox({ user, companies, showToast, companySetting
         .order('created_at', { ascending: false })
       if (msgErr) throw msgErr
 
-      // Build conversations — one per property that has messages
+      // Build conversations — one per (property, tenant). An HMO has several
+      // tenants writing in about the same property: each is its own thread,
+      // and a reply goes to that thread's tenant only.
       const convoMap = {}
       for (const msg of (allMessages || [])) {
-        const propId = msg.property_id
-        if (!convoMap[propId]) {
-          convoMap[propId] = {
-            property_id: propId,
-            property: propMap[propId],
+        const key = threadKey(msg.property_id, msg.tenant_user_id)
+        if (!convoMap[key]) {
+          convoMap[key] = {
+            key,
+            property_id: msg.property_id,
+            property: propMap[msg.property_id],
             tenant_user_id: msg.tenant_user_id,
             last_message: msg,
             unread_count: 0,
             messages: [],
           }
         }
-        convoMap[propId].messages.push(msg)
+        convoMap[key].messages.push(msg)
         if (msg.sender_type === 'tenant' && !msg.read_at) {
-          convoMap[propId].unread_count++
+          convoMap[key].unread_count++
         }
       }
+      // How many tenant threads each property has, so a card can say so.
+      const perProp = {}
+      for (const c of Object.values(convoMap)) perProp[c.property_id] = (perProp[c.property_id] || 0) + 1
+      for (const c of Object.values(convoMap)) c.threads_at_property = perProp[c.property_id]
 
       setJobs((allJobs || []).map(j => ({ ...j, property: propMap[j.property_id] })))
       setConvos(Object.values(convoMap).sort((a, b) =>
@@ -108,15 +118,17 @@ export default function TenantInbox({ user, companies, showToast, companySetting
 
   async function openJob(job) {
     if (expanded?.id === job.id && expanded?.itemType === 'job') { setExpanded(null); return }
-    setExpanded({ ...job, itemType: 'job' })
-    // Load the message thread for this property
+    // A tenant-reported job is owned by the reporting tenant (user_id): its
+    // thread and any reply are that tenant's, never another tenant's.
+    setExpanded({ ...job, tenant_user_id: job.user_id, itemType: 'job' })
+    // Load the message thread for this property and tenant
     const req = ++threadReq.current
     setThread([])
     setLoadingThread(true)
     try {
       const msgs = await api.fetchAllTenantMessages(job.property_id)
       if (req !== threadReq.current) return
-      setThread(msgs)
+      setThread(msgs.filter(m => m.tenant_user_id === job.user_id))
     } catch(e) {
       if (req !== threadReq.current) return
       showToast?.('Could not load the messages for this property', 'error')
@@ -125,7 +137,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
   }
 
   async function openConvo(convo) {
-    if (expanded?.property_id === convo.property_id && expanded?.itemType === 'convo') {
+    if (expanded?.key === convo.key && expanded?.itemType === 'convo') {
       setExpanded(null); return
     }
     setExpanded({ ...convo, itemType: 'convo' })
@@ -133,8 +145,9 @@ export default function TenantInbox({ user, companies, showToast, companySetting
     setThread([])
     setLoadingThread(true)
     try {
-      const msgs = await api.fetchAllTenantMessages(convo.property_id)
+      const all = await api.fetchAllTenantMessages(convo.property_id)
       if (req !== threadReq.current) return
+      const msgs = all.filter(m => threadKey(m.property_id, m.tenant_user_id) === convo.key)
       setThread(msgs)
       // Mark all unread as read
       for (const msg of msgs.filter(m => m.sender_type === 'tenant' && !m.read_at)) {
@@ -142,7 +155,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
       }
       // Update unread count in state
       setConvos(prev => prev.map(c =>
-        c.property_id === convo.property_id ? { ...c, unread_count: 0 } : c
+        c.key === convo.key ? { ...c, unread_count: 0 } : c
       ))
     } catch(e) {
       if (req !== threadReq.current) return
@@ -166,12 +179,14 @@ export default function TenantInbox({ user, companies, showToast, companySetting
     try {
       const tenantId = expanded.tenant_user_id
       const propId   = expanded.property_id
+      if (!tenantId) throw new Error('No tenant is linked to this thread, so the reply has nowhere to go')
       const msg = await api.replyToTenantMessage(propId, tenantId, replyText.trim())
       setThread(prev => [...prev, msg])
       setReplyText('')
-      // Update last message in conversations
+      // Update last message in this tenant's conversation only
+      const key = threadKey(propId, tenantId)
       setConvos(prev => prev.map(c =>
-        c.property_id === propId ? { ...c, last_message: msg } : c
+        c.key === key ? { ...c, last_message: msg } : c
       ))
     } catch(e) { showToast(e.message, 'error') }
     setReplying(false)
@@ -235,7 +250,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
           )}
           {/* Unread conversations */}
           {convos.filter(c => c.unread_count > 0).map(convo => (
-            <ConvoCard key={convo.property_id} convo={convo} expanded={expanded} onOpen={openConvo}
+            <ConvoCard key={convo.key} convo={convo} expanded={expanded} onOpen={openConvo}
               thread={thread} loadingThread={loadingThread} replyText={replyText} setReplyText={setReplyText}
               replying={replying} onReply={sendReply} bottomRef={bottomRef} T={T}/>
           ))}
@@ -283,7 +298,7 @@ export default function TenantInbox({ user, companies, showToast, companySetting
             </div>
           )}
           {convos.map(convo => (
-            <ConvoCard key={convo.property_id} convo={convo} expanded={expanded} onOpen={openConvo}
+            <ConvoCard key={convo.key} convo={convo} expanded={expanded} onOpen={openConvo}
               thread={thread} loadingThread={loadingThread} replyText={replyText} setReplyText={setReplyText}
               replying={replying} onReply={sendReply} bottomRef={bottomRef} T={T}/>
           ))}
@@ -381,7 +396,7 @@ function JobCard({ job, expanded, onOpen, onStatusChange, thread, loadingThread,
 
 // ── CONVERSATION CARD ─────────────────────────────────────────────────────────
 function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, setReplyText, replying, onReply, bottomRef, T }) {
-  const isExpanded = expanded?.property_id === convo.property_id && expanded?.itemType === 'convo'
+  const isExpanded = expanded?.key === convo.key && expanded?.itemType === 'convo'
   const lastMsg = convo.last_message
   const hasUnread = convo.unread_count > 0
 
@@ -406,7 +421,7 @@ function ConvoCard({ convo, expanded, onOpen, thread, loadingThread, replyText, 
             <div style={{ fontSize:13, fontWeight: hasUnread ? 700 : 400, color:T.text, marginBottom:3 }}>
               {lastMsg.message?.substring(0,80)}{lastMsg.message?.length>80?'…':''}
             </div>
-            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}</div>
+            <div style={{ fontFamily:SANS, fontSize:FS.sm, color:T.muted, display:'flex', alignItems:'center', gap:4 }}><Icon name="pin" size={12}/>{convo.property?.address||convo.property?.name||'—'}{convo.threads_at_property > 1 ? ` · one of ${convo.threads_at_property} tenants messaging about this property` : ''}</div>
           </div>
           <div style={{ fontFamily:mono, fontSize:11, color:T.muted }}>{isExpanded?'▲':'▼'}</div>
         </div>

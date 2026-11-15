@@ -86,7 +86,14 @@ export async function saveHostawayMappings(companyId, mappings) {
 }
 
 // ── Sync ────────────────────────────────────────────────────────────────
-// Returns { bookings, created, updated, removed, skippedUnmapped }.
+// Returns the sync action's result: { bookings, created, updated, removed,
+// skippedUnmapped, skippedNonGbp, repaired, partial, rejectedMappings[],
+// conflicts[], errors[] }. partial = the run hit its page cap and did not
+// read every changed booking; skippedNonGbp = bookings in another currency,
+// recorded but not written as rent; repaired = live bookings whose missing
+// Rent Tracker segment was recreated; rejectedMappings / conflicts / errors
+// are human-readable notes. IntegrationsPanel's channelSyncNotes() turns
+// them into the last-sync line.
 export async function runHostawaySync(companyId) {
   return invoke('sync', { company_id: companyId })
 }

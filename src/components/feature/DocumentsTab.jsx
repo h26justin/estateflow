@@ -410,9 +410,9 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                         {/* Compliance auto-link CTA. Triggers ensureComplianceLink on first render
                             via the IIFE — keeps logic local to the panel without an extra useEffect. */}
                         {(() => {
-                          const cat = doc.category
-                          const cert = ['gas','eicr','epc','insurance'].includes(cat)
-                          if (!cert || extractedFields._parse_error) return null
+                          // buildComplianceFromDoc decides whether this is a certificate
+                          // (category, or the AI-detected document_type).
+                          if (extractedFields._parse_error) return null
                           const candidate = api.buildComplianceFromDoc(doc)
                           if (!candidate) return null
                           // Lazy-check link state
@@ -429,6 +429,7 @@ export function DocumentsTab({propertyId, propertyName, showToast, isAdmin, user
                             <div style={{marginTop:10,padding:'10px 12px',background:T.gold+'11',border:`1px dashed ${T.gold}66`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
                               <div style={{fontFamily:MONO,fontSize:11,color:T.text,lineHeight:1.5}}>
                                 Looks like a <strong>{candidate.cert_name}</strong> expiring <strong>{fmtDate(candidate.expiry_date)}</strong>.
+                                {api.complianceReviewReason(doc) && <div style={{color:T.goldText,marginTop:4}}>Not added automatically: {api.complianceReviewReason(doc)}. Check the dates before adding.</div>}
                               </div>
                               <Button size="sm" icon={complianceBusy===doc.id ? undefined : 'plus'} onClick={()=>addToCompliance(doc)} disabled={complianceBusy===doc.id} style={{whiteSpace:'nowrap'}}>
                                 {complianceBusy===doc.id ? 'Adding…' : 'Add to Compliance'}

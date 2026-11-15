@@ -436,6 +436,9 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
   const proj = id => projects.find(p => p.id === id)
   const company = companies.find(c => c.id === invoice.company_id)
   const isCredit = invoice.doc_kind === 'credit_note'
+  // Once approved, only an owner / admin (the same people who can approve)
+  // may change or delete the invoice; the database enforces the same rule.
+  const approvedLock = invoice.approval_status === 'approved' && !canApprove
 
   async function openPdf() {
     try {
@@ -481,7 +484,8 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <InvoiceStatusChip status={st} T={T} />
           {invoice.document_id && <Button variant="secondary" size="sm" onClick={openPdf}>Open original</Button>}
-          {canEdit && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
+          {canEdit && !approvedLock && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
+          {canEdit && approvedLock && <span style={{ fontFamily: SANS, fontSize: FS.sm, color: T.faint }}>Approved: only an owner or admin can change or delete it.</span>}
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 10, marginTop: 14, fontFamily: mono }}>
@@ -491,7 +495,7 @@ export function InvoiceDetail({ invoice, properties, companies, projects, lines,
       </div>
       {!isCredit && <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center', fontFamily: mono, fontSize: 11 }}>
         <span style={{ color: T.muted }}>Approval:</span>
-        <select value={invoice.approval_status} onChange={e => setApproval(e.target.value)} disabled={!canEdit || (!canApprove && invoice.approval_status === 'approved')} style={{ ...inputStyle(T), width: 'auto' }}>
+        <select value={invoice.approval_status} onChange={e => setApproval(e.target.value)} disabled={!canEdit || approvedLock} style={{ ...inputStyle(T), width: 'auto' }}>
           {approvalOptions(canApprove, invoice.approval_status).map(s => <option key={s.v} value={s.v} disabled={s.disabled}>{s.l}</option>)}
         </select>
         {canEdit && !canApprove && <span style={{ color: T.faint }}>Only an owner or admin can approve.</span>}

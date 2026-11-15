@@ -7,6 +7,16 @@
 // permissions map and how to describe a member's row as one of the four
 // role presets shown in the Team & Access tab.
 
+// Read-only session (a platform admin impersonating a customer): the map
+// carries `__readOnly: true` and every write action is denied whatever the
+// per-company permissions say; only view_* keys are answered from the map.
+export const READ_ONLY_KEY = '__readOnly'
+export function withReadOnly(permissionsMap) {
+  return { ...(permissionsMap || {}), [READ_ONLY_KEY]: true }
+}
+function isReadOnlyMap(permissionsMap) { return permissionsMap?.[READ_ONLY_KEY] === true }
+function isViewKey(permissionKey) { return typeof permissionKey === 'string' && permissionKey.startsWith('view_') }
+
 // Check if the current user can perform an action on a company.
 // permissionsMap: { [companyId]: { edit_properties: true, view_financial: false, ... } }
 // Fail-CLOSED: if we have no permission record for the company, deny the action.
@@ -18,6 +28,7 @@
 export function canDo(permissionsMap, companyId, permissionKey) {
   if (!companyId) return true  // no company context = global / personal action
   if (!permissionsMap) return false  // not loaded yet -> deny by default
+  if (isReadOnlyMap(permissionsMap) && !isViewKey(permissionKey)) return false
   if (permissionsMap.__owner?.[companyId]) return true  // owner can do anything
   const perms = permissionsMap[companyId]
   if (!perms) return false  // collaborator row missing -> no access
@@ -96,6 +107,7 @@ export function companyRole(permissionsMap, companyId, devModeActive = false) {
 // has_company_write(): owner / admin / editor (and platform developer).
 // Viewers — including the Rent Tracker Editor preset — are read-only.
 export function canWriteCompany(permissionsMap, companyId, devModeActive = false) {
+  if (isReadOnlyMap(permissionsMap)) return false
   const r = companyRole(permissionsMap, companyId, devModeActive)
   return r === 'developer' || r === 'owner' || r === 'admin' || r === 'editor'
 }
@@ -103,6 +115,7 @@ export function canWriteCompany(permissionsMap, companyId, devModeActive = false
 // Owner / admin (and platform developer): company-level settings such as
 // which Xero organisation the company's books are exported to.
 export function canAdminCompany(permissionsMap, companyId, devModeActive = false) {
+  if (isReadOnlyMap(permissionsMap)) return false
   const r = companyRole(permissionsMap, companyId, devModeActive)
   return r === 'developer' || r === 'owner' || r === 'admin'
 }

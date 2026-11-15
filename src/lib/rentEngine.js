@@ -723,6 +723,16 @@ export function arrearsSummary(property, opts = {}) {
   return { opening, paid: round2(paid), balance: round2(balance), unmatched: round2(unmatched), overlap }
 }
 
+// A property's arrears as at `today`: overdue rent periods plus the unpaid
+// historic opening balance. The one figure behind the dashboard, Rent
+// Tracker, Rent tab, smart alerts and the header totals — never the
+// hand-typed properties.arrears. Short-term lets carry no rent arrears.
+export function propertyArrears(property, today = isoToday()) {
+  if (!property || property.status === 'short_term_let') return 0
+  const overdue = collectionStats(evaluateProperty(property, { today }), { asOf: today }).overdue || 0
+  return round2(overdue + (arrearsSummary(property).balance || 0))
+}
+
 // Portfolio-level figures for a set of properties.
 export function portfolioStats(properties, { year = null, asOf = isoToday(), today = asOf } = {}) {
   const [ay, am] = asOf.split('-').map(Number)

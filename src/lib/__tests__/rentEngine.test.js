@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   evaluatePeriod, evaluateProperty, collapseMonth, groupByMonth, collectionStats, arrearsSummary,
   dueDateFor, benefitDueOnOrAfter, collectibleDays, monthlyRent, fallbackTenancyFromProperty, STATE,
-  periodBreakdown,
+  periodBreakdown, propertyArrears,
 } from '../rentEngine'
 
 // Scenario tests from the client pack (Prompt 5), plus the decisions ruled on
@@ -498,5 +498,32 @@ describe('benefit schedule with an old anchor (E7)', () => {
     expect(benefitDueOnOrAfter(t, '2020-01-01')).toBe('2020-01-02')
     const m = T({ payment_source: 'housing_benefit', benefit_frequency: 'monthly', benefit_next_payment_date: '2014-01-31' })
     expect(benefitDueOnOrAfter(m, '2026-02-10')).toBe('2026-02-28')
+  })
+})
+
+describe('propertyArrears — one arrears figure for every screen', () => {
+  const p = prop({
+    tenancies: [T({ opening_arrears: 208 })],
+    rent_payments: [month('m3', 2026, 3, 'void'), month('m4', 2026, 4, 'void'), month('m5', 2026, 5, 'void')],
+    rent_receipts: [
+      receipt('r1', '2026-03-02', 500, [{ period: 'm3', amount: 500 }]),
+      receipt('r2', '2026-04-02', 550, [{ period: 'm4', amount: 500 }, { period: null, target: 'historic_arrears', amount: 50 }]),
+    ],
+  })
+  // The inline copy the dashboard, Rent Tracker, Rent tab and smart alerts used.
+  const inline = (x) => x.status === 'short_term_let' ? 0
+    : Math.round(((collectionStats(evaluateProperty(x)).overdue || 0) + (arrearsSummary(x).balance || 0)) * 100) / 100
+
+  it('is overdue rent plus the unpaid historic balance', () => {
+    expect(propertyArrears(p, '2026-06-15')).toBe(658)   // May unpaid 500 + 208 - 50
+  })
+  it('matches the inline copies it replaces', () => {
+    expect(propertyArrears(p)).toBe(inline(p))
+    const none = prop({ tenancies: [T()], rent_payments: [month('m3', 2026, 3, 'void')], rent_receipts: [receipt('r1', '2026-03-02', 500, [{ period: 'm3', amount: 500 }])] })
+    expect(propertyArrears(none)).toBe(inline(none))
+  })
+  it('is zero for a short-term let and ignores the hand-typed arrears field', () => {
+    expect(propertyArrears({ ...p, status: 'short_term_let' }, '2026-06-15')).toBe(0)
+    expect(propertyArrears({ ...p, arrears: 9999 }, '2026-06-15')).toBe(658)
   })
 })

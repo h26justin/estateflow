@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { monthRate } from '../../lib/rentForecast'
-import { evaluateProperty, collectionStats, arrearsSummary } from '../../lib/rentEngine'
+import { propertyArrears } from '../../lib/rentEngine'
 import { resolveWidgetPrefs } from '../../lib/dashboardPrefs'
 import RentIncomePanel from '../RentIncomePanel'
 import { SmartAlerts } from '../DashboardComponents'
@@ -44,7 +44,7 @@ export function DashboardView({
   // typed. The typed figure is listed only as a labelled manual note.
   const arrearsRows = useMemo(() => dashProps
     .filter(p => p.status !== 'short_term_let')
-    .map(p => ({ p, owed: Math.round(((collectionStats(evaluateProperty(p)).overdue || 0) + (arrearsSummary(p).balance || 0)) * 100) / 100 }))
+    .map(p => ({ p, owed: propertyArrears(p) }))
     .filter(r => r.owed > 0), [dashProps])
   const engineArrearsTotal = arrearsRows.reduce((t, r) => t + r.owed, 0)
   const manualArrearsProps = dashProps.filter(p => (Number(p.arrears) || 0) > 0)

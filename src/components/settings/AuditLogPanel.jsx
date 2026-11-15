@@ -4,13 +4,14 @@ import * as api from '../../lib/api'
 import { useLoadGuard } from '../../lib/useLoadGuard'
 import { logError } from '../../lib/logError'
 import { SkeletonRows } from '../../lib/Skeleton'
-import { EmptyState } from '../ui'
+import { EmptyState, ErrorState } from '../ui'
 
 // ── AUDIT LOG PANEL ───────────────────────────────────────────────────────────
 export function AuditLogPanel({ user, companies, T }) {
   const mono = MONO
   const [logs, setLogs]           = useState([])
   const [loading, setLoading]     = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [companyFilter, setCompanyFilter] = useState('')
 
   const beginLoad = useLoadGuard()
@@ -18,6 +19,7 @@ export function AuditLogPanel({ user, companies, T }) {
   const loadLogs = useCallback(async () => {
     const isCurrent = beginLoad()
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api.fetchAuditLog(user?.id, companyFilter||null)
       if (!isCurrent()) return
@@ -25,6 +27,9 @@ export function AuditLogPanel({ user, companies, T }) {
     } catch(e) {
       if (!isCurrent()) return
       logError('AuditLogPanel:loadLogs', e)
+      // Never show a failed load as an empty log.
+      setLogs([])
+      setLoadError(e?.message || 'unknown error')
     }
     setLoading(false)
   }, [beginLoad, user?.id, companyFilter])
@@ -120,6 +125,8 @@ export function AuditLogPanel({ user, companies, T }) {
 
         {loading ? (
           <SkeletonRows rows={5} height={44}/>
+        ) : loadError ? (
+          <ErrorState compact title="Couldn't load the audit log" message="Check your connection and try again." onRetry={loadLogs}/>
         ) : logs.length === 0 ? (
           <EmptyState compact icon="clock" title="No activity recorded yet" body="Actions you take in Properly will appear here."/>
         ) : (

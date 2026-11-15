@@ -3,7 +3,7 @@ import { useTheme } from '../../lib/ThemeContext'
 import { useIsMobile } from '../../lib/useWindowSize'
 import { defaultRentYear, getMonthlyRentStats, legacyCollectionRate, stlPaymentIds } from '../../lib/rentStats'
 import { propertyNeedsTenancy } from '../../lib/tenancyUtils'
-import { portfolioStats, GO_LIVE, evaluateProperty, collectionStats, arrearsSummary } from '../../lib/rentEngine'
+import { portfolioStats, GO_LIVE, propertyArrears } from '../../lib/rentEngine'
 import { RentReviewModal } from '../DashboardComponents'
 import * as api from '../../lib/api'
 import { PROPERTY_STATUSES, PROPERTY_STATUS_LABELS, isPropertyEarningRent } from '../../lib/propertyStatus'
@@ -111,9 +111,7 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
   const engineArrears = useMemo(() => {
     const m = new Map()
     for (const p of trackedProps) {
-      if (p.status === 'short_term_let') { m.set(p.id, 0); continue }
-      const v = (collectionStats(evaluateProperty(p)).overdue || 0) + (arrearsSummary(p).balance || 0)
-      m.set(p.id, Math.round(v * 100) / 100)
+      m.set(p.id, propertyArrears(p))
     }
     return m
   }, [trackedProps])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { highestTier, billingTierFor, billablePropertyCount, calcMonthlyPrice, TIERS } from '../tierGating'
+import { highestTier, canUseInvestorFeatures, billingTierFor, billablePropertyCount, calcMonthlyPrice, TIERS } from '../tierGating'
 
 describe('highestTier', () => {
   it('counts a live Investor subscription', () => {
@@ -57,5 +57,27 @@ describe('displayed price matches what checkout charges', () => {
     expect(calcMonthlyPrice(6, 'starter')).toBe(12)
     expect(calcMonthlyPrice(3, 'investor')).toBe(15)
     expect(calcMonthlyPrice(1, 'investor')).toBe(10)
+  })
+})
+
+describe('canUseInvestorFeatures — same liveness rule as highestTier', () => {
+  const future = new Date(Date.now() + 7 * 86400000).toISOString()
+  const past = new Date(Date.now() - 86400000).toISOString()
+  it('a cancelled or not-live Investor row does not unlock Investor features', () => {
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'canceled' }] })).toBe(false)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'incomplete' }] })).toBe(false)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'trialing' }] })).toBe(false)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'trialing', current_period_end: past }] })).toBe(false)
+  })
+  it('a live Investor trial or subscription does', () => {
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'trialing', stripe_subscription_id: 'sub_x' }] })).toBe(true)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'trialing', current_period_end: future }] })).toBe(true)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'investor', status: 'active' }] })).toBe(true)
+    expect(canUseInvestorFeatures({ subs: [{ tier: 'starter', status: 'active' }] })).toBe(false)
+  })
+  it('agrees with highestTier', () => {
+    for (const s of [{ tier: 'investor', status: 'trialing' }, { tier: 'investor', status: 'past_due' }, { tier: 'investor', status: 'canceled' }]) {
+      expect(canUseInvestorFeatures({ subs: [s] })).toBe(highestTier({ subs: [s] }) === TIERS.investor)
+    }
   })
 })
