@@ -22,7 +22,7 @@
 // tenant's name is shown to say who to chase. No notes, values or mortgage
 // figures.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE, missedOwed } from './rentEngine'
 import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
@@ -116,7 +116,8 @@ function propertyCard(p, { asOf, year, thisMo }) {
   // Owed = missed balances on closed periods, not rent still in its window.
   let owed = 0, missedMonths = 0
   for (const e of evals) {
-    if (e.state === STATE.MISSED && e.outstanding > 0) { owed = round2(owed + e.outstanding); missedMonths++ }
+    const o = missedOwed(e, asOf)
+    if (o > 0) { owed = round2(owed + o); missedMonths++ }
   }
   const arrears = Math.max(0, arrearsSummary(p).balance)
   const t = tenancyForDate(p.tenancies || [], asOf)
@@ -131,9 +132,10 @@ function propertyCard(p, { asOf, year, thisMo }) {
   const yearStart = `${year}-01-01`
   let shortfallYear = 0, shortfallTenancy = 0
   for (const e of evals) {
-    if (e.state !== STATE.MISSED || !(e.outstanding > 0)) continue
-    if (e.periodStart >= yearStart) shortfallYear = round2(shortfallYear + e.outstanding)
-    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round2(shortfallTenancy + e.outstanding)
+    const o = missedOwed(e, asOf)
+    if (!(o > 0)) continue
+    if (e.periodStart >= yearStart) shortfallYear = round2(shortfallYear + o)
+    if (tenancyStart && e.periodEnd >= tenancyStart) shortfallTenancy = round2(shortfallTenancy + o)
   }
 
   // Last 4 months (this month and the three before): rent due to be
@@ -178,7 +180,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue
     monthDue = round2(monthDue + e.expected); monthCollected = round2(monthCollected + collectedOf(e))
   }
-  const firstMissed = evals.filter(e => e.state === STATE.MISSED && e.outstanding > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
+  const firstMissed = evals.filter(e => missedOwed(e, asOf) > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
 
   return {
     id: p.id,

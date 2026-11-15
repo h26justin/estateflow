@@ -5,6 +5,7 @@ import {
   certTypeStatus,
   complianceStatusFor,
   complianceBadge,
+  addMonths,
 } from '../complianceStatus'
 
 // Build an ISO date `n` days from now (negative = past).
@@ -72,9 +73,35 @@ describe('complianceStatusFor', () => {
   it('reports expiring when nothing is expired', () => {
     expect(complianceStatusFor({ compliance_items: [cert('gas', inDays(10))] }).state).toBe('expiring')
   })
+  it('judges each certificate type on its latest certificate (a renewed one is not expired)', () => {
+    const r = complianceStatusFor({ status: 'rented', compliance_items: [
+      cert('gas', inDays(-300)), cert('gas_safety', inDays(65)),   // renewed (alias of gas)
+      cert('eicr', inDays(-30)), cert('eicr', inDays(-400)),       // genuinely expired, counted once
+    ] })
+    expect(r).toEqual({ state: 'expired', count: 1 })
+    expect(complianceStatusFor({ status: 'rented', compliance_items: [cert('gas', inDays(-5)), cert('gas', inDays(200))] }).state).toBe('ok')
+  })
+  it('ignores deleted rows', () => {
+    expect(complianceStatusFor({ status: 'vacant', compliance_items: [cert('gas', inDays(-5), { deleted_at: '2026-01-01' })] }).state).toBe('ok')
+  })
   it('flags missing only for rented properties with no certs', () => {
     expect(complianceStatusFor({ status: 'rented', compliance_items: [] }).state).toBe('missing')
     expect(complianceStatusFor({ status: 'vacant', compliance_items: [] }).state).toBe('ok')
+  })
+})
+
+describe('addMonths', () => {
+  it('moves the calendar date, never a day early across a clock change', () => {
+    expect(addMonths('2026-01-15', 6)).toBe('2026-07-15')
+    expect(addMonths('2026-03-30', 12)).toBe('2027-03-30')
+    expect(addMonths('2026-10-20', 6)).toBe('2027-04-20')
+  })
+  it('clamps to the end of a shorter month', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28')
+    expect(addMonths('2028-02-29', 12)).toBe('2029-02-28')
+  })
+  it('returns null for a date it cannot read', () => {
+    expect(addMonths('not-a-date', 1)).toBeNull()
   })
 })
 

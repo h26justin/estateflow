@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   evaluatePeriod, evaluateProperty, collapseMonth, groupByMonth, collectionStats, arrearsSummary,
   dueDateFor, benefitDueOnOrAfter, collectibleDays, monthlyRent, fallbackTenancyFromProperty, STATE,
+  periodBreakdown,
 } from '../rentEngine'
 
 // Scenario tests from the client pack (Prompt 5), plus the decisions ruled on
@@ -106,7 +107,7 @@ describe('period states', () => {
     expect(after.state).toBe(STATE.NOT_COLLECTIBLE); expect(after.reasons[0]).toMatch(/After tenancy end/)
   })
   it('move-out mid-month prorates and the remainder of the month is not collectible', () => {
-    const t = T({ tenancy_end: '2026-05-15' })
+    const t = T({ tenancy_end: '2026-05-15', status: 'ended' })
     const e = evaluatePeriod(month('m5', 2026, 5, 'void'), ctx({ tenancies: [t], today: '2026-06-15' }))
     expect(e.collectibleDays).toBe(15); expect(e.expected).toBe(241.94)
   })
@@ -379,5 +380,123 @@ describe('investigation 13 Oct 2026', () => {
     expect(arrearsSummary(p)).toEqual({ opening: 0, paid: 0, balance: 0, unmatched: 0, overlap: 2400 })
     const hist = prop({ tenancies: [T({ opening_arrears: 300, opening_arrears_date: '2025-12-31' })] })
     expect(arrearsSummary(hist).balance).toBe(300)
+  })
+})
+
+// ── Non-monthly rent (E2, 15 Nov 2026): charged per due date, not a
+// monthly equivalent, so a tenant who pays every due date is never in arrears.
+describe('non-monthly rent is charged per due date', () => {
+  // Calendar-month rows Jan to Nov 2026, every payment allocated to the month
+  // it was received in (how the receipts screen records them).
+  const months11 = () => Array.from({ length: 11 }, (_, i) => month(`m${i + 1}`, 2026, i + 1, 'void'))
+  const payEvery = (fromIso, step, amount, untilIso) => {
+    const out = []
+    for (let d = fromIso, i = 0; d <= untilIso; i++) {
+      out.push(receipt(`r${i}`, d, amount, [{ period: `m${Number(d.slice(5, 7))}`, amount }]))
+      const [y, m, dd] = d.split('-').map(Number)
+      d = new Date(Date.UTC(y, m - 1, dd + step)).toISOString().slice(0, 10)
+    }
+    return out
+  }
+  const fullyPaid = (t, step, amount) => {
+    const p = prop({ tenancies: [t], rent_payments: months11(), rent_receipts: payEvery(t.rent_due_anchor || t.tenancy_start, step, amount, '2026-11-15') })
+    const evals = evaluateProperty(p, { today: '2026-11-15' })
+    return { evals, stats: collectionStats(evals, { asOf: '2026-11-15' }) }
+  }
+
+  it('four-weekly £480 from 1 Jan, every payment made: no arrears (the reported case)', () => {
+    const { evals, stats } = fullyPaid(T({ rent_amount: 480, rent_frequency: 'four_weekly' }), 28, 480)
+    expect(evals.map(e => e.state).every(s => s === STATE.PAID)).toBe(true)
+    // January holds two due dates (1st and 29th); a 28-day February holds one.
+    expect(evals[0].expected).toBe(960); expect(evals[1].expected).toBe(480)
+    expect(stats.due).toBe(5760); expect(stats.received).toBe(5760)
+    expect(stats.overdue).toBe(0); expect(stats.outstanding).toBe(0); expect(stats.rate).toBe(100)
+  })
+  it('weekly £120 from Thursday 1 Jan: a five-Thursday month is charged five rents', () => {
+    const { evals, stats } = fullyPaid(T({ rent_amount: 120, rent_frequency: 'weekly' }), 7, 120)
+    expect(evals[0].expected).toBe(600)   // 1, 8, 15, 22, 29 Jan
+    expect(evals[1].expected).toBe(480)   // 5, 12, 19, 26 Feb
+    expect(evals.slice(0, 10).every(e => e.state === STATE.PAID)).toBe(true)
+    // November is part way through: 5 and 12 Nov paid, 19 and 26 Nov still ahead.
+    expect(evals[10].state).toBe(STATE.PART_PAID)
+    expect(stats.overdue).toBe(0); expect(stats.outstanding).toBe(0); expect(stats.notYetDue).toBe(240); expect(stats.rate).toBe(100)
+  })
+  it('fortnightly £260 from Friday 2 Jan: three due dates in January, two in February', () => {
+    const { evals, stats } = fullyPaid(T({ tenancy_start: '2026-01-02', rent_amount: 260, rent_frequency: 'fortnightly' }), 14, 260)
+    expect(evals[0].expected).toBe(780); expect(evals[1].expected).toBe(520)
+    expect(evals.slice(0, 10).every(e => e.state === STATE.PAID)).toBe(true)
+    expect(evals[10].state).toBe(STATE.PART_PAID)   // 13 Nov paid, 27 Nov ahead
+    expect(stats.overdue).toBe(0); expect(stats.outstanding).toBe(0); expect(stats.rate).toBe(100)
+  })
+  it('a part period before the first due date is prorated by day and charged on the start date', () => {
+    // Moves in Wed 4 Mar, rent due every Friday from 6 Mar: 2 days then 4 full weeks.
+    const t = T({ tenancy_start: '2026-03-04', rent_due_anchor: '2026-03-06', rent_amount: 140, rent_frequency: 'weekly' })
+    const e = evaluatePeriod(month('m3', 2026, 3, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
+    expect(e.expected).toBe(600)          // 140 x 2/7 + 4 x 140
+    expect(e.dueDate).toBe('2026-03-04'); expect(e.windowEnd).toBe('2026-04-01')   // last due date 27 Mar + 5
+  })
+  it('a tenancy ending mid-cycle is charged only the days it ran in its last cycle', () => {
+    const t = T({ rent_amount: 140, rent_frequency: 'weekly', tenancy_end: '2026-05-10', status: 'ended' })
+    const may = evaluatePeriod(month('m5', 2026, 5, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
+    expect(may.expected).toBe(80)          // Thu 7 May cycle, 7 to 10 May = 4 of 7 days
+    const june = evaluatePeriod(month('m6', 2026, 6, 'void'), ctx({ tenancies: [t], today: '2026-10-01' }))
+    expect(june.state).toBe(STATE.NOT_COLLECTIBLE)
+  })
+  it('each instalment is judged on its own window: paid to date is Part paid, a missed instalment is Missed', () => {
+    const t = T({ rent_amount: 120, rent_frequency: 'weekly' })
+    const paidToDate = [receipt('a', '2026-01-01', 120, [{ period: 'm1', amount: 120 }]), receipt('b', '2026-01-08', 120, [{ period: 'm1', amount: 120 }]), receipt('c', '2026-01-15', 120, [{ period: 'm1', amount: 120 }])]
+    const ok = evaluatePeriod(month('m1', 2026, 1, 'void'), ctx({ tenancies: [t], receipts: paidToDate, today: '2026-01-16' }))
+    expect(ok.expected).toBe(600); expect(ok.state).toBe(STATE.PART_PAID)
+    const okStats = collectionStats([ok], { asOf: '2026-01-16' })
+    expect(okStats.overdue).toBe(0); expect(okStats.due).toBe(360); expect(okStats.notYetDue).toBe(240); expect(okStats.rate).toBe(100)
+    expect(periodBreakdown(ok, '2026-01-16')).toEqual({ bucket: 'notYetDue', owed: 240, needsInfo: 0, notYetDue: 240 })
+    const behind = evaluatePeriod(month('m1', 2026, 1, 'void'), ctx({ tenancies: [t], receipts: paidToDate.slice(0, 1), today: '2026-01-16' }))
+    expect(behind.state).toBe(STATE.MISSED)  // 8 Jan rent unpaid after its window
+    expect(collectionStats([behind], { asOf: '2026-01-16' }).overdue).toBe(240)   // 8 and 15 Jan; 22 and 29 Jan not yet due
+    expect(periodBreakdown(behind, '2026-01-16')).toEqual({ bucket: 'overdue', owed: 240, needsInfo: 0, notYetDue: 240 })
+  })
+  it('monthly rent is untouched by the per-due-date rule', () => {
+    const e = evaluatePeriod(month('m5', 2026, 5, 'void'), ctx({ today: '2026-05-07' }))
+    expect(e.expected).toBe(500); expect(e.dueDate).toBe('2026-05-01'); expect(e.windowEnd).toBe('2026-05-06'); expect(e.instalments).toBeUndefined()
+  })
+})
+
+describe('holding over past an old fixed-term end (E3)', () => {
+  it('a rented tenancy past its tenancy_end is still charged and can be in arrears', () => {
+    const t = T({ tenancy_start: '2025-06-01', tenancy_end: '2026-05-31', status: 'rented' })
+    const e = evaluatePeriod(month('m9', 2026, 9, 'void'), ctx({ tenancies: [t], today: '2026-11-15' }))
+    expect(e.state).toBe(STATE.MISSED); expect(e.expected).toBe(500)
+  })
+  it('stops at a recorded expected move-out', () => {
+    const t = T({ tenancy_start: '2025-06-01', tenancy_end: '2026-05-31', expected_move_out: '2026-08-31', status: 'rented' })
+    const e = evaluatePeriod(month('m9', 2026, 9, 'void'), ctx({ tenancies: [t], today: '2026-11-15' }))
+    expect(e.state).toBe(STATE.NOT_COLLECTIBLE); expect(e.reasons[0]).toMatch(/After tenancy end/)
+  })
+})
+
+describe('historic arrears are netted per tenancy (E4)', () => {
+  it("a former tenant's repayments never reduce the current tenant's balance", () => {
+    const old = T({ id: 'old', tenancy_start: '2024-01-01', tenancy_end: '2025-06-30', status: 'ended', opening_arrears: 900, opening_arrears_date: '2025-06-30' })
+    const cur = T({ id: 'cur', tenancy_start: '2025-07-01', opening_arrears: 300, opening_arrears_date: '2025-12-31' })
+    const rcpt = (id, amount, tenancyId) => ({ id, received_date: '2026-03-01', amount, payer: 'tenant', kind: 'receipt', tenancy_id: tenancyId,
+      rent_allocations: [{ id: id + 'a', target: 'historic_arrears', amount, tenancy_id: tenancyId, rent_payment_id: null }] })
+    const p = prop({ tenancies: [old, cur], rent_receipts: [rcpt('x', 400, 'old'), rcpt('y', 100, 'cur')] })
+    expect(arrearsSummary(p)).toEqual({ opening: 300, paid: 100, balance: 200, unmatched: 0, overlap: 0 })
+  })
+  it('one tenancy overpaying does not offset another live tenancy', () => {
+    const a = T({ id: 'a', opening_arrears: 200, opening_arrears_date: '2025-12-31' })
+    const b = T({ id: 'b', tenancy_start: '2026-01-01', opening_arrears: 100, opening_arrears_date: '2025-12-31' })
+    const r = { id: 'r', received_date: '2026-03-01', amount: 150, rent_allocations: [{ target: 'historic_arrears', amount: 150, tenancy_id: 'b' }] }
+    expect(arrearsSummary(prop({ tenancies: [a, b], rent_receipts: [r] }))).toEqual({ opening: 300, paid: 150, balance: 200, unmatched: 50, overlap: 0 })
+  })
+})
+
+describe('benefit schedule with an old anchor (E7)', () => {
+  it('a weekly anchor more than 120 weeks old still lands on or after the date asked for', () => {
+    const t = T({ payment_source: 'universal_credit', benefit_frequency: 'weekly', benefit_next_payment_date: '2023-01-05' })
+    expect(benefitDueOnOrAfter(t, '2026-11-15')).toBe('2026-11-19')
+    expect(benefitDueOnOrAfter(t, '2020-01-01')).toBe('2020-01-02')
+    const m = T({ payment_source: 'housing_benefit', benefit_frequency: 'monthly', benefit_next_payment_date: '2014-01-31' })
+    expect(benefitDueOnOrAfter(m, '2026-02-10')).toBe('2026-02-28')
   })
 })

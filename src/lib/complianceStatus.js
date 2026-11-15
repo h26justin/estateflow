@@ -25,11 +25,23 @@ export function daysUntilDate(dateStr) {
   return Math.ceil((t - Date.now()) / 86_400_000)
 }
 
-const addMonths = (dateStr, months) => {
-  const d = new Date(dateStr)
-  if (Number.isNaN(d.getTime())) return null
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
+// Same day-of-month `months` later, clamped to the month's last day, worked
+// on the ISO date parts. Never Date#setMonth: that is local time while the
+// string parses as UTC, so a date moved across a clock change lands a day
+// early (15 Jan + 6 months read 14 Jul in the UK).
+export const addMonths = (dateStr, months) => {
+  let y, m, d
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ''))
+  if (iso) { y = +iso[1]; m = +iso[2]; d = +iso[3] }
+  else {
+    const dt = new Date(dateStr)
+    if (Number.isNaN(dt.getTime())) return null
+    y = dt.getFullYear(); m = dt.getMonth() + 1; d = dt.getDate()
+  }
+  const total = y * 12 + (m - 1) + months
+  const ny = Math.floor(total / 12), nm = total % 12 + 1
+  const dim = new Date(Date.UTC(ny, nm, 0)).getUTCDate()
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(d, dim)).padStart(2, '0')}`
 }
 
 const classifyDays = (days) => {
@@ -128,12 +140,21 @@ export function complianceStatusFor(property) {
   const now = Date.now()
   const soonCutoff = now + SOON_DAYS * 86_400_000
 
+  // One date per certificate type: the latest, as certTypeStatus() and the
+  // weekly summary judge it. A certificate replaced by a newer one of the same
+  // type is history, not an expired requirement.
+  const latestByType = new Map()
+  items.forEach((c, i) => {
+    if (!c.expiry_date) return
+    const t = new Date(c.expiry_date).getTime()
+    if (Number.isNaN(t)) return
+    // An untyped row stands on its own.
+    const key = canonicalCertType(c.cert_type) || `__untyped${i}`
+    if (!latestByType.has(key) || t > latestByType.get(key)) latestByType.set(key, t)
+  })
   let expired = 0
   let expiring = 0
-  for (const c of items) {
-    if (!c.expiry_date) continue
-    const t = new Date(c.expiry_date).getTime()
-    if (Number.isNaN(t)) continue
+  for (const t of latestByType.values()) {
     if (t < now) expired++
     else if (t < soonCutoff) expiring++
   }

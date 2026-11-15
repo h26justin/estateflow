@@ -9,6 +9,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import {
   GROUNDS, groundById, groundLabel, periodLabel, JURISDICTION_NOTE,
   validateSection8, validateSection13, currentTenancyStart, ground8Threshold,
+  currentTenancyOf, normaliseGroundId,
 } from '../lib/possessionRules'
 
 // ── NOTICE GENERATOR: SECTION 8 (FORM 3A) + SECTION 13 (FORM 4A) ─────────
@@ -58,11 +59,6 @@ function formatDateLong(iso) {
 }
 const money = (n) => (Number(n) > 0 ? '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '£________')
 
-function activeTenancy(property) {
-  const ts = Array.isArray(property?.tenancies) ? property.tenancies : []
-  return ts.find(t => !t.status || t.status === 'active') || null
-}
-
 export default function NoticeGenerator({ property, userId, onClose, showToast, initialType = 's8', lastIncreaseDate = '' }) {
   const confirmDiscard = useConfirm()
   const { T } = useTheme()
@@ -71,7 +67,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   // notice is logged. v2: section 21 drafts from before the reform are dropped.
   const draftKey = `ownproperly_notice_draft_v2_${property?.id || 'unknown'}_${initialType}`
   const draft = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem(draftKey) || 'null') } catch { return null }
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey) || 'null')
+      // Drafts saved before the 6A -> 6B relabel keep their ground.
+      if (Array.isArray(d?.form?.grounds)) d.form.grounds = [...new Set(d.form.grounds.map(normaliseGroundId))]
+      return d
+    } catch { return null }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const type = TYPES[initialType] ? initialType : 's8'
@@ -79,7 +80,11 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   const [step, setStep] = useState(draft?.step || 'disclaimer')
   const [checklist, setChecklist] = useState(draft?.checklist || {})  // { itemId: 'yes' | 'na' }
 
-  const tenancy = activeTenancy(property)
+  // The tenancy running today (not ended): its start, rent, frequency and due
+  // day drive the notice. The property's own rent_pcm (monthly) is only a
+  // fallback when no tenancy rent is recorded.
+  const tenancy = currentTenancyOf(property)
+  const tenancyRent = tenancy && tenancy.rent_amount != null && tenancy.rent_amount !== ''
   const [form, setForm] = useState(draft?.form || {
     landlord_name:    '',
     landlord_address: '',
@@ -94,9 +99,9 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
     grounds_details:  '',
     arrears:          '',
     // Shared rent facts
-    rent_amount:      tenancy?.rent_amount ?? property?.rent_pcm ?? '',
-    rent_frequency:   tenancy?.rent_frequency || 'monthly',
-    rent_due_day:     tenancy?.rent_due_day ?? property?.rent_due_day ?? '',
+    rent_amount:      tenancyRent ? tenancy.rent_amount : (property?.rent_pcm ?? ''),
+    rent_frequency:   tenancyRent ? (tenancy.rent_frequency || 'monthly') : 'monthly',
+    rent_due_day:     (tenancyRent ? tenancy.rent_due_day : null) ?? property?.rent_due_day ?? '',
     // Section 13
     last_increase_date: lastIncreaseDate || '',
     proposed_rent:    '',
@@ -132,14 +137,16 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
   }, [form])
 
   const s13 = useMemo(() => {
+    // A day of the month only means something for rent paid monthly.
+    const monthlyDueDay = form.rent_frequency === 'monthly' ? form.rent_due_day : ''
     const base = validateSection13({
       dateServed: form.date_served, tenancyStart: form.tenancy_start, lastIncreaseDate: form.last_increase_date,
-      currentRent: form.rent_amount, proposedRent: form.proposed_rent, rentDueDay: form.rent_due_day,
+      currentRent: form.rent_amount, proposedRent: form.proposed_rent, rentDueDay: monthlyDueDay,
     })
     const startDate = form.start_manual ? form.start_date : base.earliest
     const full = validateSection13({
       dateServed: form.date_served, startDate, tenancyStart: form.tenancy_start, lastIncreaseDate: form.last_increase_date,
-      currentRent: form.rent_amount, proposedRent: form.proposed_rent, rentDueDay: form.rent_due_day,
+      currentRent: form.rent_amount, proposedRent: form.proposed_rent, rentDueDay: monthlyDueDay,
     })
     return { ...full, startDate }
   }, [form])
@@ -360,10 +367,12 @@ export default function NoticeGenerator({ property, userId, onClose, showToast, 
               <select id="ng-frequency" style={inp} value={form.rent_frequency} onChange={e => update({ rent_frequency: e.target.value })}>
                 <option value="weekly">Weekly</option>
                 <option value="fortnightly">Fortnightly</option>
+                <option value="four_weekly">Every 4 weeks</option>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
                 <option value="annually">Annually</option>
               </select>
+              {type === 's8' && g8.note && <div role="note" style={{ ...hint, color: T.text }}>{g8.note}</div>}
             </div>
           </div>
 
@@ -552,7 +561,7 @@ function buildSection13HTML({ form, startDate }) {
 }
 
 function frequencyNoun(f) {
-  return { weekly: 'week', fortnightly: 'fortnight', monthly: 'month', quarterly: 'quarter', annually: 'year' }[f] || 'month'
+  return { weekly: 'week', fortnightly: 'fortnight', four_weekly: '4 weeks', monthly: 'month', quarterly: 'quarter', annually: 'year' }[f] || 'month'
 }
 
 function escapeHtml(s) {

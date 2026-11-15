@@ -108,7 +108,7 @@ describe('buildAgentReport', () => {
   it('measures the shortfall for the year and since the current tenancy began', () => {
     const t = buildAgentReport([prop('t', {
       rent_payments: [month('t', 5, 'unpaid'), month('t', 6, 'unpaid'), month('t', 7, 'paid', 500)],
-      tenancies: [{ id: 'tn', tenancy_start: '2026-06-01', rent_amount: 500, rent_frequency: 'monthly', rent_due_day: 1, status: 'active' }],
+      tenancies: [{ id: 'tn', tenancy_start: '2026-06-01', rent_amount: 500, rent_frequency: 'monthly', rent_due_day: 1, status: 'rented' }],
     })], { agent: AGENT, asOf })
     const c = t.lines[0]
     expect(c.tenancyStart).toBe('2026-06-01')

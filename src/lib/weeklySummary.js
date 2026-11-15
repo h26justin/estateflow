@@ -16,7 +16,7 @@
 // companies whose role allows it (view_rent, view_compliance, view_tenancies).
 // No tenant names, notes, values or mortgage figures are ever included.
 
-import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE } from './rentEngine'
+import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE, missedOwed } from './rentEngine'
 import { getEffectivePermissions } from './api/roles'
 import { CATALOGUE_BY_KEY, canonicalCertType } from './complianceCatalogue'
 import { subscriptionGrantsLive } from './subscriptionLive'
@@ -127,7 +127,7 @@ function rentSection(properties, { asOf, lastWeek, monthFrom }) {
         out.monthToDate.expected = round2(out.monthToDate.expected + e.expected)
         out.monthToDate.received = round2(out.monthToDate.received + collectedOf(e))
       }
-      if (e.state === STATE.MISSED && e.outstanding > 0) missed = round2(missed + e.outstanding)
+      missed = round2(missed + missedOwed(e, asOf))
     }
     const historic = Math.max(0, arrearsSummary(p).balance)
     const owed = round2(missed + historic)

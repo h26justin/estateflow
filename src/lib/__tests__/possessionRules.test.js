@@ -3,6 +3,7 @@ import {
   GROUNDS, groundById, addMonthsISO, addDaysISO, periodEndISO,
   earliestPossessionDate, validateSection8, ground8Threshold,
   earliestRentIncreaseDate, validateSection13, currentTenancyStart,
+  currentTenancyOf, groundLabel,
 } from '../possessionRules'
 
 describe('grounds catalogue', () => {
@@ -77,6 +78,13 @@ describe('validateSection8', () => {
   it('works out 13 weeks for weekly rent', () => {
     expect(ground8Threshold({ rentAmount: 200, frequency: 'weekly' }).amount).toBe(2600)
   })
+  it('four-weekly rent uses the 13-week threshold (the higher reading) and says so', () => {
+    const t = ground8Threshold({ rentAmount: 480, frequency: 'four_weekly' })
+    expect(t.amount).toBe(1560)                 // 480 / 4 x 13, not the monthly 3 x 480
+    expect(t.note).toMatch(/13 weeks.*Take advice/)
+    const v = validateSection8({ dateServed: '2026-11-15', groundIds: ['8'], arrears: 1500, rentAmount: 480, frequency: 'four_weekly' })
+    expect(v.warnings.join(' ')).toMatch(/below that/)
+  })
 })
 
 describe('section 13 (Form 4A)', () => {
@@ -98,15 +106,56 @@ describe('section 13 (Form 4A)', () => {
     const v = validateSection13({ dateServed: '2026-11-01', startDate: '2027-01-05', tenancyStart: '2024-01-01', currentRent: 1000, proposedRent: 1050, rentDueDay: 1 })
     expect(v.warnings.join(' ')).toMatch(/first day of a rental period/)
   })
+  it('rent due on the 31st starts on the last day of a shorter month without a warning', () => {
+    const v = validateSection13({ dateServed: '2026-11-01', startDate: '2027-04-30', tenancyStart: '2024-01-01', currentRent: 1000, proposedRent: 1050, rentDueDay: 31 })
+    expect(v.warnings.join(' ')).not.toMatch(/first day of a rental period/)
+    const w = validateSection13({ dateServed: '2026-11-01', startDate: '2027-05-30', tenancyStart: '2024-01-01', currentRent: 1000, proposedRent: 1050, rentDueDay: 31 })
+    expect(w.warnings.join(' ')).toMatch(/first day of a rental period/)
+  })
 })
 
 describe('currentTenancyStart', () => {
-  it('prefers the latest active tenancy', () => {
+  it('prefers the tenancy running today', () => {
     expect(currentTenancyStart({ tenant_since: '2020-01-01', tenancies: [
       { tenancy_start: '2022-05-01', status: 'ended' },
-      { tenancy_start: '2024-03-10', status: 'active' },
+      { tenancy_start: '2024-03-10', status: 'rented' },
     ] })).toBe('2024-03-10')
     expect(currentTenancyStart({ tenant_since: '2020-01-01' })).toBe('2020-01-01')
     expect(currentTenancyStart(null)).toBe('')
+  })
+})
+
+describe('the current tenancy drives the notice dates (E1)', () => {
+  // A real tenancy row has status rented / notice_given; the legacy
+  // tenant_since on the property is from a previous tenant.
+  const property = { tenant_since: '2019-04-01', rent_pcm: 1000, tenancies: [
+    { id: 'old', tenancy_start: '2019-04-01', tenancy_end: '2026-02-28', status: 'ended', rent_amount: 1000, rent_frequency: 'monthly' },
+    { id: 'cur', tenancy_start: '2026-03-01', status: 'notice_given', rent_amount: 240, rent_frequency: 'weekly', rent_due_day: null },
+  ] }
+  it('uses the running tenancy, not the legacy tenant_since', () => {
+    expect(currentTenancyOf(property, '2026-11-15').id).toBe('cur')
+    expect(currentTenancyStart(property, '2026-11-15')).toBe('2026-03-01')
+  })
+  it('so Ground 1 cannot be dated inside the first 12 months', () => {
+    const { date } = earliestPossessionDate({ dateServed: '2026-09-01', groundIds: ['1'], tenancyStart: currentTenancyStart(property, '2026-09-01') })
+    expect(date).toBe('2027-03-01')   // 12 months into the tenancy, later than the 4-month notice (1 Jan 2027)
+  })
+  it('and the section 13 first-52-weeks rule counts from it', () => {
+    const { date } = earliestRentIncreaseDate({ dateServed: '2026-11-15', tenancyStart: currentTenancyStart(property, '2026-11-15') })
+    expect(date).toBe('2027-02-28')   // 1 Mar 2026 + 52 weeks
+  })
+})
+
+describe('Ground 6B (compliance with enforcement action)', () => {
+  it('is labelled 6B with 4 months notice', () => {
+    const g = groundById('6B')
+    expect(g.title).toBe('Compliance with enforcement action')
+    expect(g.period).toEqual({ months: 4 })
+    expect(groundLabel(g)).toMatch(/^Ground 6B/)
+    expect(GROUNDS.some(x => x.id === '6A')).toBe(false)
+  })
+  it('a draft saved with the old 6A id still resolves to 6B', () => {
+    expect(groundById('6A').id).toBe('6B')
+    expect(earliestPossessionDate({ dateServed: '2026-11-15', groundIds: ['6A'] }).date).toBe('2027-03-15')
   })
 })

@@ -93,10 +93,14 @@ describe('getMonthlyRentStats (legacy behaviour pinned)', () => {
     expect(getMonthlyRentStats([seg(2026, 1, 'partial', null)], 2026, 650, NOW).income).toBe(0)
   })
 
-  it('gives a lone late month zero income even though it is counted', () => {
+  it('counts a late month\'s amount as collected, as the rent engine does (paid late is paid)', () => {
     const s = getMonthlyRentStats([seg(2026, 1, 'late', 500)], 2026, 500, NOW)
     expect(s.late).toBe(1)
-    expect(s.income).toBe(0)
+    expect(s.income).toBe(500)
+  })
+
+  it('gives a late month with no amount zero income (no rent_pcm fallback)', () => {
+    expect(getMonthlyRentStats([seg(2026, 1, 'late', null)], 2026, 650, NOW).income).toBe(0)
   })
 
   it('lets pending fall through every bucket', () => {

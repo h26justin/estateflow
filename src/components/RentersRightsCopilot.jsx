@@ -151,10 +151,13 @@ function RepairTimers({ T, propertyId }) {
 
   if (loading) return <SkeletonList count={2} height={60}/>
   const open = timers.filter((t) => t.open)
-  if (!open.length) return <div style={{ color: T.muted, fontSize: 13 }}>No open repairs. Awaab's-Law timers track open maintenance jobs.</div>
+  if (!open.length) return <div style={{ color: T.muted, fontSize: 13 }}>No open repairs. Repair timers track open maintenance jobs.</div>
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ color: T.muted, fontSize: 12, lineHeight: 1.5 }}>
+        Guidance targets, not legal deadlines: 24 hours for urgent or emergency jobs, 14 days for others, counted from the date raised. Check the current rules for private landlords and take advice.
+      </div>
       {open.map((t) => {
         const colour = t.breached ? T.red : t.days_to_deadline <= 1 ? T.gold : T.green
         return (
@@ -166,9 +169,9 @@ function RepairTimers({ T, propertyId }) {
               </span>
             </div>
             <div style={{ fontSize: 11, color: T.muted, marginTop: 4 }}>
-              Reported {fmtDate(t.created_at)} · open {t.elapsed_days}d ·{' '}
+              Raised {fmtDate(t.reported_at)} · open {t.elapsed_days}d ·{' '}
               <span style={{ color: colour }}>
-                {t.breached ? `breached by ${Math.abs(t.days_to_deadline)}d` : `${t.days_to_deadline}d to target`}
+                {t.breached ? `past target by ${Math.abs(t.days_to_deadline)}d` : `${t.days_to_deadline}d to target`}
               </span>
               {t.reported_by_tenant ? ' · tenant-reported' : ''}
             </div>
@@ -272,7 +275,7 @@ export function RentersRightsCopilot({ companyId, property }) {
 
       {property && (
         <>
-          <h3 style={{ fontFamily: SANS, marginBottom: 8 }}>Awaab's-Law repair timers</h3>
+          <h3 style={{ fontFamily: SANS, marginBottom: 8 }}>Repair timers (guidance targets)</h3>
           <div style={{ marginBottom: 20 }}>
             <RepairTimers T={T} propertyId={propertyId} />
           </div>

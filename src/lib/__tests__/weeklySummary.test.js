@@ -102,6 +102,19 @@ describe('buildWeeklySummary', () => {
     expect(m.rent.arrears.top).toEqual([{ id: 'a', name: 'Flat a', company: 'Acme Lets', amount: 1000 }])
   })
 
+  it('a weekly tenant behind mid-month owes only the rents already due, not the rest of the month', () => {
+    // £100 a week from Thu 1 Oct 2026: Thursdays 1, 8, 15, 22, 29 Oct. Paid
+    // 1 Oct only; by Mon 19 Oct the 8th is overdue and the 15th is past its
+    // window too; the 22nd and 29th are not due yet.
+    const p = prop('w', {
+      tenancies: [{ id: 'tw', tenancy_start: '2026-10-01', rent_amount: 100, rent_frequency: 'weekly', payment_window_days: 3, status: 'rented', payment_source: 'tenant' }],
+      rent_payments: [{ id: 'oct', year: 2026, month: 10, status: 'void', amount: null }],
+      rent_receipts: [{ id: 'r1', received_date: '2026-10-01', amount: 100, payer: 'tenant', kind: 'receipt', rent_allocations: [{ rent_payment_id: 'oct', target: 'current_rent', amount: 100 }] }],
+    })
+    const m = buildWeeklySummary({ asOf: AS_OF, companies, properties: [p] })
+    expect(m.rent.arrears.missed).toBe(200)
+  })
+
   it('lists compliance due within 30 days on the latest certificate only', () => {
     const items = [
       { id: 1, property_id: 'a', cert_type: 'gas', expiry_date: '2026-10-01' },          // superseded
@@ -119,9 +132,9 @@ describe('buildWeeklySummary', () => {
 
   it('lists tenancies ending in the next 60 days and counts empty properties', () => {
     const props = [
-      prop('a', { tenancies: [{ id: 't1', tenancy_start: '2025-01-01', tenancy_end: '2026-12-01', status: 'active', rent_amount: 1000 }] }),
+      prop('a', { tenancies: [{ id: 't1', tenancy_start: '2025-01-01', tenancy_end: '2026-12-01', status: 'rented', rent_amount: 1000 }] }),
       prop('b', { status: 'notice_given', tenancy_end: '2026-11-10' }),
-      prop('c', { tenancies: [{ id: 't2', tenancy_start: '2025-01-01', tenancy_end: '2027-06-01', status: 'active', rent_amount: 1000 }] }),
+      prop('c', { tenancies: [{ id: 't2', tenancy_start: '2025-01-01', tenancy_end: '2027-06-01', status: 'rented', rent_amount: 1000 }] }),
       prop('d', { status: 'vacant' }),
       prop('e', { status: 'on_rental_market' }),
       prop('f', { status: 'sold' }),

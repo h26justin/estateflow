@@ -11,6 +11,8 @@ import { Icon } from '../../lib/icons'
 import NoticeGenerator from '../NoticeGenerator'
 import { GROUNDS, groundLabel, earliestRentIncreaseDate, currentTenancyStart } from '../../lib/possessionRules'
 import { SkeletonList } from '../../lib/Skeleton'
+import { isoToday, addDays } from '../../lib/rentEngine'
+import { currentTenancy } from '../../lib/tenancyUtils'
 import { EmptyState, Button } from '../ui'
 
 // ── RIGHT TO RENT TAB ─────────────────────────────────────────────────────────
@@ -474,7 +476,7 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
         // Section 13: when could a rent increase served today take effect?
         const tenancyStart = currentTenancyStart(property)
         const last = history.filter(r => r.change_type === 'increase' && r.effective_date).map(r => r.effective_date).sort().pop()
-        const today = new Date().toISOString().slice(0, 10)
+        const today = isoToday()
         const { date } = earliestRentIncreaseDate({ dateServed: today, tenancyStart, lastIncreaseDate: last })
         if (!date) return null
         return (
@@ -565,7 +567,13 @@ export function RentHistoryTab({ propertyId, userId, showToast, T, property }) {
 }
 
 // ── TENANCY RENEWAL ALERT ─────────────────────────────────────────────────────
-export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
+// A fixed-term end date recorded on tenancy_details. Since 1 May 2026 assured
+// tenancies in England are periodic, so the date no longer ends the tenancy;
+// the alert keeps the record current. A rent change entered here is applied
+// the same way as anywhere else: the current tenancy's rent, a rent_history
+// row and the property's rent_pcm, then `onChanged(patch)` so the parent's
+// header shows it without a reload.
+export function TenancyRenewalAlert({ propertyId, rentPcm, userId, showToast, T, onChanged }) {
   const mono = MONO
   const [tenancy, setTenancy]   = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -592,15 +600,36 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
   const color = { expired:T.red, urgent:T.amber, soon:T.goldText, upcoming:T.blue }[urgency]
 
   async function handleRenew() {
-    if (!form.new_end_date) { setTriedSave(true); showToast('Enter new end date', 'error'); return }
+    if (!form.new_end_date) { setTriedSave(true); showToast('Enter a date', 'error'); return }
     setSaving(true)
     try {
       await api.updateTenancyDetails(propertyId, { tenancy_end: form.new_end_date })
-      // Rent lives on the property, not tenancy_details.
-      if (form.new_rent) await api.updateProperty(propertyId, { rent_pcm: parseFloat(form.new_rent) })
       setTenancy(p => ({ ...p, tenancy_end: form.new_end_date }))
+      const prev = Number(rentPcm) || 0
+      const next = form.new_rent === '' || form.new_rent == null ? 0 : parseFloat(form.new_rent)
+      let rentNote = ''
+      if (next > 0 && Math.abs(next - prev) >= 0.005) {
+        // The tenancy record is what the rent tracker charges. Its rent is per
+        // rent period, so only a monthly tenancy takes this monthly figure.
+        const tenancies = await api.fetchTenancies(propertyId)
+        const cur = currentTenancy((tenancies || []).filter(t => t.status !== 'ended'))
+        if (cur && (cur.rent_frequency || 'monthly') === 'monthly') await api.updateTenancy(cur.id, { rent_amount: next })
+        else if (cur) rentNote = ' Update the rent on the tenancy record too: it is not paid monthly.'
+        // Effective from the day after the old end date, or today if that has passed.
+        const today = isoToday()
+        const after = tenancy.tenancy_end ? addDays(String(tenancy.tenancy_end).slice(0, 10), 1) : today
+        await api.saveRentHistory({
+          property_id: propertyId, user_id: userId,
+          change_type: next > prev ? 'increase' : 'decrease',
+          effective_date: after > today ? after : today,
+          previous_rent: prev || null, new_rent: next, notice_served: 'no',
+          notes: 'Recorded with a tenancy renewal',
+        })
+        await api.updateProperty(propertyId, { rent_pcm: next })
+        onChanged?.({ rent_pcm: next })
+      }
       setShowForm(false)
-      showToast('Tenancy renewed ✓')
+      showToast('Renewal recorded.' + rentNote)
     } catch(e) { showToast(e.message, 'error') }
     setSaving(false)
   }
@@ -611,24 +640,27 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
         <div>
           <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, color, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
             {urgency !== 'expired' && <Icon name="clock" size={13}/>}
-            {urgency === 'expired' ? 'Tenancy expired' : `Tenancy ends in ${daysLeft} days`}
+            {urgency === 'expired' ? 'Fixed term ended' : `Fixed term ends in ${daysLeft} days`}
           </div>
           <div style={{ fontFamily: mono, fontSize: FS.xs, color: T.muted }}>
             End date: {new Date(tenancy.tenancy_end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             {rentPcm ? ` · Current rent: ${fmt(rentPcm)}/mo` : ''}
           </div>
+          <div style={{ fontFamily: SANS, fontSize: FS.xs, color: T.muted, marginTop: 4, lineHeight: 1.5 }}>
+            In England, tenancies have been periodic since 1 May 2026, so the tenancy carries on after this date. A rent increase normally needs a section 13 notice. Take advice if unsure.
+          </div>
         </div>
         {!showForm && (
           <button onClick={() => { setForm({ new_end_date: '', new_rent: rentPcm || '' }); setTriedSave(false); setShowForm(true) }}
             style={{ fontFamily: SANS, fontSize: FS.sm, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none', background: color, color: 'white', cursor: 'pointer', flexShrink: 0 }}>
-            Renew tenancy
+            Update record
           </button>
         )}
       </div>
       {showForm && (
         <form onSubmit={e => { e.preventDefault(); handleRenew() }} style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label htmlFor="tr-end-date" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 4, display: 'block' }}>New end date</label>
+            <label htmlFor="tr-end-date" style={{ fontFamily: SANS, fontSize: FS.sm, color: T.muted, marginBottom: 4, display: 'block' }}>New review / term date</label>
             <input id="tr-end-date" type="date" value={form.new_end_date || ''} onChange={e => setForm(p => ({ ...p, new_end_date: e.target.value }))}
               aria-invalid={triedSave && !form.new_end_date ? 'true' : undefined}
               aria-describedby={triedSave && !form.new_end_date ? 'tr-end-date-err' : undefined}
@@ -642,7 +674,7 @@ export function TenancyRenewalAlert({ propertyId, rentPcm, showToast, T }) {
               style={{ fontFamily: mono, fontSize: 12, background: T.bg, border: `1px solid ${T.border}`, color: T.text, borderRadius: 6, padding: '6px 10px', width: 120 }}/>
           </div>
           <Button type="submit" size="sm" disabled={saving}>
-            {saving ? 'Saving…' : 'Confirm renewal'}
+            {saving ? 'Saving…' : 'Save'}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowForm(false)}>
             Cancel

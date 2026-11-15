@@ -11,6 +11,7 @@ import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
 import { currentTenancy, usesBenefit } from '../lib/tenancyUtils'
 import { activePlan } from '../lib/paymentPlans'
+import { isoToday } from '../lib/rentEngine'
 import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
@@ -50,7 +51,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
   useEffect(() => { setReceipts(null); setAdding(false); load() }, [property.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function startAdd() {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = isoToday()
     const defaultPayer = cur && usesBenefit(cur.payment_source) && cur.payment_source !== 'mixed'
       ? cur.payment_source : 'tenant'
     setForm({
@@ -104,7 +105,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
     catch (e) { showToast?.(e.message, 'error') }
   }
   async function remove(r) {
-    const go = await confirmDialog({ title: 'Delete this receipt?', body: 'Only for a receipt entered in error. For money that bounced or was refunded, record a bounce or refund instead so the history is kept.', confirmLabel: 'Delete', danger: true })
+    const go = await confirmDialog({ title: 'Delete this receipt?', body: 'Only for a receipt entered in error. For money that bounced or was refunded, record a bounce or refund instead so the history is kept.', confirmLabel: 'Delete', destructive: true })
     if (!go) return
     try { await api.deleteReceipt(r.id); await load() } catch (e) { showToast?.(e.message, 'error') }
   }

@@ -4,6 +4,7 @@
 import { supabase } from '../supabase'
 import { tenancyDraftFromProperty, propertyNeedsTenancy } from '../tenancyUtils'
 import { possibleDuplicate } from '../paymentPlans'
+import { isoToday } from '../rentEngine'
 
 async function uid() {
   const { data } = await supabase.auth.getUser()
@@ -45,7 +46,10 @@ function cleanTenancy(t) {
     if (['rent_due_day','payment_window_days'].includes(k) && v != null) v = Number(v)
     out[k] = v
   }
-  if (out.opening_arrears == null) out.opening_arrears = 0
+  // Only when the caller sent the field: a partial update (ending a tenancy,
+  // changing its rent) must never reset its opening arrears to 0. An insert
+  // without it gets the column default (0).
+  if ('opening_arrears' in out && out.opening_arrears == null) out.opening_arrears = 0
   return out
 }
 
@@ -200,12 +204,15 @@ export async function createReceipt(receipt, allocations = [], { allowUnallocate
 // Reverse a receipt (bounce / refund) by recording a negative receipt that
 // mirrors its allocations. The original stays, so the audit trail is intact.
 export async function reverseReceipt(original, { kind = 'bounce', received_date, notes } = {}) {
+  // Mirror the payment-plan link (and tenancy) too, so a bounced instalment
+  // takes its amount back off the plan's progress.
   const allocs = (original.rent_allocations || []).map(a => ({
-    rent_payment_id: a.rent_payment_id, tenancy_id: a.tenancy_id, target: a.target, amount: -Number(a.amount),
+    rent_payment_id: a.rent_payment_id, tenancy_id: a.tenancy_id || original.tenancy_id || null, target: a.target, amount: -Number(a.amount),
+    payment_plan_id: a.payment_plan_id || null,
   }))
   return createReceipt({
     property_id: original.property_id, tenancy_id: original.tenancy_id, company_id: original.company_id,
-    received_date: received_date || new Date().toISOString().slice(0, 10),
+    received_date: received_date || isoToday(),
     amount: -Number(original.amount), kind, reverses_receipt_id: original.id,
     payer: original.payer, source: 'manual', notes: notes || `Reverses receipt of ${original.received_date}`,
   }, allocs)
@@ -229,10 +236,23 @@ export async function reallocateReceipt(receipt, allocations) {
   }))
   const allocated = allocs.reduce((s, a) => s + a.amount, 0)
   if (Math.abs(amount - allocated) >= 0.005) throw new Error(`Allocations total £${allocated.toFixed(2)} but the receipt is £${amount.toFixed(2)}`)
-  const { error: dErr } = await supabase.from('rent_allocations').delete().eq('receipt_id', receipt.id)
-  if (dErr) throw dErr
-  const { error: iErr } = await supabase.from('rent_allocations').insert(allocs)
+  // Insert the new set before removing the old one, so a failed insert never
+  // leaves the receipt with no allocations. Nothing in the schema limits a
+  // receipt's allocations to its amount, so the two sets can briefly coexist.
+  const { data: old, error: oErr } = await supabase.from('rent_allocations').select('id').eq('receipt_id', receipt.id)
+  if (oErr) throw oErr
+  const { data: added, error: iErr } = await supabase.from('rent_allocations').insert(allocs).select('id')
   if (iErr) throw iErr
+  const oldIds = (old || []).map(a => a.id)
+  if (oldIds.length) {
+    const { error: dErr } = await supabase.from('rent_allocations').delete().in('id', oldIds)
+    if (dErr) {
+      // Put things back as they were rather than leave the receipt double-allocated.
+      const addedIds = (added || []).map(a => a.id)
+      if (addedIds.length) await supabase.from('rent_allocations').delete().in('id', addedIds)
+      throw dErr
+    }
+  }
   const { data, error } = await supabase.from('rent_receipts')
     .update({ review_status: 'ok', review_reason: null, updated_by: await uid() }).eq('id', receipt.id).select(RECEIPT_COLS).single()
   if (error) throw error

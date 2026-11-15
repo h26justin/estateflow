@@ -26,7 +26,7 @@
 // Compatibility bridge: a period's received amount is the sum of its
 // rent_allocations when any exist, otherwise the legacy rent_payments.amount.
 
-import { tenancyCoversDate, usesBenefit, parseDueDay, DEFAULT_PAYMENT_WINDOW_DAYS } from './tenancyUtils'
+import { tenancyCoversDate, tenancyCoverEnd, usesBenefit, parseDueDay, DEFAULT_PAYMENT_WINDOW_DAYS } from './tenancyUtils'
 
 export const GO_LIVE = '2026-01-01'
 
@@ -82,6 +82,46 @@ export function monthlyRent(t) {
     case 'quarterly': return r / 3
     default: return r
   }
+}
+
+// ── Non-monthly rent (weekly, fortnightly, four-weekly) ─────────────────────
+// Rule (15 Nov 2026): rent is charged on each rent due date, in full, to the
+// period the due date falls in. Due dates run every 7 / 14 / 28 days from the
+// tenancy's rent_due_anchor (its first due date), or from tenancy_start when
+// no anchor is recorded. A calendar month therefore carries four or five
+// weekly rents, two or three fortnightly ones and one or two four-weekly
+// ones, never a monthly-equivalent, so a tenant who pays every due date in
+// full is never shown in arrears. Part periods are prorated by day:
+//   • a tenancy that starts before its first due date is charged the days
+//     from the start up to that due date, on the start date;
+//   • the last due date of a tenancy that ends mid-cycle (or a cycle touched
+//     by an approved non-chargeable period) is charged only for its
+//     collectible days.
+// Monthly and quarterly rent keep the calendar-month rules below.
+const CYCLE_DAYS = { weekly: 7, fortnightly: 14, four_weekly: 28 }
+
+// Rent due dates falling inside [start, end] with the rent charged on each:
+// [{ date, amount }]. Null for monthly / quarterly tenancies.
+export function rentDueDatesIn(tenancy, start, end, nonChargeable) {
+  const step = CYCLE_DAYS[tenancy?.rent_frequency]
+  if (!step || !tenancy?.tenancy_start) return null
+  const ts = tenancy.tenancy_start
+  const anchor = tenancy.rent_due_anchor || ts
+  const rent = Number(tenancy.rent_amount) || 0
+  const stepsFrom = iso => Math.ceil((toUTC(iso) - toUTC(anchor)) / 86400000 / step)
+  // First regular due date on or after the tenancy start (the anchor itself
+  // when it is later: it is the first due date).
+  const k0 = Math.max(0, stepsFrom(ts))
+  const first = addDays(anchor, k0 * step)
+  const charge = (from, to) => rent * collectibleDays(from, to, tenancy, nonChargeable) / step
+  const out = []
+  if (first > ts && ts >= start && ts <= end) out.push({ date: ts, amount: charge(ts, addDays(first, -1)) })
+  for (let k = Math.max(k0, stepsFrom(start)); ; k++) {
+    const d = addDays(anchor, k * step)
+    if (d > end) break
+    out.push({ date: d, amount: charge(d, addDays(d, step - 1)) })
+  }
+  return out.filter(x => x.amount > 0.005).map(x => ({ date: x.date, amount: round2(x.amount) }))
 }
 
 // When the property has no tenancy record covering a period, fall back to the
@@ -169,10 +209,18 @@ export function benefitDueOnOrAfter(tenancy, from) {
   // the 31st clamps to 28 Feb in February but must return to the 31st in
   // March, not drift to the 28th for good.
   const at = k => step ? addDays(anchor, k * step) : addMonths(anchor, k)
-  let k = 0, guard = 0
-  while (at(k) > from && at(k - 1) >= from && guard++ < 120) k--
+  // Start from the arithmetic step count (an anchor years old must still land
+  // on or after `from`), then settle the last step or two by comparison.
+  let k
+  if (step) k = Math.ceil((toUTC(from) - toUTC(anchor)) / 86400000 / step)
+  else {
+    const [ay, am] = anchor.split('-').map(Number), [fy, fm] = from.split('-').map(Number)
+    k = (fy - ay) * 12 + (fm - am) - 1
+  }
+  let guard = 0
+  while (at(k) > from && at(k - 1) >= from && guard++ < 4) k--
   guard = 0
-  while (at(k) < from && guard++ < 120) k++
+  while (at(k) < from && guard++ < 4) k++
   return at(k)
 }
 
@@ -277,7 +325,7 @@ export function evaluatePeriod(row, ctx) {
 
   if (!tenancy) {
     const recorded = (tenancies || []).filter(t => t.tenancy_start)
-    const allEndedBefore = recorded.length && recorded.every(t => t.tenancy_end && t.tenancy_end < start)
+    const allEndedBefore = recorded.length && recorded.every(t => tenancyCoverEnd(t) && tenancyCoverEnd(t) < start)
     const allStartAfter = recorded.length && recorded.every(t => t.tenancy_start > end)
     const why = allEndedBefore ? 'After tenancy end' : allStartAfter ? 'Before tenancy start' : recorded.length ? 'Between tenancies'
       : property?.status === 'vacant' ? 'Property vacant' : property?.status === 'refurb' ? 'Property under refurbishment'
@@ -294,9 +342,19 @@ export function evaluatePeriod(row, ctx) {
   const cDays = collectibleDays(start, end, tenancy, nonChargeable)
   base.collectibleDays = cDays
   if (cDays === 0) {
-    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (tenancy.tenancy_end && start > tenancy.tenancy_end) ? 'After tenancy end' : nonChargeableWhy(nonChargeable, start, end)
+    const coverEnd = tenancyCoverEnd(tenancy)
+    const why = start < tenancy.tenancy_start ? 'Before tenancy start' : (coverEnd && start > coverEnd) ? 'After tenancy end' : nonChargeableWhy(nonChargeable, start, end)
     return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: [why] }, activeOverride)
   }
+
+  // Weekly / fortnightly / four-weekly: rent is charged per due date in the
+  // period (see rentDueDatesIn). Null for monthly and quarterly rent.
+  const dues = rentDueDatesIn(tenancy, start, end, nonChargeable)
+  const ownExpectation = row.expected_amount == null && activeOverride?.expected_amount == null
+  if (dues && !dues.length && ownExpectation && !(base.received > 0)) {
+    return finish({ ...base, state: STATE.NOT_COLLECTIBLE, reasons: ['No rent due date falls in this period'] }, activeOverride)
+  }
+  const byInstalment = !!(dues && dues.length && ownExpectation)
 
   // Expected rent for the collectible days. A whole-month row fully covered is
   // exactly the monthly rent; anything else is prorated by days in that month.
@@ -313,6 +371,7 @@ export function evaluatePeriod(row, ctx) {
   const oneCycle = !wholeMonth && start.slice(8) !== '01' && start.slice(0, 7) !== end.slice(0, 7)
     && base.totalDays >= 28 && base.totalDays <= 31
   let expected = row.expected_amount != null ? Number(row.expected_amount)
+    : dues ? dues.reduce((s, x) => s + x.amount, 0)
     : ((wholeMonth || oneCycle) && cDays === base.totalDays) ? mRent
     : oneCycle ? mRent * cDays / base.totalDays
     : mRent * cDays / daysInMonth(sy, sm)
@@ -329,7 +388,10 @@ export function evaluatePeriod(row, ctx) {
 
   // Shares for mixed funding.
   if (usesBenefit(tenancy.payment_source)) {
-    const ratio = mRent ? expected / mRent : 1
+    // Contributions are per rent payment (benefitSplitCheck compares them
+    // with rent_amount), so non-monthly rent scales by rent_amount.
+    const perRent = dues ? (Number(tenancy.rent_amount) || 0) : mRent
+    const ratio = perRent ? expected / perRent : 1
     if (tenancy.payment_source === 'mixed') {
       base.tenantShare = round2((Number(tenancy.tenant_contribution) || 0) * ratio)
       base.benefitShare = round2(expected - base.tenantShare)
@@ -337,9 +399,13 @@ export function evaluatePeriod(row, ctx) {
   } else { base.tenantShare = expected; base.benefitShare = 0 }
 
   // Windows.
-  base.dueDate = dueDateFor(tenancy, start)
+  // Non-monthly: the period opens on its first due date and its window
+  // closes after the last one; each instalment is still judged on its own
+  // window below.
+  base.dueDate = dues && dues.length ? dues[0].date : dueDateFor(tenancy, start)
   const windowDays = tenancy.payment_window_days == null ? DEFAULT_PAYMENT_WINDOW_DAYS : Number(tenancy.payment_window_days)
-  base.windowEnd = addDays(base.dueDate, windowDays)
+  base.windowEnd = addDays(dues && dues.length ? dues[dues.length - 1].date : base.dueDate, windowDays)
+  if (byInstalment) base.instalments = dues
   base.benefitDue = base.benefitShare > 0 ? (benefitDueOnOrAfter(tenancy, base.dueDate) || base.windowEnd) : null
 
   const received = base.received == null ? 0 : base.received
@@ -360,6 +426,14 @@ export function evaluatePeriod(row, ctx) {
       const tenantOwed = round2(Math.max(0, base.tenantShare - base.receivedTenant))
       const benefitOwed = round2(Math.max(0, base.benefitShare - base.receivedBenefit))
       overdue = (tenantOwed > 0.005 && today > base.windowEnd) || (benefitOwed > 0.005 && today > base.benefitDue)
+    } else if (byInstalment) {
+      // Overdue only when less has come in than the instalments whose own
+      // window (and benefit date, for a benefit share) has passed.
+      const owedByNow = dues.filter(x => {
+        const last = maxIso(addDays(x.date, windowDays), base.benefitShare > 0 ? benefitDueOnOrAfter(tenancy, x.date) : null)
+        return today > last
+      }).reduce((s, x) => s + x.amount, 0)
+      overdue = received < round2(owedByNow) - 0.005
     } else {
       const lastWindow = maxIso(base.windowEnd, base.benefitDue)
       overdue = today > lastWindow
@@ -513,10 +587,38 @@ export function rateContribution(e) {
   return { due: round2(e.expected - info), received: round2(Math.min(rec, e.expected)), excess: round2(Math.max(0, rec - e.expected)), needsInfo: info }
 }
 
+// rateContribution() as at `asOf`. A non-monthly period's instalments whose
+// due date is still ahead are not yet due: they come out of `due`, money
+// already paid towards them is not counted as collected yet, and the unpaid
+// part is returned as `notYetDue`. Monthly periods get rateContribution()
+// unchanged.
+export function contributionAsOf(e, asOf) {
+  const c = rateContribution(e)
+  if (!c || !e.instalments || !asOf) return c
+  const later = round2(e.instalments.filter(x => x.date > asOf).reduce((s, x) => s + x.amount, 0))
+  if (!(later > 0)) return c
+  const rec = e.received == null ? 0 : e.received
+  const due = round2(c.due - later)
+  const prepaid = Math.min(later, Math.max(0, rec - due))
+  return { ...c, due, received: round2(Math.min(rec, due)), notYetDue: round2(later - prepaid) }
+}
+
+// What a Missed period owes as at `asOf`: its outstanding balance, less (for
+// non-monthly rent) instalments whose due date is still ahead. Zero for any
+// other state.
+export function missedOwed(e, asOf) {
+  if (e?.state !== STATE.MISSED) return 0
+  const c = e.instalments ? contributionAsOf(e, asOf) : null
+  return c ? round2(Math.max(0, c.due - c.received)) : (Number(e.outstanding) || 0)
+}
+
 // Where an unpaid amount sits on `asOf`. Only 'overdue' is arrears.
 export function outstandingBucket(e, asOf) {
   if (e.dueDate && e.dueDate > asOf) return 'notYetDue'
   if (e.dueDate === asOf) return 'dueToday'
+  // Non-monthly periods are overdue once any instalment's own window has
+  // passed unpaid, before the period's last due date comes round.
+  if (e.instalments && e.state === STATE.MISSED) return 'overdue'
   const lastWindow = maxIso(e.windowEnd, e.benefitDue)
   if (lastWindow ? asOf > lastWindow : e.state === STATE.MISSED) return 'overdue'
   return 'inWindow'
@@ -537,10 +639,12 @@ export function collectionStats(evals, { from = null, to = null, asOf = isoToday
     else out.counts[e.state] = (out.counts[e.state] || 0) + 1
     if (e.state === STATE.PENDING_REVIEW) { out.pendingReview = round2(out.pendingReview + (Number(e.outstanding) || 0)); continue }
     if (e.needsBackfill) { out.counts.needsBackfill++; continue }
-    const c = rateContribution(e)
-    if (!c) continue
+    const c0 = rateContribution(e)
+    if (!c0) continue
+    if (notDueYet || (e.dueDate && e.dueDate > asOf)) { out.notYetDue = round2(out.notYetDue + round2(Math.max(0, c0.due - c0.received))); continue }
+    const c = contributionAsOf(e, asOf)
+    if (c.notYetDue > 0) out.notYetDue = round2(out.notYetDue + c.notYetDue)
     const owed = round2(Math.max(0, c.due - c.received))
-    if (notDueYet || (e.dueDate && e.dueDate > asOf)) { out.notYetDue = round2(out.notYetDue + owed); continue }
     if (c.needsInfo > 0) { out.counts.needsInfo++; out.needsInfo = round2(out.needsInfo + c.needsInfo) }
     out.periods++
     out.due = round2(out.due + c.due)
@@ -567,10 +671,14 @@ export function periodBreakdown(e, asOf = isoToday()) {
   if (e.superseded) return { bucket: 'duplicate', owed: 0, needsInfo: 0 }
   if (e.state === STATE.PENDING_REVIEW) return { bucket: 'pendingReview', owed, needsInfo: 0 }
   if (e.needsBackfill) return { bucket: 'needsBackfill', owed: 0, needsInfo: 0 }
-  const c = rateContribution(e)
+  const c = contributionAsOf(e, asOf)
   if (!c) return { bucket: 'notCollectible', owed: 0, needsInfo: 0 }
   const o = round2(Math.max(0, c.due - c.received))
-  if (o > 0) return { bucket: outstandingBucket(e, asOf), owed: o, needsInfo: c.needsInfo }
+  // Non-monthly periods part way through: the instalments still ahead are
+  // reported as notYetDue alongside the bucket for what has fallen due.
+  const later = c.notYetDue > 0 ? { notYetDue: c.notYetDue } : {}
+  if (o > 0) return { bucket: outstandingBucket(e, asOf), owed: o, needsInfo: c.needsInfo, ...later }
+  if (c.notYetDue > 0) return { bucket: 'notYetDue', owed: c.notYetDue, needsInfo: c.needsInfo, notYetDue: c.notYetDue }
   return { bucket: c.needsInfo > 0 ? 'needsInfo' : 'paid', owed: 0, needsInfo: c.needsInfo }
 }
 
@@ -590,8 +698,29 @@ export function arrearsSummary(property, opts = {}) {
   const isOverlap = t => !!t.opening_arrears_date && t.opening_arrears_date > GO_LIVE
   const overlap = round2(live.filter(isOverlap).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
   const opening = round2(live.filter(t => !isOverlap(t)).reduce((s, t) => s + (Number(t.opening_arrears) || 0), 0))
-  const paid = round2(receipts.flatMap(r => r.rent_allocations || []).filter(a => a.target === 'historic_arrears').reduce((s, a) => s + Number(a.amount), 0))
-  return { opening, paid, balance: round2(Math.max(0, opening - paid)), unmatched: round2(Math.max(0, paid - opening)), overlap }
+  // Net each live tenancy's opening balance against the payments made
+  // towards it (allocation tenancy_id, else the receipt's), then sum: a former
+  // tenant's repayments of their own arrears never reduce the current
+  // tenant's balance. Payments linked to no tenancy at all are pooled
+  // against the live total, as before tenancy links existed.
+  const openBy = new Map(live.map((t, i) => [t.id ?? `__unsaved${i}`, isOverlap(t) ? 0 : (Number(t.opening_arrears) || 0)]))
+  const paidBy = new Map()
+  let unlinked = 0, paid = 0
+  for (const r of receipts) for (const a of (r.rent_allocations || [])) {
+    if (a.target !== 'historic_arrears') continue
+    const amt = Number(a.amount) || 0
+    const tid = a.tenancy_id || r.tenancy_id || null
+    if (!tid) { unlinked += amt; paid += amt }
+    else if (openBy.has(tid)) { paidBy.set(tid, (paidBy.get(tid) || 0) + amt); paid += amt }
+  }
+  let balance = 0, unmatched = 0
+  for (const [tid, open] of openBy) {
+    const p = paidBy.get(tid) || 0
+    balance += Math.max(0, open - p); unmatched += Math.max(0, p - open)
+  }
+  const pooled = balance - unlinked
+  balance = Math.max(0, pooled); unmatched += Math.max(0, -pooled)
+  return { opening, paid: round2(paid), balance: round2(balance), unmatched: round2(unmatched), overlap }
 }
 
 // Portfolio-level figures for a set of properties.
