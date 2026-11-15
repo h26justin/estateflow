@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment, useCallback } from 'react'
+import { useState, useEffect, useMemo, Fragment, useCallback, useRef } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import { REPORT_CATALOGUE } from '../lib/reportCatalogue'
 import { SkeletonTiles, SkeletonRows } from '../lib/Skeleton'
@@ -9,7 +9,7 @@ import * as api from '../lib/api'
 import { isPropertyEarningRent, isPropertyOccupied, isPropertyLettable, occupancySummary, PROPERTY_STATUS_LABELS } from '../lib/propertyStatus'
 import { evaluateProperty, collectionStats, arrearsSummary, periodBreakdown, BUCKET_LABEL, STATE_LABEL, GO_LIVE, isoToday } from '../lib/rentEngine'
 import { propValue } from '../lib/propertyValue'
-import { buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
+import { CT_MORTGAGE_NOTE, buildCompanyPnl, buildPortfolioPnl, scalePortfolioPnl, estimateMissingRents, monthsInRange, viewerEffectiveShares, dividendTax, aggregateShareholdersAcrossCompanies, isHoldingCompany, countAssociatedCompanies, companyEffectiveStakes } from '../lib/companyPnl'
 import { renderReportPDF, renderYearEndPackPDF } from '../lib/reportPdf'
 import { showAppToast } from '../lib/toast'
 import { BarChart, RankedBar, AreaChart, DonutChart } from '../lib/charts.jsx'
@@ -20,6 +20,7 @@ import { buildAgentReport, managedByAgent, RENT_LABEL } from '../lib/agentReport
 import { downloadAgentReportPdf } from '../lib/agentReportPdf'
 import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
+import { yearPeriod, currentTaxYear, reportYearOptions, rentRowMonth, buildPnlReport, buildIncomeSchedule, buildCashFlow, buildMortgagePortfolio, buildArrearsReport, buildComplianceReport, buildTenancySchedule, maintenanceCost, maintenancePriorityRank, pnlExports, incomeScheduleExports, cashFlowExports, mortgagePortfolioExports, complianceExports, arrearsExports } from '../lib/reportBuilders'
 import { EmptyState, Button } from './ui'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
@@ -48,10 +49,12 @@ function sortByCompanyName(props) {
   })
 }
 
-// Tax year: 6 Apr → 5 Apr. Calendar: Jan → Dec
+// Tax year: the twelve months Apr → Mar (1 Apr – 31 Mar), so the period
+// filter, the month columns and every total cover the same months — see the
+// PERIOD RULE in lib/reportBuilders.js. Calendar: Jan → Dec.
 function getYearRange(year, type) {
-  if (type === 'tax') return { start: new Date(`${year}-04-06`), end: new Date(`${year+1}-04-05`), label: `${year}/${String(year+1).slice(2)} Tax Year` }
-  return { start: new Date(`${year}-01-01`), end: new Date(`${year}-12-31`), label: `${year} Calendar Year` }
+  const p = yearPeriod(year, type)
+  return { start: new Date(p.start), end: new Date(p.end), label: p.label }
 }
 function inRange(dateStr, range) {
   if (!dateStr) return false
@@ -85,10 +88,6 @@ function rentPaymentDate(r) {
   if (r.period_start) return r.period_start
   if (r.year && r.month) return `${r.year}-${String(r.month).padStart(2,'0')}-01`
   return null
-}
-function daysUntil(dateStr) {
-  if (!dateStr) return null
-  return Math.ceil((new Date(dateStr) - new Date()) / (1000*60*60*24))
 }
 
 const CAT_LABELS = { tax:'Tax & Accounting', performance:'Portfolio Performance', finance:'Cash Flow & Finance', compliance:'Compliance & Legal', maintenance:'Maintenance & Costs' }
@@ -140,7 +139,8 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [catFilter, setCatFilter] = useState('all')
   const [selectedCompany, setSelectedCompany] = useState('all')
   const [yearType, setYearType] = useState('tax')
-  const [year, setYear]         = useState(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1)
+  // Default: the tax year in progress (it starts on 6 April).
+  const [year, setYear]         = useState(() => currentTaxYear())
   // Custom reporting period (ISO yyyy-mm-dd). Only used when yearType==='custom'.
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd]     = useState('')
@@ -185,22 +185,34 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const [dataLoaded, setDataLoaded]   = useState(false)
   const [loadErrors, setLoadErrors]   = useState([])
 
-  // Load all data once on mount (user.id is fixed for the session)
+  // Rows are scoped to the properties this page reports on (not to whoever
+  // created them — team-mates' and tenant-reported rows count too). Deleted
+  // properties drop out; archived ones stay, as everywhere else on the page.
+  // Keyed on the id list so a property patch doesn't refetch everything.
+  const propIdsKey = useMemo(() => (properties || []).filter(p => !p.deleted_at).map(p => p.id).sort().join(','), [properties])
+
+  // Load all data on mount and whenever the property set changes.
+  // A reload can start while an earlier one is in flight (property list
+  // changed); only the newest one may write state.
+  const loadSeq = useRef(0)
   const loadAll = useCallback(async () => {
+    const seq = ++loadSeq.current
     setLoading(true)
+    const scope = { propertyIds: propIdsKey ? propIdsKey.split(',') : [] }
     // Each dataset is fetched independently so one failure doesn't blank
     // every report — failures are surfaced instead of swallowed.
     const sources = [
-      { label: 'compliance',    fetch: () => api.fetchAllComplianceItems(user.id), set: setCompliance },
-      { label: 'maintenance',   fetch: () => api.fetchAllMaintenanceJobs(user.id), set: setMaintenance },
-      { label: 'tenancies',     fetch: () => api.fetchAllTenancies(user.id),       set: setTenancies },
-      { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id),    set: setRentPayments },
-      { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id),        set: setExpenses },
+      { label: 'compliance',    fetch: () => api.fetchAllComplianceItems(user.id, scope), set: setCompliance },
+      { label: 'maintenance',   fetch: () => api.fetchAllMaintenanceJobs(user.id, scope), set: setMaintenance },
+      { label: 'tenancies',     fetch: () => api.fetchAllTenancies(user.id, scope),       set: setTenancies },
+      { label: 'rent payments', fetch: () => api.fetchAllRentPayments(user.id, scope),    set: setRentPayments },
+      { label: 'expenses',      fetch: () => api.fetchAllExpenses(user.id, scope),        set: setExpenses },
       { label: 'shareholders',  fetch: () => api.fetchAllShareholders(),           set: setShareholders },
       { label: 'agents',        fetch: () => api.fetchEstateAgents(),              set: setAgents },
       { label: 'EPC register',  fetch: () => api.fetchAllEpcCertificates(user.id), set: setEpcCerts },
     ]
     const results = await Promise.allSettled(sources.map(s => s.fetch()))
+    if (seq !== loadSeq.current) return
     const failed = []
     results.forEach((res, i) => {
       if (res.status === 'fulfilled') sources[i].set(res.value || [])
@@ -209,7 +221,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
     setLoadErrors(failed)
     setDataLoaded(true)
     setLoading(false)
-  }, [user.id])
+  }, [user.id, propIdsKey])
   useEffect(() => { loadAll() }, [loadAll])
 
   // A manual period pick while on "All companies" can't be persisted
@@ -278,6 +290,11 @@ export default function ReportsPage({ properties, companies, companySettings, us
   const filtMaint = useMemo(() => maintenance.filter(m => selectedCompany==='all'||m.property?.company_id===selectedCompany), [maintenance, selectedCompany])
   const filtTen   = useMemo(() => tenancies.filter(t => selectedCompany==='all'||t.property?.company_id===selectedCompany), [tenancies, selectedCompany])
   const filtEpc   = useMemo(() => epcCerts.filter(c => selectedCompany==='all'||c.property?.company_id===selectedCompany), [epcCerts, selectedCompany])
+  // Period picker years: earliest dated rent/expense row (2022 without data)
+  // to the current tax year + 1.
+  const years = useMemo(() => reportYearOptions(
+    [...rentPayments.map(r => { const mk = rentRowMonth(r); return mk ? String(mk.y) : null }), ...expenses.map(e => e.date)],
+    { selected: year }), [rentPayments, expenses, year])
 
   // Open a specific report. If a parent supplied onSelectReport (the URL
   // sync) we delegate so the URL stays in sync and browser back works.
@@ -328,7 +345,7 @@ export default function ReportsPage({ properties, companies, companySettings, us
             <select value={year} onChange={e=>setYear(Number(e.target.value))}
               aria-label="Tax year for the Year-End Pack" title="Tax year applied to the Year-End Pack"
               style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
-              {[2022,2023,2024,2025,2026,2027].map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
+              {years.map(y=><option key={y} value={y}>{getYearRange(y,yearType).label}</option>)}
             </select>
             <YearEndPackButton
               filtProps={filtProps} filtExp={filtExp} filtRent={filtRent}
@@ -376,7 +393,6 @@ export default function ReportsPage({ properties, companies, companySettings, us
   }
 
   // ── REPORT FULL SCREEN ──────────────────────────────────────────────────────
-  const years = [2022,2023,2024,2025,2026,2027]
   const accent = activeReport ? CAT_COLORS[activeReport.cat] : T.gold
 
   return (
@@ -494,36 +510,57 @@ function StatCards({ items, T }) {
   )
 }
 
+// A real <table> (thead/tbody/tfoot, th scope) so screen readers get the
+// column relationships; the look matches the old grid. Right-aligned columns
+// are figures and use the mono font. Under 769px the global .table-stack
+// rules turn each row into a labelled card (data-label per cell).
 function ReportTable({ headers, rows, T, accent, totals }) {
   if (!rows.length) return <EmptyState compact icon="pie-chart" title="No data for this period"/>
-  const cols = headers.map(h=>h.width||'1fr').join(' ')
+  const label = i => typeof headers[i]?.label === 'string' ? headers[i].label : undefined
+  const pad = (ci, n, v) => `${v} ${ci === n - 1 ? 20 : 8}px ${v} ${ci === 0 ? 20 : 8}px`
+  const cellStyle = (cell, ci, n, { bold, v }) => {
+    const right = !!headers[ci]?.right
+    return {
+      fontFamily: right ? mono : SANS, fontSize: FS.sm,
+      color: typeof cell === 'object' && cell !== null ? cell.color || T.text : T.text,
+      textAlign: right ? 'right' : 'left',
+      fontWeight: bold || (typeof cell === 'object' && cell !== null && cell.bold) ? 700 : 400,
+      padding: pad(ci, n, v), verticalAlign: 'middle',
+    }
+  }
+  const val = cell => (typeof cell === 'object' && cell !== null ? cell.v : cell)
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden'}}>
       {/* Horizontal scroll on narrow screens — same pattern as the compliance matrix */}
       <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
-        <div style={{minWidth:640}}>
-          <div style={{display:'grid',gridTemplateColumns:cols,gap:16,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 20px'}}>
-            {headers.map((h,i)=><div key={i} style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',textAlign:h.right?'right':'left'}}>{h.label}</div>)}
-          </div>
-          {rows.map((row,ri)=>(
-            <div key={ri} style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'11px 20px',borderBottom:`1px solid ${T.border}`,alignItems:'center'}}>
-              {row.map((cell,ci)=>(
-                <div key={ci} style={{fontFamily:SANS,fontSize:FS.sm,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left',fontWeight:typeof cell==='object'&&cell.bold?700:400}}>
-                  {typeof cell==='object'?cell.v:cell}
-                </div>
-              ))}
-            </div>
-          ))}
+        <table className="table-stack" style={{width:'100%',borderCollapse:'collapse'}}>
+          <colgroup>
+            {headers.map((h,i)=><col key={i} style={h.width && h.width !== '1fr' ? {width:h.width} : undefined}/>)}
+          </colgroup>
+          <thead>
+            <tr style={{background:T.bg,borderBottom:`1px solid ${T.border}`}}>
+              {headers.map((h,i)=><th key={i} scope="col" style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em',fontWeight:400,textAlign:h.right?'right':'left',padding:pad(i,headers.length,'10px')}}>{h.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,ri)=>(
+              <tr key={ri} style={{borderBottom:`1px solid ${T.border}`}}>
+                {row.map((cell,ci)=> ci === 0
+                  ? <th key={ci} scope="row" data-label={label(ci)} style={cellStyle(cell,ci,row.length,{v:'11px'})}>{val(cell)}</th>
+                  : <td key={ci} data-label={label(ci)} style={cellStyle(cell,ci,row.length,{v:'11px'})}>{val(cell)}</td>)}
+              </tr>
+            ))}
+          </tbody>
           {totals && (
-            <div style={{display:'grid',gridTemplateColumns:cols,gap:16,padding:'12px 20px',background:T.bg}}>
-              {totals.map((cell,ci)=>(
-                <div key={ci} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:typeof cell==='object'?cell.color||T.text:T.text,textAlign:headers[ci]?.right?'right':'left'}}>
-                  {typeof cell==='object'?cell.v:cell}
-                </div>
-              ))}
-            </div>
+            <tfoot>
+              <tr style={{background:T.bg}}>
+                {totals.map((cell,ci)=> ci === 0
+                  ? <th key={ci} scope="row" data-label={label(ci)} style={cellStyle(cell,ci,totals.length,{bold:true,v:'12px'})}>{val(cell)}</th>
+                  : <td key={ci} data-label={label(ci)} style={cellStyle(cell,ci,totals.length,{bold:true,v:'12px'})}>{val(cell)}</td>)}
+              </tr>
+            </tfoot>
           )}
-        </div>
+        </table>
       </div>
     </div>
   )
@@ -572,7 +609,8 @@ function ExportButtons({ reportId, filtProps, filtExp, filtRent, filtComp, filtM
     }
     const rows = buildCSVRows(reportId, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras)
     if (!rows) return
-    const csv = rows.map(r=>r.map(v=>`"${csvSafe(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    // ?? not || so a numeric 0 stays 0 instead of becoming an empty cell.
+    const csv = rows.map(r=>r.map(v=>`"${csvSafe(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv],{type:'text/csv'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url; a.download=`${reportId}-${range.label}.csv`; a.click()
@@ -632,7 +670,7 @@ function YearEndPackButton({ filtProps, filtExp, filtRent, filtComp, filtMaint, 
         reports: TAX_PACK_REPORTS.map(id => ({
           id,
           name: REPORT_CATALOGUE.find(r => r.id === id)?.name || id,
-          data: buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range),
+          data: buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, { year, yearType }),
         })),
         company: co?.name || 'All companies',
         companyColor: co?.color,
@@ -673,7 +711,21 @@ function computeCompanyPnl(companyId, filtProps, filtExp, filtRent, range, extra
     // associated-company rule. See the report's disclaimer note.
     associatedCompanies: countAssociatedCompanies(companies),
     isEarningRent: p => isPropertyEarningRent(p.status),
+    // Receipt allocations (embedded on each property) decide rent received,
+    // as the rent engine does; periodEnd picks the dividend-tax rates.
+    receipts: propertyReceipts(filtProps.filter(p => p.company_id === companyId)),
+    periodEnd: periodEndIso(range),
   })
+}
+
+// rent_receipts (with rent_allocations) embedded on the properties by
+// fetchProperties — the receipts-aware rent figure every P&L shares.
+function propertyReceipts(props) {
+  return (props || []).flatMap(p => p.rent_receipts || [])
+}
+// The period's last day as yyyy-mm-dd (dividend-tax rates depend on it).
+function periodEndIso(range) {
+  return rangeIso(range).end
 }
 
 // ── HOLDING COMPANY P&L (shared compute) ────────────────────────────────────
@@ -703,7 +755,7 @@ function computeHoldingPnl(holdingCo, filtProps, filtExp, filtRent, range, extra
     const corporate = (s.shareholder_type || 'individual') === 'company'
     const pct = Number(s.percentage) || 0
     const share = total * pct / 100
-    const divTax = !corporate && s.tax_band ? dividendTax(share, s.tax_band) : null
+    const divTax = !corporate && s.tax_band ? dividendTax(share, s.tax_band, periodEndIso(range)) : null
     const net = share - (divTax || 0)
     return {
       id: s.id, name: s.name, email: s.email || null, userId: s.user_id || null,
@@ -725,12 +777,12 @@ const COMPANY_PNL_NOTE = 'Estimates for planning, not tax advice. Corporation ta
 // holding companies). Same formula the split table applies to direct rows:
 // % of profit after CT, minus dividend tax at their band where one is set.
 // Returns null when they hold nothing.
-function viewerTakeFromPnl(pnl, companyId, eff) {
+function viewerTakeFromPnl(pnl, companyId, eff, periodEnd = null) {
   const pct = eff.pct[companyId] || 0
   if (!(pct > 0)) return null
   const band = eff.bands[companyId] || null
   const share = pnl.profitAfterTax * (pct / 100)
-  const divT = band ? dividendTax(share, band) : null
+  const divT = band ? dividendTax(share, band, periodEnd) : null
   const net = share - (divT || 0)
   return {
     percentage: pct, taxBand: band, via: eff.via[companyId] || null,
@@ -761,6 +813,7 @@ function computePortfolioPnl(filtProps, filtExp, filtRent, range, extras, monthK
     include,
     fullOccupancy,
     rentEstimates,
+    receipts: propertyReceipts(filtProps),
   })
 }
 
@@ -810,6 +863,16 @@ function computeEpcUpgrade(filtProps, epcCerts) {
 
 const EPC_UPGRADE_NOTE = 'Works and costs are the indicative ranges published on each property\'s official EPC (standard register assumptions — not quotes). "SAP after" is the certificate\'s cumulative score once that measure and the ones above it are done; band C starts at SAP 69. Confirm scope and prices with your builder or a qualified retrofit assessor before committing.'
 
+// Month columns for an export of a month-by-month report: the same buckets
+// the screen shows. Null when a custom range is too wide for the grid.
+function exportMonths(range, extras) {
+  const { year, yearType } = extras || {}
+  const months = year != null && yearType ? periodMonths(year, yearType, range) : periodMonths(null, 'custom', range)
+  return months.length > MAX_GRID_MONTHS ? null : months
+}
+const exportMonthLabel = extras => ({ m, y }) => monthLabel(m, y, extras?.yearType || 'custom')
+const GRID_TOO_WIDE_DATA = title => ({ title, kpis: [], headers: ['Report'], rows: [[`This month-by-month report supports up to ${MAX_GRID_MONTHS} months. Narrow the custom range or switch to a tax or calendar year.`]] })
+
 // ── BUILD REPORT DATA ─────────────────────────────────────────────────────────
 function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, filtTen, range, extras) {
   switch(id) {
@@ -826,7 +889,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         // look-through on the operating rows — listing it would double-count.
         const perCo = companies.filter(c => !isHoldingCompany(c)).map(c => {
           const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
-          const viewer = viewerTakeFromPnl(pnl, c.id, eff)
+          const viewer = viewerTakeFromPnl(pnl, c.id, eff, periodEndIso(range))
           return { c, pnl, viewer }
         })
         const tNet = perCo.reduce((s, r) => s + (r.viewer?.net || 0), 0)
@@ -890,6 +953,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         ['Total expenses', fmt(-pnl.totalExpenses)],
         ['Operating profit', fmt(pnl.operatingProfit)],
         [`Corporation tax (est., ${(pnl.corporationTax.effectiveRate * 100).toFixed(1)}%)`, fmt(-pnl.corporationTax.tax)],
+        ...(pnl.ctNote ? [[`Note: ${pnl.ctNote}`, '']] : []),
         ['Profit after tax', fmt(pnl.profitAfterTax)],
       ]
       const splitRows = pnl.shareholders.map(s => [
@@ -922,7 +986,7 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         { managementFees: pnlInc.fees, expenses: pnlInc.expenses, mortgage: pnlInc.mortgage, corporationTax: pnlInc.ct }, pnlInc.fullOcc, rentEstimates)
       if (pnlMyShare) {
         const vs = viewerShareByCompany(shareholders, companies, user)
-        data = scalePortfolioPnl(data, vs.pct, { dividendTaxBands: pnlInc.divTax ? vs.bands : null })
+        data = scalePortfolioPnl(data, vs.pct, { dividendTaxBands: pnlInc.divTax ? vs.bands : null, periodEnd: periodEndIso(range) })
       }
       const mine = !!data.scaled
       const months = data.months
@@ -938,7 +1002,9 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         + (data.fullOccupancy ? 'Full occupancy assumed: every property earns at least its expected rent every month (voids filled). ' : '')
         + (excludedBits.length ? `Excluded by assumption switches: ${excludedBits.join(', ')}. ` : '')
         + (mine ? `Figures are scaled to your effective shareholding per company — direct plus stakes via linked holding companies${pnlInc.divTax ? ' (dividend tax estimated from your shareholder tax band)' : ' (before dividend tax)'}; companies where you hold no shares are omitted. ` : '')
-        + (data.forecast ? FULL_PNL_FORECAST_NOTE : '') + FULL_PNL_NOTE
+        + (data.forecast ? FULL_PNL_FORECAST_NOTE : '')
+        + (data.companies.some(b => b.mortgageExcludedFromCt > 0) ? CT_MORTGAGE_NOTE + ' ' : '')
+        + FULL_PNL_NOTE
       const coName = b => b.name + (mine && !b.personal && b.sharePercent != null ? ` — your ${b.sharePercent}%` : '')
       const kpis = [
         [you + (mine ? 'income' : 'Income') + fc, fmt(data.grand.income)],
@@ -978,22 +1044,11 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         totals: ['Total', fmt(data.grand.income), fmt(-(data.grand.expenses + data.grand.fees)), fmt(data.grand.pretax), fmt(-(data.grand.ct + (data.grand.dividendTax || 0))), fmt(data.grand.posttax), fmt(data.grand.posttax / months)],
       }
     }
-    case 'pnl': {
-      const hasPaid = filtRent.some(r => r.status === 'paid')
-      const rows = filtProps.map(p => {
-        const rent = hasPaid
-          ? filtRent.filter(r => r.property_id === p.id && r.status === 'paid').reduce((s,r) => s + (r.amount || 0), 0)
-          : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
-        const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-        return { name:p.name, rent, exp, net:rent-exp, yield:propValue(p)?((p.rent_pcm||0)*12/propValue(p)*100):0 }
-      }).sort((a,b)=>b.net-a.net)
-      const tR=rows.reduce((s,r)=>s+r.rent,0), tE=rows.reduce((s,r)=>s+r.exp,0)
-      return { title:'Annual P&L', kpis:[['Total income',fmt(tR)],['Total expenses',fmt(tE)],['Net profit',fmt(tR-tE)],['Net margin',tR>0?fmtPct((tR-tE)/tR*100):'—']], headers:['Property','Annual Rent','Expenses','Net Profit','Gross Yield'], rows:rows.map(r=>[r.name,fmt(r.rent),fmt(r.exp),fmt(r.net),r.yield>0?fmtPct(r.yield):'—']), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE),''] }
-    }
+    case 'pnl': return pnlExports(buildPnlReport({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp }), { fmt, fmtPct }).pdf
     case 'income_sched': {
-      const pRows = filtProps.map(p=>({name:p.name,rent:(p.rent_pcm||0)*12}))
-      const total = pRows.reduce((s,r)=>s+r.rent,0)
-      return { title:'Rental Income Schedule', kpis:[['Total income',fmt(total)],['Monthly average',fmt(Math.round(total/12))],['Properties',filtProps.length.toString()]], headers:['Property','Monthly Rent','Annual Rent'], rows:pRows.map(r=>[r.name,fmt(r.rent/12),fmt(r.rent)]), totals:['Total',fmt(total/12),fmt(total)] }
+      const months = exportMonths(range, extras)
+      if (!months) return GRID_TOO_WIDE_DATA('Rental Income Schedule')
+      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
     }
     case 'expense_breakdown': {
       const byCat = filtExp.reduce((a,e)=>{a[e.category||'Other']=(a[e.category||'Other']||0)+(e.amount||0);return a},{})
@@ -1091,47 +1146,18 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
         rows:rows.map(r=>[r.company,r.property,r.month,r.period,r.expected!=null?fmt(r.expected):'']) }
     }
     case 'cashflow': {
-      // Use real per-month data — same logic as the in-app component.
-      const hasPaid = filtRent.some(r => r.status === 'paid')
-      const monthRent = MONTHS.map((_, m) =>
-        hasPaid
-          ? filtRent.filter(r => r.status === 'paid' && r.month === (m + 1))
-            .reduce((s,r) => s + (r.amount || 0), 0)
-          : filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
-      )
-      const monthExp = MONTHS.map((_, m) =>
-        filtExp.filter(e => e.date && new Date(e.date).getMonth() === m).reduce((s,e)=>s+(e.amount||0),0)
-      )
-      const tR = monthRent.reduce((s,v)=>s+v,0), tE = monthExp.reduce((s,v)=>s+v,0)
-      return { title:'Monthly Cash Flow', kpis:[['Total income',fmt(tR)],['Total outgoings',fmt(tE)],['Net cash flow',fmt(tR-tE)]], headers:['Month','Rent Income','Expenses','Net Cash Flow'], rows:MONTHS.map((m,i)=>[m,fmt(monthRent[i]),fmt(monthExp[i]),fmt(monthRent[i]-monthExp[i])]), totals:['Total',fmt(tR),fmt(tE),fmt(tR-tE)] }
+      const months = exportMonths(range, extras)
+      if (!months) return GRID_TOO_WIDE_DATA('Monthly Cash Flow')
+      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months }), { fmt, monthLabel: exportMonthLabel(extras) }).pdf
     }
     case 'equity': {
       const rows=filtProps.map(p=>({name:p.name,val:propValue(p),debt:p.mortgage_amount||0,eq:propValue(p)-(p.mortgage_amount||0),ltv:propValue(p)?((p.mortgage_amount||0)/propValue(p))*100:0})).sort((a,b)=>b.eq-a.eq)
       const t=rows.reduce((s,r)=>({v:s.v+r.val,d:s.d+r.debt,e:s.e+r.eq}),{v:0,d:0,e:0})
       return { title:'Equity Report', kpis:[['Portfolio value',fmt(t.v)],['Total debt',fmt(t.d)],['Total equity',fmt(t.e)],['Portfolio LTV',t.v>0?fmtPct(t.d/t.v*100):'—']], headers:['Property','Est. Value','Mortgage','Equity','LTV'], rows:rows.map(r=>[r.name,fmt(r.val),fmt(r.debt),fmt(r.eq),r.ltv>0?fmtPct(r.ltv):'—']), totals:['Total',fmt(t.v),fmt(t.d),fmt(t.e),''] }
     }
-    case 'mortgage_port': {
-      // mortgage_rate stored as decimal (0.05). monthly = P × r/12 × (1+r/12)^n / ((1+r/12)^n - 1)
-      const rows=filtProps.filter(p=>p.mortgage_amount>0).map(p=>{
-        const r12 = (p.mortgage_rate||0)/12
-        const n = (p.mortgage_term||25)*12
-        const m = p.mortgage_rate&&p.mortgage_amount
-          ? Math.round(p.mortgage_amount * r12 * Math.pow(1+r12,n) / (Math.pow(1+r12,n) - 1))
-          : 0
-        return {name:p.name,loan:p.mortgage_amount,rate:p.mortgage_rate,term:p.mortgage_term,monthly:m,ltv:propValue(p)?((p.mortgage_amount||0)/propValue(p))*100:0}
-      })
-      return { title:'Mortgage Portfolio Summary', kpis:[['Total debt',fmt(rows.reduce((s,r)=>s+r.loan,0))],['Monthly repayments',fmt(rows.reduce((s,r)=>s+r.monthly,0))],['Mortgaged properties',rows.length.toString()]], headers:['Property','Loan Amount','Rate','Term','Monthly','LTV'], rows:rows.map(r=>[r.name,fmt(r.loan),fmtPct((r.rate||0)*100),r.term?r.term+'y':'—',fmt(r.monthly),r.ltv>0?fmtPct(r.ltv):'—']) }
-    }
-    case 'arrears': {
-      const rows=filtProps.filter(p=>(p.arrears||0)>0).map(p=>({name:p.name,arrears:p.arrears||0,rent:p.rent_pcm||0})).sort((a,b)=>b.arrears-a.arrears)
-      const total=rows.reduce((s,r)=>s+r.arrears,0)
-      return { title:'Arrears Report', kpis:[['Properties in arrears',rows.length.toString()],['Total arrears',fmt(total)],['Clear properties',(filtProps.length-rows.length).toString()]], headers:['Property','Arrears Amount','Monthly Rent','Status'], rows:rows.length?rows.map(r=>[r.name,fmt(r.arrears),fmt(r.rent),'Overdue']):[['No arrears','','','All clear']] }
-    }
-    case 'compliance': {
-      const rows=filtComp.map(c=>{const d=daysUntil(c.expiry_date);return{prop:c.property?.name||'—',type:c.item_type||c.type||'—',expiry:c.expiry_date||'—',days:d,status:!c.expiry_date?'No date':d<0?'EXPIRED':d<=60?'Expiring':'Valid'}}).sort((a,b)=>(a.days||999)-(b.days||999))
-      const expired=rows.filter(r=>r.status==='EXPIRED').length,expiring=rows.filter(r=>r.status==='Expiring').length
-      return { title:'Compliance Status', kpis:[['Expired',expired.toString()],['Expiring <60 days',expiring.toString()],['Valid',rows.filter(r=>r.status==='Valid').length.toString()],['Total',rows.length.toString()]], headers:['Property','Certificate','Expiry Date','Days','Status'], rows:rows.map(r=>[r.prop,r.type,r.expiry,r.days!=null?r.days.toString():'—',r.status]) }
-    }
+    case 'mortgage_port': return mortgagePortfolioExports(buildMortgagePortfolio(filtProps), { fmt, fmtPct }).pdf
+    case 'arrears': return arrearsExports(buildArrearsReport(filtProps), { fmt }).pdf
+    case 'compliance': return complianceExports(buildComplianceReport(filtComp)).pdf
     case 'epc_upgrade': {
       const d = computeEpcUpgrade(filtProps, extras?.epcCerts || [])
       const worksHeaders = ['Property', 'Recommended works (in certificate order)', 'SAP after', 'Indicative cost']
@@ -1177,20 +1203,20 @@ function buildReportData(id, filtProps, filtExp, filtRent, filtComp, filtMaint, 
       }
     }
     case 'tenancy_sched': {
-      const rows=filtTen.map(t=>({prop:t.property?.name||'—',tenant:t.tenant_name||'—',start:t.start_date||'—',end:t.end_date||'Rolling',rent:t.property?.rent_pcm||0,days:t.end_date?daysUntil(t.end_date):null})).sort((a,b)=>(a.days||9999)-(b.days||9999))
-      return { title:'Tenancy Schedule', kpis:[['Active tenancies',filtTen.length.toString()],['Expiring <90 days',rows.filter(r=>r.days!=null&&r.days<=90&&r.days>=0).length.toString()]], headers:['Property','Tenant','Start','End','Rent','Days to End'], rows:rows.map(r=>[r.prop,r.tenant,r.start,r.end,fmt(r.rent),r.days!=null?r.days.toString():'—']) }
+      const d = buildTenancySchedule(filtTen)
+      return { title:'Tenancy Schedule', kpis:[['Tenancies',d.rows.length.toString()],['Expiring <90 days',d.expiringSoon.toString()]], headers:['Property','Tenant','Start','End','Rent','Days to End'], rows:d.rows.map(r=>[r.property,r.tenant||'—',r.start||'—',r.end||'Rolling',fmt(r.rent),r.days!=null?r.days.toString():'—']) }
     }
     case 'maintenance_report': {
-      const byProp=filtMaint.reduce((a,m)=>{const k=m.property?.name||'Unknown';if(!a[k])a[k]={name:k,total:0,jobs:0};a[k].total+=(m.cost||0);a[k].jobs++;return a},{})
+      const byProp=filtMaint.reduce((a,m)=>{const k=m.property?.name||'Unknown';if(!a[k])a[k]={name:k,total:0,jobs:0};a[k].total+=maintenanceCost(m);a[k].jobs++;return a},{})
       const rows=Object.values(byProp).sort((a,b)=>b.total-a.total)
       const total=rows.reduce((s,r)=>s+r.total,0)
-      return { title:'Maintenance Cost Report', kpis:[['Total spend',fmt(total)],['Jobs',filtMaint.length.toString()],['Avg cost',filtMaint.length?fmt(Math.round(total/filtMaint.length)):'—']], headers:['Property','Total Spend','Jobs','Avg per Job'], rows:rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]) }
+      return { title:'Maintenance Cost Report', kpis:[['Total spend',fmt(total)],['Jobs',filtMaint.length.toString()],['Avg cost',filtMaint.length?fmt(Math.round(total/filtMaint.length)):'—']], headers:['Property','Total Spend','Jobs','Avg per Job'], rows:rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]), totals:['Total',fmt(total),filtMaint.length.toString(),''] }
     }
     case 'contractor_spend': {
-      const byC=filtMaint.filter(m=>m.contractor&&m.cost>0).reduce((a,m)=>{if(!a[m.contractor])a[m.contractor]={name:m.contractor,total:0,jobs:0};a[m.contractor].total+=(m.cost||0);a[m.contractor].jobs++;return a},{})
+      const byC=filtMaint.filter(m=>m.contractor&&maintenanceCost(m)>0).reduce((a,m)=>{if(!a[m.contractor])a[m.contractor]={name:m.contractor,total:0,jobs:0};a[m.contractor].total+=maintenanceCost(m);a[m.contractor].jobs++;return a},{})
       const rows=Object.values(byC).sort((a,b)=>b.total-a.total)
       const total=rows.reduce((s,r)=>s+r.total,0)
-      return { title:'Contractor Spend Report', kpis:[['Total spend',fmt(total)],['Contractors',rows.length.toString()],['Top contractor',rows[0]?.name||'—']], headers:['Contractor','Total Paid','Jobs','Avg per Job'], rows:rows.length?rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]):[['None','No contractor costs recorded','','']] }
+      return { title:'Contractor Spend Report', kpis:[['Total spend',fmt(total)],['Contractors',rows.length.toString()],['Top contractor',rows[0]?.name||'—']], headers:['Contractor','Total Paid','Jobs','Avg per Job'], rows:rows.length?rows.map(r=>[r.name,fmt(r.total),r.jobs.toString(),fmt(Math.round(r.total/r.jobs))]):[['None','No contractor costs recorded','','']], totals:rows.length?['Total',fmt(total),rows.reduce((s,r)=>s+r.jobs,0).toString(),'']:undefined }
     }
     default: return { title:id, kpis:[], headers:['Report'], rows:[[id]] }
   }
@@ -1234,39 +1260,18 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
       }
       return out.length ? out : [['Report', id], ['Period', range.label]]
     }
-    case 'pnl': {
-      const hasPaid = filtRent.some(r => r.status === 'paid')
-      return [
-        ['Property','Status','Annual rent (collected)','Expenses','Net profit','Gross yield','Est. value','Mortgage'],
-        ...filtProps.map(p => {
-          const rent = hasPaid
-            ? filtRent.filter(r=>r.property_id===p.id&&r.status==='paid').reduce((s,r)=>s+(r.amount||0),0)
-            : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
-          const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-          return [p.name, p.status||'', rent, exp, rent-exp,
-            propValue(p)?((p.rent_pcm||0)*12/propValue(p)*100).toFixed(2)+'%':'',
-            propValue(p), p.mortgage_amount||0]
-        })
-      ]
-    }
+    case 'pnl': return pnlExports(buildPnlReport({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp }), { fmt, fmtPct }).csv
     case 'income_sched': {
-      // Per-property per-month rent — 12 columns.
-      const months = MONTHS
-      const hasPaid = filtRent.some(r=>r.status==='paid')
-      return [
-        ['Property', ...months, 'Total'],
-        ...filtProps.map(p => {
-          const monthRent = months.map((_, m) => {
-            if (!hasPaid) return p.rent_pcm || 0
-            return filtRent.filter(r => r.property_id === p.id && r.status === 'paid'
-              && r.month === (m+1)
-            ).reduce((s,r) => s + (r.amount||0), 0)
-          })
-          const tot = monthRent.reduce((s,v)=>s+v,0)
-          return [p.name, ...monthRent, tot]
-        }),
-      ]
+      const months = exportMonths(range, extras)
+      if (!months) return [['Report', id], ['Period', range.label], [GRID_TOO_WIDE_DATA('').rows[0][0]]]
+      return incomeScheduleExports(buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months }), { fmt }).csv
     }
+    case 'cashflow': {
+      const months = exportMonths(range, extras)
+      if (!months) return [['Report', id], ['Period', range.label], [GRID_TOO_WIDE_DATA('').rows[0][0]]]
+      return cashFlowExports(buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months }), { fmt }).csv
+    }
+    case 'arrears': return arrearsExports(buildArrearsReport(filtProps), { fmt }).csv
     case 'ownership': {
       // Flat — one row per property, owner columns repeated on every row so
       // the sheet pivots and filters cleanly.
@@ -1286,40 +1291,14 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
         ])),
       ]
     }
-    case 'compliance': return [
-      ['Property','Certificate type','Expiry date','Status','Days until expiry','Issuer'],
-      ...filtComp.map(c => {
-        const d = daysUntil(c.expiry_date)
-        const status = !c.expiry_date ? 'No date' : d<0 ? 'EXPIRED' : d<60 ? 'Expiring soon' : 'Valid'
-        return [c.property?.name||'', c.item_type||c.type||'', c.expiry_date||'', status, d ?? '', c.issuer||'']
-      })
-    ]
+    case 'compliance': return complianceExports(buildComplianceReport(filtComp)).csv
     case 'tenancy_sched': return [
       ['Property','Tenant','Start date','End date','Monthly rent','Annual rent','Notice period','Days to end'],
-      ...filtTen.map(t => [
-        t.property?.name||'', t.tenant_name||'', t.start_date||'', t.end_date||'Rolling',
-        t.property?.rent_pcm||0, (t.property?.rent_pcm||0)*12,
-        t.notice_period||'', t.end_date ? daysUntil(t.end_date) : ''
+      ...buildTenancySchedule(filtTen).rows.map(r => [
+        r.property, r.tenant, r.start, r.end || 'Rolling', r.rent, r.rent * 12, r.noticePeriod, r.days ?? '',
       ])
     ]
-    case 'mortgage_port': return [
-      ['Property','Lender','Loan amount','Rate %','Type','Term (years)','Monthly payment','Expiry','LTV %'],
-      ...filtProps.filter(p=>p.mortgage_amount>0).map(p => {
-        // mortgage_rate stored as decimal (0.05) → monthly rate = rate/12.
-        const r = (p.mortgage_rate||0)/12
-        const n = (p.mortgage_term||25)*12
-        const monthly = p.mortgage_type === 'interest_only'
-          ? p.mortgage_amount * r
-          : (r > 0 ? p.mortgage_amount*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1) : 0)
-        return [
-          p.name, p.lender||'', p.mortgage_amount||0,
-          p.mortgage_rate ? +(p.mortgage_rate*100).toFixed(3) : '',
-          p.mortgage_type === 'interest_only' ? 'Interest-only' : 'Repayment',
-          p.mortgage_term||'', Math.round(monthly), p.mortgage_expiry||'',
-          propValue(p) ? ((p.mortgage_amount||0)/propValue(p)*100).toFixed(1) : ''
-        ]
-      })
-    ]
+    case 'mortgage_port': return mortgagePortfolioExports(buildMortgagePortfolio(filtProps), { fmt, fmtPct }).csv
     default: {
       // Generic path — use buildReportData's headers+rows shape, strip
       // currency formatting on data cells (objects use .v, strings stay).
@@ -1340,31 +1319,24 @@ function buildCSVRows(id, filtProps, filtExp, filtRent, filtComp, filtMaint, fil
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct }) {
-  // Use actually-collected rent (status='paid') for the period — that's
-  // what HMRC cares about on SA105. Fall back to the expected rent only
-  // when no payment records exist at all (new portfolio, first month).
-  const hasAnyPaymentData = filtRent.some(r => r.status === 'paid')
-  const rows = filtProps.map(p => {
-    const rent = hasAnyPaymentData
-      ? filtRent.filter(r => r.property_id === p.id && r.status === 'paid')
-          .reduce((s,r) => s + (r.amount || 0), 0)
-      : (isPropertyEarningRent(p.status) ? (p.rent_pcm||0)*12 : 0)
-    const exp = filtExp.filter(e=>e.property_id===p.id).reduce((s,e)=>s+(e.amount||0),0)
-    const net = rent - exp
-    const yield_ = propValue(p) ? ((p.rent_pcm||0)*12/propValue(p))*100 : 0
-    return { p, rent, exp, net, yield: yield_ }
-  }).sort((a,b)=>b.net-a.net)
-  const totalRent = rows.reduce((s,r)=>s+r.rent,0)
-  const totalExp = rows.reduce((s,r)=>s+r.exp,0)
-  const totalNet = totalRent - totalExp
+  // Rent actually received in the period (paid, or late/partial with an
+  // amount — the same test as the Company and Full Portfolio P&Ls). No
+  // contracted-rent fallback: this is the SA105 figure, so rent nobody
+  // recorded is not income.
+  const d = buildPnlReport({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp })
+  const rows = d.rows
+  const totalRent = d.totals.rent
+  const totalExp = d.totals.exp
+  const totalNet = d.totals.net
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Total rental income',value:fmt(totalRent),color:T.green},
+        {label:'Total rent received',value:fmt(totalRent),color:T.green},
         {label:'Total expenses',value:fmt(totalExp),color:T.red},
         {label:'Net profit',value:fmt(totalNet),color:totalNet>=0?T.green:T.red},
         {label:'Net margin',value:totalRent>0?fmtPct((totalNet/totalRent)*100):'—',color:accent},
       ]}/>
+      {d.noRentRecorded && <NoRentNote T={T}/>}
 
       {rows.length > 0 && (
         <ChartCard title="Net profit by property" T={T}>
@@ -1378,7 +1350,7 @@ function ReportPnL({ filtProps, filtRent, filtExp, range, T, accent, fmt, fmtPct
       )}
 
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Annual rent',right:true,width:'120px'},{label:'Expenses',right:true,width:'120px'},{label:'Net profit',right:true,width:'120px'},{label:'Gross yield',right:true,width:'100px'}]}
+        headers={[{label:'Property'},{label:'Rent received',right:true,width:'120px'},{label:'Expenses',right:true,width:'120px'},{label:'Net profit',right:true,width:'120px'},{label:'Gross yield',right:true,width:'100px'}]}
         rows={rows.map(r=>[
           r.p.name,
           {v:fmt(r.rent),color:T.green,right:true},
@@ -1497,7 +1469,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
     const opCos = companies.filter(c => !isHoldingCompany(c))
     const rows = opCos.map(c => {
       const pnl = computeCompanyPnl(c.id, filtProps, filtExp, filtRent, range, extras)
-      const viewer = viewerTakeFromPnl(pnl, c.id, eff)
+      const viewer = viewerTakeFromPnl(pnl, c.id, eff, periodEndIso(range))
       return { c, pnl, viewer }
     })
     const tNet = rows.reduce((s, r) => s + (r.viewer?.net || 0), 0)
@@ -1564,7 +1536,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
 
   // ── Single company → full P&L ──
   const pnl = computeCompanyPnl(selectedCompany, filtProps, filtExp, filtRent, range, extras)
-  const viewer = viewerTakeFromPnl(pnl, selectedCompany, eff)
+  const viewer = viewerTakeFromPnl(pnl, selectedCompany, eff, periodEndIso(range))
   const totalOk = Math.abs(pnl.ownershipTotal - 100) < 0.01
 
   const lineRows = [
@@ -1579,6 +1551,7 @@ function ReportCompanyPnL({ filtProps, filtExp, filtRent, range, T, accent, fmt,
     ['Total expenses', {v:fmt(-pnl.totalExpenses), color:T.red, bold:true}],
     [{v:'Operating profit', bold:true}, {v:fmt(pnl.operatingProfit), color:pnl.operatingProfit>=0?T.green:T.red, bold:true}],
     [`Corporation tax (estimated, effective ${(pnl.corporationTax.effectiveRate*100).toFixed(1)}%)`, {v:fmt(-pnl.corporationTax.tax), color:T.red}],
+    ...(pnl.ctNote ? [[{v:pnl.ctNote, color:T.muted}, '']] : []),
     [{v:'Profit after tax', bold:true}, {v:fmt(pnl.profitAfterTax), color:pnl.profitAfterTax>=0?T.green:T.red, bold:true}],
   ]
 
@@ -1676,7 +1649,7 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
   // dividend tax (if switched on) uses the band on their shareholder entry.
   const mine = pnlMyShare
   const vs = mine ? viewerShareByCompany(shareholders, companies, user) : null
-  const data = mine ? scalePortfolioPnl(raw, vs.pct, { dividendTaxBands: pnlInc.divTax ? vs.bands : null }) : raw
+  const data = mine ? scalePortfolioPnl(raw, vs.pct, { dividendTaxBands: pnlInc.divTax ? vs.bands : null, periodEnd: periodEndIso(range) }) : raw
   const hiddenCount = mine ? raw.companies.length - data.companies.length : 0
   const months = data.months
   const fc = data.forecast
@@ -1813,6 +1786,9 @@ function ReportFullPnL({ filtProps, filtExp, filtRent, range, year, yearType, T,
           {fmt(excludedFees)} of logged "Agent / Management Fees" expenses could not be matched to a property in
           this portfolio, so they're excluded to avoid double-counting the calculated fee lines.
         </div>
+      )}
+      {data.companies.some(b => b.mortgageExcludedFromCt > 0) && (
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>{CT_MORTGAGE_NOTE}</div>
       )}
       <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,lineHeight:1.7,marginTop:14,padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10}}>
         {FULL_PNL_NOTE}
@@ -1965,28 +1941,33 @@ function GridTooWide({ T }) {
   )
 }
 
+// Explicit empty state for the rent reports: no received rent in the period.
+function NoRentNote({ T }) {
+  return (
+    <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',padding:'10px 14px',border:`1px dashed ${T.border}`,borderRadius:10,lineHeight:1.6}}>
+      No rent received is recorded for this period, so income shows as £0. Record rent in the Rent tracker to populate it.
+    </div>
+  )
+}
+
 function ReportIncomeSchedule({ filtProps, filtRent, range, year, yearType, T, accent, fmt }) {
   const months = periodMonths(year, yearType, range)
   if (months.length > MAX_GRID_MONTHS) return <GridTooWide T={T}/>
   const nMonths = months.length
   const cols = `160px repeat(${nMonths},1fr) 100px`
-  const propRent = filtProps.map(p => {
-    const monthData = months.map(({m,y}) => {
-      const paid = filtRent.filter(r => r.property_id===p.id && r.month === (m+1) && r.year === y)
-        .reduce((s,r)=>s+(r.amount||0),0)
-      return paid || (p.rent_pcm||0)
-    })
-    return { p, monthData, total: monthData.reduce((s,v)=>s+v,0) }
-  })
-  const monthTotals = months.map((_,i) => propRent.reduce((s,r)=>s+r.monthData[i],0))
-  const grandTotal = monthTotals.reduce((s,v)=>s+v,0)
+  // Rent received per month — same builder as the PDF/CSV and the P&L.
+  const d = buildIncomeSchedule({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), months })
+  const propRent = d.rows.map(r => ({ p: r.p, monthData: r.monthly, total: r.total }))
+  const monthTotals = d.monthTotals
+  const grandTotal = d.total
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Total income for period',value:fmt(grandTotal),color:T.green},
-        {label:'Monthly average',value:fmt(Math.round(grandTotal/nMonths)),color:accent},
+        {label:'Rent received in period',value:fmt(grandTotal),color:T.green},
+        {label:'Monthly average',value:fmt(d.average),color:accent},
         {label:'Properties tracked',value:filtProps.length,color:T.text},
       ]}/>
+      {d.noRentRecorded && <NoRentNote T={T}/>}
       <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
         <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,overflow:'hidden',minWidth:900}}>
           <div style={{display:'grid',gridTemplateColumns:cols,background:T.bg,borderBottom:`1px solid ${T.border}`,padding:'10px 16px'}}>
@@ -2693,31 +2674,12 @@ function ReportRentBackfill({ filtProps, T, accent }) {
 function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T, accent, fmt }) {
   const months = periodMonths(year, yearType, range)
   if (months.length > MAX_GRID_MONTHS) return <GridTooWide T={T}/>
-  // Use real per-month data: collected rent from rent_payments, real
-  // expense rows by date. Previously this just multiplied rent_pcm by
-  // every month identically — showed the same figure for Jan as for
-  // Dec, ignoring vacancies and seasonality.
-  const hasPaid = filtRent.some(r => r.status === 'paid')
-  const mData = months.map(({m,y}) => {
-    const rent = hasPaid
-      ? filtRent.filter(r => {
-          if (r.status !== 'paid') return false
-          // year/month columns are kept in sync with period_start by every
-          // writer, so they're the reliable month bucket.
-          return r.month === (m + 1) && r.year === y
-        }).reduce((s,r) => s + (r.amount || 0), 0)
-      // No payment records anywhere → assume expected rent (legacy display).
-      : filtProps.filter(p=>isPropertyEarningRent(p.status)).reduce((s,p)=>s+(p.rent_pcm||0),0)
-    const exp = filtExp.filter(e => {
-      if (!e.date) return false
-      const d = new Date(e.date)
-      return d.getMonth() === m && d.getFullYear() === y
-    }).reduce((s,e)=>s+(e.amount||0),0)
-    const net = rent - exp
-    return { label: monthLabel(m, y, yearType), rent, exp, net, m, y }
-  })
-  const totalRent = mData.reduce((s,m)=>s+m.rent,0)
-  const totalExp = mData.reduce((s,m)=>s+m.exp,0)
+  // Rent received and expenses per month column — same builder as the
+  // PDF/CSV, so its totals match the P&L and the income schedule.
+  const d = buildCashFlow({ properties: filtProps, payments: filtRent, receipts: propertyReceipts(filtProps), expenses: filtExp, months })
+  const mData = d.rows.map(r => ({ ...r, label: monthLabel(r.m, r.y, yearType) }))
+  const totalRent = d.totals.rent
+  const totalExp = d.totals.exp
   return (
     <>
       <StatCards T={T} items={[
@@ -2725,6 +2687,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
         {label:'Total outgoings',value:fmt(totalExp),color:T.red},
         {label:'Net cash flow',value:fmt(totalRent-totalExp),color:(totalRent-totalExp)>=0?T.green:T.red},
       ]}/>
+      {d.noRentRecorded && <NoRentNote T={T}/>}
 
       <ChartCard title="Net cash flow by month" T={T}>
         <AreaChart T={T} accent={accent} fmt={fmtCompact}
@@ -2739,6 +2702,7 @@ function ReportCashFlow({ filtProps, filtRent, filtExp, range, year, yearType, T
           {v:fmt(m.exp),color:T.red,right:true},
           {v:fmt(m.net),color:m.net>=0?T.green:T.red,bold:true,right:true},
         ])}
+        totals={['Total',{v:fmt(totalRent),color:T.green},{v:fmt(totalExp),color:T.red},{v:fmt(totalRent-totalExp),color:(totalRent-totalExp)>=0?T.green:T.red}]}
       />
     </>
   )
@@ -2776,63 +2740,66 @@ function ReportEquity({ filtProps, T, accent, fmt, fmtPct }) {
 }
 
 function ReportMortgagePortfolio({ filtProps, T, accent, fmt, fmtPct }) {
-  // mortgage_rate stored as decimal (0.05) — monthly rate = rate / 12.
-  const rows = filtProps.filter(p=>p.mortgage_amount>0).map(p => {
-    const r12 = (p.mortgage_rate||0)/12
-    const n = (p.mortgage_term||25)*12
-    const monthly = p.mortgage_rate&&p.mortgage_amount
-      ? Math.round(p.mortgage_amount * r12 * Math.pow(1+r12,n) / (Math.pow(1+r12,n) - 1))
-      : 0
-    return {
-      p,
-      monthly,
-      ltv: propValue(p) ? ((p.mortgage_amount||0)/propValue(p))*100 : 0,
-    }
-  })
-  const totalDebt = rows.reduce((s,r)=>s+r.p.mortgage_amount,0)
-  const totalMonthly = rows.reduce((s,r)=>s+r.monthly,0)
+  // Monthly payment via calcMonthlyMortgage (recorded payment, then
+  // interest-only, then repayment) — same as the property page and exports.
+  const d = buildMortgagePortfolio(filtProps)
+  const rows = d.rows
+  const totalDebt = d.totals.loan
+  const totalMonthly = d.totals.monthly
   return (
     <>
       <StatCards T={T} items={[
         {label:'Total debt',value:fmt(totalDebt),color:T.amber},
-        {label:'Monthly repayments',value:fmt(totalMonthly),color:T.text},
+        {label:'Monthly payments',value:fmt(totalMonthly),color:T.text},
         {label:'Mortgaged properties',value:rows.length,color:T.text},
       ]}/>
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Loan amount',right:true,width:'130px'},{label:'Rate',right:true,width:'80px'},{label:'Term',right:true,width:'80px'},{label:'Monthly',right:true,width:'120px'},{label:'LTV',right:true,width:'90px'}]}
+        headers={[{label:'Property'},{label:'Loan amount',right:true,width:'130px'},{label:'Rate',right:true,width:'80px'},{label:'Type',width:'120px'},{label:'Term',right:true,width:'80px'},{label:'Monthly',right:true,width:'120px'},{label:'LTV',right:true,width:'90px'}]}
         rows={rows.map(r=>[
-          r.p.name,
-          {v:fmt(r.p.mortgage_amount),right:true},
-          {v:fmtPct((r.p.mortgage_rate||0)*100),right:true},
-          {v:r.p.mortgage_term?`${r.p.mortgage_term}y`:'—',right:true},
+          r.name,
+          {v:fmt(r.loan),right:true},
+          {v:fmtPct(r.rate*100),right:true},
+          r.type,
+          {v:r.term?`${r.term}y`:'—',right:true},
           {v:fmt(r.monthly),color:T.amber,right:true},
           {v:r.ltv>0?fmtPct(r.ltv):'—',color:r.ltv<75?T.green:r.ltv<85?T.amber:T.red,right:true},
         ])}
+        totals={['Total',fmt(totalDebt),'','','',fmt(totalMonthly),'']}
       />
     </>
   )
 }
 
 function ReportArrears({ filtProps, T, accent, fmt }) {
-  const rows = filtProps.filter(p=>(p.arrears||0)>0).map(p=>({p,arrears:p.arrears||0})).sort((a,b)=>b.arrears-a.arrears)
-  const total = rows.reduce((s,r)=>s+r.arrears,0)
+  // Arrears from the rent tracker (overdue rent since go-live + historic
+  // arrears), not the hand-typed properties.arrears figure.
+  const d = buildArrearsReport(filtProps)
+  const rows = d.rows
+  const total = d.totals.total
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Properties with arrears',value:rows.length,color:rows.length>0?T.red:T.green},
+        {label:'Properties with arrears',value:d.inArrears,color:d.inArrears>0?T.red:T.green},
         {label:'Total arrears',value:fmt(total),color:total>0?T.red:T.green},
-        {label:'Clear properties',value:filtProps.length-rows.length,color:T.green},
+        {label:'Clear properties',value:d.clear,color:T.green},
       ]}/>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,margin:'-6px 0 14px',lineHeight:1.6}}>
+        From the rent tracker at {d.asOf}: overdue rent since 1 January 2026 plus historic arrears balances.
+        {d.manualDiffers>0 && ` ${d.manualDiffers} ${d.manualDiffers===1?'property has':'properties have'} a hand-entered arrears figure that differs from the tracker; it is shown as a note only.`}
+      </div>
       {rows.length===0
-        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:SANS,fontSize:FS.base,color:T.green}}>No arrears — all clear!</div>
+        ? <div style={{background:T.green+'18',border:`1px solid ${T.green}44`,borderRadius:12,padding:'24px 20px',textAlign:'center',fontFamily:SANS,fontSize:FS.base,color:T.green}}>No arrears in the rent tracker — all clear.</div>
         : <ReportTable T={T} accent={accent}
-            headers={[{label:'Property'},{label:'Arrears amount',right:true,width:'160px'},{label:'Monthly rent',right:true,width:'140px'},{label:'Status',width:'120px'}]}
+            headers={[{label:'Property'},{label:'Overdue rent',right:true,width:'130px'},{label:'Historic arrears',right:true,width:'130px'},{label:'Total arrears',right:true,width:'130px'},{label:'Monthly rent',right:true,width:'120px'},{label:'Note',width:'200px'}]}
             rows={rows.map(r=>[
-              r.p.name,
-              {v:fmt(r.arrears),color:T.red,bold:true,right:true},
-              {v:fmt(r.p.rent_pcm),right:true},
-              {v:'Overdue',color:T.red},
+              r.name,
+              {v:fmt(r.overdue),right:true,color:r.overdue>0?T.red:T.muted},
+              {v:fmt(r.historic),right:true,color:r.historic>0?T.amber:T.muted},
+              {v:fmt(r.total),color:r.total>0?T.red:T.green,bold:true,right:true},
+              {v:fmt(r.rent),right:true},
+              {v:r.manualDiffers?`Manual figure ${fmt(r.manual)} (differs)`:(r.total>0?'Overdue':'—'),color:r.manualDiffers?T.amber:T.muted},
             ])}
+            totals={['Total',fmt(d.totals.overdue),fmt(d.totals.historic),fmt(total),'','']}
           />
       }
     </>
@@ -2840,32 +2807,25 @@ function ReportArrears({ filtProps, T, accent, fmt }) {
 }
 
 function ReportCompliance({ filtComp, T, accent }) {
-  const rows = filtComp.map(c => {
-    const days = daysUntil(c.expiry_date)
-    const status = !c.expiry_date ? 'no-date' : days < 0 ? 'expired' : days <= SOON_DAYS ? 'expiring' : 'valid'
-    return { c, days, status }
-  }).sort((a,b) => {
-    const order = { expired:-1, expiring:0, 'no-date':1, valid:2 }
-    if ((order[a.status]||0) !== (order[b.status]||0)) return (order[a.status]||0)-(order[b.status]||0)
-    return (a.days ?? 9999) - (b.days ?? 9999)
-  })
+  // Latest certificate per property and type, judged like the Compliance
+  // page — superseded certificates are not listed.
+  const d = buildComplianceReport(filtComp)
+  const rows = d.rows
   const expired = rows.filter(r=>r.status==='expired')
   const expiring = rows.filter(r=>r.status==='expiring')
-  const valid = rows.filter(r=>r.status==='valid')
-  const statusColor = { expired:T.red, expiring:T.amber, valid:T.green, 'no-date':T.muted }
-  const statusLabel = { expired:'EXPIRED', expiring:'Expiring soon', valid:'Valid', 'no-date':'No date set' }
+  const statusColor = { expired:T.red, expiring:T.amber, valid:T.green, held:T.green, 'no-date':T.muted }
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Expired',value:expired.length,color:expired.length>0?T.red:T.green},
-        {label:'Expiring within 60 days',value:expiring.length,color:expiring.length>0?T.amber:T.green},
-        {label:'Valid',value:valid.length,color:T.green},
-        {label:'Total certificates',value:rows.length,color:T.text},
+        {label:'Expired',value:d.counts.expired,color:d.counts.expired>0?T.red:T.green},
+        {label:`Expiring within ${SOON_DAYS} days`,value:d.counts.expiring,color:d.counts.expiring>0?T.amber:T.green},
+        {label:'Valid',value:d.counts.valid,color:T.green},
+        {label:'Certificates (latest per type)',value:d.counts.total,color:T.text},
       ]}/>
 
       {/* "Expiring certificates" — previously a standalone report, now a
-          highlighted block at the top of this one. Covers everything
-          within 90 days. Skipped when nothing's expiring. */}
+          highlighted block at the top of this one. Skipped when nothing's
+          expired or expiring. */}
       {(expired.length + expiring.length) > 0 && (
         <div style={{background:T.red+'11',border:`1px solid ${T.red}33`,borderRadius:12,padding:'16px 18px',marginBottom:20}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
@@ -2875,9 +2835,9 @@ function ReportCompliance({ filtComp, T, accent }) {
           <div style={{display:'grid',gap:6}}>
             {[...expired, ...expiring].slice(0,8).map((r,i) => (
               <div key={i} style={{display:'flex',justifyContent:'space-between',gap:8,fontFamily:mono,fontSize:11}}>
-                <span style={{color:T.text}}>{r.c.property?.name||'—'} · {r.c.item_type||r.c.type||'—'}</span>
+                <span style={{color:T.text}}>{r.property} · {r.label}</span>
                 <span style={{color:r.status==='expired'?T.red:T.amber,fontWeight:700,whiteSpace:'nowrap'}}>
-                  {r.status === 'expired' ? `${Math.abs(r.days)} days overdue` : `${r.days} days left`}
+                  {r.status === 'expired' ? (r.days === 0 ? 'Expires today' : `${Math.abs(r.days)} days overdue`) : `${r.days} days left`}
                 </span>
               </div>
             ))}
@@ -2889,13 +2849,13 @@ function ReportCompliance({ filtComp, T, accent }) {
       )}
 
       <ReportTable T={T} accent={accent}
-        headers={[{label:'Property'},{label:'Certificate type'},{label:'Expiry date',width:'120px'},{label:'Days',right:true,width:'80px'},{label:'Status',width:'130px'}]}
+        headers={[{label:'Property'},{label:'Certificate type'},{label:'Expiry / due date',width:'130px'},{label:'Days',right:true,width:'80px'},{label:'Status',width:'130px'}]}
         rows={rows.map(r=>[
-          r.c.property?.name||'—',
-          r.c.item_type||r.c.type||'—',
-          r.c.expiry_date||'—',
-          {v:r.days!=null?r.days:'—',right:true,color:r.days<0?T.red:r.days<60?T.amber:T.green},
-          {v:statusLabel[r.status],color:statusColor[r.status],bold:r.status==='expired'},
+          r.property,
+          r.label,
+          r.expiry||'—',
+          {v:r.days!=null?r.days:'—',right:true,color:r.days==null?T.muted:r.days<=0?T.red:r.days<=SOON_DAYS?T.amber:T.green},
+          {v:r.statusLabel,color:statusColor[r.status],bold:r.status==='expired'},
         ])}
       />
     </>
@@ -3009,26 +2969,22 @@ function ReportEpcUpgrade({ filtProps, filtEpc, T, accent }) {
 }
 
 function ReportTenancySchedule({ filtTen, T, accent, fmt }) {
-  const today = new Date()
-  const rows = filtTen.map(t => {
-    const endDays = t.end_date ? daysUntil(t.end_date) : null
-    return { t, endDays }
-  }).sort((a,b)=>(a.endDays||9999)-(b.endDays||9999))
+  const d = buildTenancySchedule(filtTen)
   return (
     <>
       <StatCards T={T} items={[
-        {label:'Active tenancies',value:filtTen.filter(t=>t.status==='active'||!t.status).length,color:T.green},
-        {label:'Expiring within 90 days',value:rows.filter(r=>r.endDays!=null&&r.endDays<=90&&r.endDays>=0).length,color:T.amber},
+        {label:'Tenancies',value:d.rows.length,color:T.green},
+        {label:'Expiring within 90 days',value:d.expiringSoon,color:T.amber},
       ]}/>
       <ReportTable T={T} accent={accent}
         headers={[{label:'Property'},{label:'Tenant'},{label:'Start date',width:'110px'},{label:'End date',width:'110px'},{label:'Rent',right:true,width:'110px'},{label:'Days to end',right:true,width:'110px'}]}
-        rows={rows.map(r=>[
-          r.t.property?.name||'—',
-          r.t.tenant_name||'—',
-          r.t.start_date||'—',
-          r.t.end_date||'Rolling',
-          {v:fmt(r.t.property?.rent_pcm),right:true},
-          {v:r.endDays!=null?r.endDays:'—',color:r.endDays!=null&&r.endDays<=90?T.amber:T.green,right:true},
+        rows={d.rows.map(r=>[
+          r.property,
+          r.tenant||'—',
+          r.start||'—',
+          r.end||'Rolling',
+          {v:fmt(r.rent),right:true},
+          {v:r.days!=null?r.days:'—',color:r.days!=null&&r.days<=90?T.amber:T.green,right:true},
         ])}
       />
     </>
@@ -3036,18 +2992,18 @@ function ReportTenancySchedule({ filtTen, T, accent, fmt }) {
 }
 
 function ReportMaintenance({ filtMaint, T, accent, fmt }) {
-  const withCost = filtMaint.filter(m=>m.cost>0)
-  const total = withCost.reduce((s,m)=>s+(m.cost||0),0)
+  // Cost = actual cost, else the quote (maintenance_jobs has no cost column).
+  const withCost = filtMaint.filter(m=>maintenanceCost(m)>0)
+  const total = withCost.reduce((s,m)=>s+maintenanceCost(m),0)
   const byProp = filtMaint.reduce((acc,m)=>{
     const k = m.property?.name||'Unknown'
-    acc[k]=(acc[k]||0)+(m.cost||0); return acc
+    acc[k]=(acc[k]||0)+maintenanceCost(m); return acc
   },{})
 
   // Open / in-progress jobs — previously a separate report, now folded
   // here. Sorted by priority urgency.
   const open = filtMaint.filter(m => m.status === 'open' || m.status === 'in-progress')
-  const priorityOrder = { urgent:0, high:1, normal:2 }
-  const openSorted = [...open].sort((a,b) => (priorityOrder[a.priority]||2) - (priorityOrder[b.priority]||2))
+  const openSorted = [...open].sort((a,b) => maintenancePriorityRank(a.priority) - maintenancePriorityRank(b.priority))
   const urgent = open.filter(m => m.priority === 'urgent').length
 
   return (
@@ -3089,9 +3045,9 @@ function ReportMaintenance({ filtMaint, T, accent, fmt }) {
 }
 
 function ReportContractorSpend({ filtMaint, T, accent, fmt }) {
-  const byContractor = filtMaint.filter(m=>m.contractor&&m.cost>0).reduce((acc,m)=>{
+  const byContractor = filtMaint.filter(m=>m.contractor&&maintenanceCost(m)>0).reduce((acc,m)=>{
     const k=m.contractor; if(!acc[k]) acc[k]={name:k,jobs:0,total:0}
-    acc[k].jobs++; acc[k].total+=(m.cost||0); return acc
+    acc[k].jobs++; acc[k].total+=maintenanceCost(m); return acc
   },{})
   const rows = Object.values(byContractor).sort((a,b)=>b.total-a.total)
   const total = rows.reduce((s,r)=>s+r.total,0)
