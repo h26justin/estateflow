@@ -46,6 +46,17 @@ vi.mock('../api', async (importOriginal) => {
     fetchDealDocuments: async () => [
       { id: 'd1', name: 'Survey.pdf', caption: 'Level 2 survey', file_path: 'x/survey.pdf', uploaded_by: 'Justin', created_at: '2026-08-10T09:00:00Z' },
     ],
+    fetchDealCostLines: async () => [
+      { category: 'purchase_price', amount: 200000, state: 'confirmed' },
+      { category: 'sdlt', amount: 16500, state: 'confirmed' },
+      { category: 'legal_fee', amount: 1500, state: 'quoted' },
+      { category: 'on_account', amount: 500, state: 'paid' },
+      { category: 'refurb', amount: 8000, state: 'estimate' },
+    ],
+    fetchDealFunding: async () => [
+      { source: 'mortgage', amount: 150000, state: 'confirmed' },
+      { source: 'investor', amount: 10000, state: 'expected' },
+    ],
   }
 })
 
@@ -56,6 +67,8 @@ const { exportDealPdf } = await import('../dealPdf')
 const { drawAgentReportPdf } = await import('../agentReportPdf')
 const { buildAgentReport } = await import('../agentReport')
 const { exportPropertySummaryPDF } = await import('../api/properties')
+const { exportDealsPdf } = await import('../dealExportPdf')
+const { buildDealExportModel } = await import('../dealExport')
 
 // A small solid-colour RGB PNG, built by hand so no canvas is needed.
 function makePng(w, h, [r, g, b]) {
@@ -239,7 +252,46 @@ describe('PDF output through the real generators', () => {
     expect(t).toContain('14 Station Road')
     expect(t).toContain('Sam Solicitor')
     expect(t).toContain('Prepared 5 October 2026')
-    expect(fp.pages).toBe(3)
+    // Costs & funding, from dealFinance with the formula substituted.
+    expect(t).toContain('COSTS & FUNDING')
+    expect(t).toContain('Balance due = £218,000 - £500 = £217,500 (Quoted)')
+    expect(t).toContain('Cash needed from the company = max(0, £217,500 - confirmed financing £150,000) = £67,500')
+    expect(fp.pages).toBe(5)
+  })
+
+  it('company / all-deals funding PDF', async () => {
+    const exportDeals = [
+      deal,
+      { id: 'deal2', name: 'Mill House', company_id: 'c1', status: 'conveyancing', purchase_price: 120000, legal_fees: 1200, target_completion_date: '2026-10-20' },
+      { id: 'deal3', name: 'Fallen Lane', company_id: 'c1', status: 'dead', purchase_price: 90000 },
+      { id: 'deal4', name: 'Unassigned Cottage', company_id: null, status: 'analysing', purchase_price: 60000 },
+    ].map(d => ({ company_id: 'c1', ...d }))
+    exportDeals[3].company_id = null
+    const model = buildDealExportModel({
+      deals: exportDeals, companies,
+      linesByDeal: { deal1: [{ category: 'purchase_price', amount: 200000, state: 'confirmed' }, { category: 'sdlt', amount: 16500, state: 'quoted' }] },
+      fundingByDeal: { deal1: [{ source: 'mortgage', amount: 150000, state: 'confirmed' }] },
+      cashByCompany: { c1: { company_id: 'c1', as_of: '2026-10-01', amount: 40000 } },
+      asOf: new Date('2026-10-05T10:00:00Z'), filters: { companyId: 'all', status: 'all' },
+    })
+    const fp = await run('deals-funding', () => exportDealsPdf(model))
+    const t = allText(fp)
+    expect(t).toContain('All deals')
+    expect(t).toContain('Sample Lettings Ltd')
+    expect(t).toContain('Unassigned Cottage')
+    expect(t).toContain('Property schedule')
+    expect(t).toContain('Methodology & assumptions')
+    expect(t).toContain('Data quality')
+    expect(t).toContain('Not counted')
+    expect(t).toContain('Fallen through')
+    expect(t).not.toContain('Sam Solicitor')
+    // As-of and filters on every page.
+    for (const p of fp.perPage) {
+      const pt = p.text.map(x => x.slice(x.indexOf(' ') + 1)).join('\n')
+      expect(pt).toContain('As of 5 Oct 2026')
+      expect(pt).toContain('Company: All companies')
+    }
+    expect(fp.pages).toBeGreaterThanOrEqual(4)
   })
 
   it('agent report with an embedded PNG logo', async () => {
