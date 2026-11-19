@@ -23,6 +23,7 @@ import { pressable } from '../lib/pressable'
 import { plural } from '../lib/format'
 import { yearPeriod, yearBasis, yearMonths, TAX_MONTH_NOTE, indexRentReceiptDates, rentRowDate, rentRowColumn, expenseColumn, currentTaxYear, reportYearOptions, rentRowMonth, buildPnlReport, buildIncomeSchedule, buildCashFlow, buildMortgagePortfolio, buildArrearsReport, buildComplianceReport, buildTenancySchedule, maintenanceCost, maintenancePriorityRank, pnlExports, incomeScheduleExports, cashFlowExports, mortgagePortfolioExports, complianceExports, arrearsExports } from '../lib/reportBuilders'
 import { EmptyState, Button } from './ui'
+import ReportSnapshots from './ReportSnapshots'
 
 // Compact currency formatter for chart Y-axes — "£12k" reads better than
 // "£12,000" at small sizes.
@@ -2583,7 +2584,7 @@ function AgentMonthTiles({ months, T }) {
   )
 }
 
-function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, agentStl, T, fmt }) {
+function ReportAgentWeekly({ filtProps, agents, companies, companySettings, reportAgentId, setReportAgentId, agentStl, user, T, fmt }) {
   const list = useMemo(() => agentsWithProperties(filtProps, agents), [filtProps, agents])
   const model = useMemo(() => agentReportModel(filtProps, agents, reportAgentId, companies, companySettings, agentStl), [filtProps, agents, reportAgentId, companies, companySettings, agentStl])
   if (!model) return <EmptyState compact icon="users" title="No letting agent linked" body="No letting agent is linked to these properties. Set the managing agent on each property to use this report."/>
@@ -2605,6 +2606,7 @@ function ReportAgentWeekly({ filtProps, agents, companies, companySettings, repo
         {label:'Rent owed',value:fmt(s.shortfallYear+s.arrears),sub:`${s.owingCount} ${s.owingCount===1?'property':'properties'}, ${s.missedMonths} missed months`,color:s.shortfallYear+s.arrears>0?T.red:T.green},
         {label:'Not let',value:`${s.notLetUnits} of ${s.units}`,sub:`${fmt(s.emptyCost)}/mo empty and ready to let`,color:s.notLetUnits>0?T.amber:T.green},
       ]}/>
+      <ReportSnapshots model={model} user={user} T={T}/>
       {model.byCompany.map(g => (
         <div key={g.companyId || g.company} style={{marginBottom:20}}>
           <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',background:T.card,border:`1px solid ${T.border}`,borderRadius:'12px 12px 0 0',padding:'12px 16px'}}>
