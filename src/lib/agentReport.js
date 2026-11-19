@@ -22,7 +22,7 @@
 // tenant's name is shown to say who to chase. No notes, values or mortgage
 // figures.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE, missedOwed, rateContribution } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE, missedOwed, rateContribution, agedFromEvals, sumAged } from './rentEngine'
 import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
@@ -208,6 +208,10 @@ function propertyCard(p, { asOf, year, thisMo }) {
     const c = contrib(e); if (!c) continue
     monthDue = round2(monthDue + c.due); monthCollected = round2(monthCollected + Math.min(c.received, c.due))
   }
+  // Arrears by age (rent brief C7): owed split by how long ago each payment
+  // window closed, with the historic opening balance in its own bucket.
+  // Adds up to owed + arrears to the penny.
+  const aged = agedFromEvals(evals, asOf, arrears)
   const firstMissed = evals.filter(e => missedOwed(e, asOf) > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
 
   return {
@@ -235,6 +239,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     paidNoAmountValue,
     missedMonths,
     arrears: round2(arrears),
+    aged,
     recent,
     shortfallYear,
     shortfallTenancy: tenancyStart ? shortfallTenancy : null,
@@ -316,6 +321,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     // The tracker's company total leaves short-term lets out.
     g.received = round2(g.cards.filter(c => !c.stl).reduce((s, c) => s + c.received, 0))
     g.owed = round2(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0))
+    g.aged = sumAged(g.cards.map(c => c.aged))
     g.groups = groupBuildings(g.cards)
     // Company last-4-months totals, long-term lets only (as the tracker).
     // The shortfall is summed property by property, so one tenant's
@@ -371,6 +377,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       rate: expected > 0 ? Math.min(100, Math.round((received / expected) * 100)) : null,
       owed: round2(cards.reduce((s, c) => s + c.owed, 0)),
       arrears: round2(cards.reduce((s, c) => s + c.arrears, 0)),
+      aged: sumAged(cards.map(c => c.aged)),
       owingCount: owing.length,
       yearReceived: round2(byCompany.reduce((s, g) => s + g.received, 0)),
       // Last 4 months across every company: what fell short once the payment

@@ -249,6 +249,9 @@ describe('PDF output through the real generators', () => {
     const mark = { data: makePng(16, 16, [184, 144, 47]), w: 16, h: 16 }
     const fp = await run('agent-report', () => new Uint8Array(drawAgentReportPdf(JsPDF, model, { logos: { c1: logo }, mark }).output('arraybuffer')))
     expect(allText(fp)).toContain('Example Agents')
+    // Arrears by age under Rent owed: Flat 2's September (window closed 6 Sep).
+    expect(model.summary.aged).toMatchObject({ '0-30': 600, total: 600 })
+    expect(allText(fp)).toContain('OWED BY AGE')
     expect(fp.pages).toBe(3)
     expect(fp.perPage.map(p => p.images)).toEqual([1, 0, 1])
   })

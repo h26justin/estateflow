@@ -510,8 +510,7 @@ function contributionAsOf(e, asOf) {
   const prepaid = Math.min(later, Math.max(0, rec - due));
   return { ...c, due, received: round2(Math.min(rec, due)), notYetDue: round2(later - prepaid) };
 }
-function instalmentSplit(e, asOf, owed) {
-  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+function instalmentParts(e, asOf, owed) {
   let left = e.received == null ? 0 : Number(e.received) || 0;
   const parts2 = [];
   for (const x of e.instalments) {
@@ -521,7 +520,7 @@ function instalmentSplit(e, asOf, owed) {
     const unpaid = round2(x.amount - paid);
     if (unpaid <= 5e-3) continue;
     const bucket = asOf > (x.windowEnd || x.date) ? "overdue" : x.date === asOf ? "dueToday" : "inWindow";
-    parts2.push({ bucket, unpaid });
+    parts2.push({ bucket, unpaid, date: x.date, windowEnd: x.windowEnd || x.date });
   }
   let excess = round2(parts2.reduce((s, x) => s + x.unpaid, 0) - owed);
   for (let i = parts2.length - 1; i >= 0 && excess > 5e-3; i--) {
@@ -529,6 +528,11 @@ function instalmentSplit(e, asOf, owed) {
     parts2[i].unpaid = round2(parts2[i].unpaid - cut);
     excess = round2(excess - cut);
   }
+  return { parts: parts2, excess };
+}
+function instalmentSplit(e, asOf, owed) {
+  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+  const { parts: parts2, excess } = instalmentParts(e, asOf, owed);
   for (const x of parts2) out[x.bucket] = round2(out[x.bucket] + x.unpaid);
   if (excess < -5e-3) out.inWindow = round2(out.inWindow - excess);
   return out;
@@ -538,6 +542,37 @@ function missedOwed(e, asOf) {
   const b = periodBreakdown(e, asOf);
   if (b.split) return round2(b.split.overdue || 0);
   return b.bucket === "overdue" ? round2(b.owed) : 0;
+}
+var AGE_BUCKETS = ["0-30", "31-60", "61-90", "90+"];
+function ageBucket(days) {
+  return days <= 30 ? "0-30" : days <= 60 ? "31-60" : days <= 90 ? "61-90" : "90+";
+}
+var ageDays = (from, asOf) => from ? daysBetween(from, asOf) - 1 : 0;
+function emptyAged() {
+  return { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0, historic: 0, total: 0 };
+}
+function periodAgeing(e, asOf) {
+  const owed = missedOwed(e, asOf);
+  if (!(owed > 0)) return [];
+  if (!e.instalments) return [{ bucket: ageBucket(ageDays(e.windowEnd || e.dueDate || e.periodEnd, asOf)), amount: owed }];
+  const b = periodBreakdown(e, asOf);
+  const out = instalmentParts(e, asOf, b.owed).parts.filter((x) => x.bucket === "overdue" && x.unpaid > 0).map((x) => ({ bucket: ageBucket(ageDays(x.windowEnd, asOf)), amount: x.unpaid }));
+  if (!out.length) return [{ bucket: ageBucket(ageDays(e.windowEnd || e.dueDate || e.periodEnd, asOf)), amount: owed }];
+  const diff = round2(owed - out.reduce((s, x) => s + x.amount, 0));
+  if (diff !== 0) out[out.length - 1].amount = round2(out[out.length - 1].amount + diff);
+  return out;
+}
+function agedFromEvals(evals, asOf, historic = 0) {
+  const out = emptyAged();
+  for (const e of evals || []) for (const x of periodAgeing(e, asOf)) out[x.bucket] = round2(out[x.bucket] + x.amount);
+  out.historic = round2(Math.max(0, Number(historic) || 0));
+  out.total = round2(AGE_BUCKETS.reduce((s, k) => s + out[k], 0) + out.historic);
+  return out;
+}
+function sumAged(list) {
+  const out = emptyAged();
+  for (const a of list || []) for (const k of [...AGE_BUCKETS, "historic", "total"]) out[k] = round2(out[k] + (Number(a?.[k]) || 0));
+  return out;
 }
 function outstandingBucket(e, asOf) {
   if (e.dueDate && e.dueDate > asOf) return "notYetDue";
@@ -1132,6 +1167,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     monthDue = round23(monthDue + c.due);
     monthCollected = round23(monthCollected + Math.min(c.received, c.due));
   }
+  const aged = agedFromEvals(evals, asOf, arrears);
   const firstMissed = evals.filter((e) => missedOwed(e, asOf) > 0).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1)[0];
   return {
     id: p.id,
@@ -1158,6 +1194,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     paidNoAmountValue,
     missedMonths,
     arrears: round23(arrears),
+    aged,
     recent,
     shortfallYear,
     shortfallTenancy: tenancyStart ? shortfallTenancy : null,
@@ -1226,6 +1263,7 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
     g.counts = { paid: sum("paid"), due: sum("due"), missed: sum("missed"), nc: sum("nc"), backfill: sum("backfill") };
     g.received = round23(g.cards.filter((c) => !c.stl).reduce((s, c) => s + c.received, 0));
     g.owed = round23(g.cards.reduce((s, c) => s + c.owed + c.arrears, 0));
+    g.aged = sumAged(g.cards.map((c) => c.aged));
     g.groups = groupBuildings(g.cards);
     const lt = g.cards.filter((c) => !c.stl);
     g.recent = recentMonths(thisMo).map((mo, i) => ({
@@ -1276,6 +1314,7 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       rate: expected > 0 ? Math.min(100, Math.round(received / expected * 100)) : null,
       owed: round23(cards.reduce((s, c) => s + c.owed, 0)),
       arrears: round23(cards.reduce((s, c) => s + c.arrears, 0)),
+      aged: sumAged(cards.map((c) => c.aged)),
       owingCount: owing.length,
       yearReceived: round23(byCompany.reduce((s, g) => s + g.received, 0)),
       // Last 4 months across every company: what fell short once the payment
@@ -1707,6 +1746,7 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   ];
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`);
   if (s.overlapProperties?.length) notes.push(`Check for rent charged twice (overlapping rent periods): ${s.overlapProperties.slice(0, 8).join(", ")}${s.overlapProperties.length > 8 ? ` and ${s.overlapProperties.length - 8} more` : ""}.`);
+  if (s.aged?.total > 0) notes.push(`Owed by age (what needs doing): days since each payment window closed, all rent since 1 Jan ${GO_LIVE_YEAR}; historic = opening arrears from before tracking began, age unknown.`);
   if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? "property" : "properties"} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`);
   ensure(notes.length * 3.6 + 4);
   notes.forEach((n) => {
@@ -1739,6 +1779,32 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
       c.shortfallTenancy == null ? { t: "start unknown", color: PALETTE.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : PALETTE.faint, size: 6.8 }
     ]
   })), { emptyText: "Nothing owed: every collectible month is paid.", totals: owing.length ? ["Total", "", "", String(s.missedMonths), "", red(s.shortfallYear + s.arrears), ""] : null });
+  if (owing.length && s.aged) {
+    const age = (v, col) => ({ t: v > 0 ? money0(v) : "-", color: v > 0 ? col : PALETTE.faint, bold: v > 0 });
+    const ageCells = (a) => [age(a["0-30"], AMBER), age(a["31-60"], RED), age(a["61-90"], RED), age(a["90+"], RED), age(a.historic, PALETTE.slate), age(a.total, RED)];
+    const coRows = model.byCompany.length > 1 ? model.byCompany.filter((g) => g.aged?.total > 0).map((g) => ({
+      tint: PALETTE.tile,
+      bar: brandColour(g.color),
+      cells: [{ t: g.company, bold: true, color: PALETTE.ink }, { t: "company total", color: PALETTE.muted }, ...ageCells(g.aged)]
+    })) : [];
+    ensure(30);
+    font(6.8, "bold", PALETTE.muted);
+    text("OWED BY AGE - DAYS SINCE THE PAYMENT WINDOW CLOSED", M, y + 3);
+    y += 5;
+    table([
+      { label: "Property", w: 50 },
+      { label: "Company", w: 26 },
+      { label: "0-30 days", w: 18, align: "right" },
+      { label: "31-60", w: 18, align: "right" },
+      { label: "61-90", w: 18, align: "right" },
+      { label: "90+", w: 18, align: "right" },
+      { label: "Historic", w: 18, align: "right" },
+      { label: "Total", w: 20, align: "right" }
+    ], [...owing.map((c) => ({
+      bar: brandColour(model.byCompany.find((g) => g.companyId === c.companyId)?.color),
+      cells: [{ t: c.name, bold: true, color: PALETTE.ink }, shortCo(c.company), ...ageCells(c.aged)]
+    })), ...coRows], { totals: ["All companies", "", ...ageCells(s.aged)] });
+  }
   const daysEmpty = (c) => c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null;
   const notLet = [...model.notLet].filter((c) => !c.stl).sort((a, b) => a.lettable === b.lettable ? (daysEmpty(b) ?? -1) - (daysEmpty(a) ?? -1) : a.lettable ? -1 : 1);
   sectionTitle("Not let", "ready to let first, then refurbs", AMBER);
