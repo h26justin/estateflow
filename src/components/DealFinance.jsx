@@ -8,6 +8,8 @@ import { useConfirm } from '../lib/ConfirmContext'
 import * as api from '../lib/api'
 import MoneyInput from '../lib/MoneyInput'
 import CalcExplain from './CalcExplain'
+import ActionMenu from './ActionMenu'
+import { runDealExport } from '../lib/dealExportRun'
 import { Button } from './ui'
 import { pressable } from '../lib/pressable'
 import { isoToday } from '../lib/rentEngine'
@@ -255,6 +257,36 @@ export function CostsFundingTab({ deal, showToast }) {
   )
 }
 
+// ── EXPORT MENU ─────────────────────────────────────────────────────────────
+
+/**
+ * "Export" menu: PDF, deals CSV and cost lines CSV for the deals given
+ * (Deals brief §10). Lines, funding and cash are fetched once per export,
+ * for exactly these deals, and every figure comes from lib/dealFinance.
+ */
+export function DealExportMenu({ deals = [], companies = [], filters = {}, title, scopeLabel = 'deals', showToast, align = 'right' }) {
+  const [busy, setBusy] = useState(false)
+  async function run(kind) {
+    if (busy) return
+    if (!deals.length) { showToast && showToast('No deals to export with these filters', 'error'); return }
+    setBusy(true)
+    try {
+      const res = await runDealExport(kind, { deals, companies, filters, title })
+      const what = kind === 'pdf' ? `PDF downloaded (${res.pages} page${res.pages === 1 ? '' : 's'})` : kind === 'lines' ? 'Cost lines CSV downloaded' : 'Deals CSV downloaded'
+      showToast && showToast(`${what}: ${res.deals} deal${res.deals === 1 ? '' : 's'}`)
+    } catch (e) { showToast && showToast('Could not export: ' + (e.message || 'unknown error'), 'error') }
+    setBusy(false)
+  }
+  return (
+    <ActionMenu triggerLabel={busy ? 'Exporting…' : 'Export'} triggerIcon="download" disabled={busy} align={align}
+      buttonLabel={`Export ${scopeLabel}`} items={[
+        { label: 'PDF: funding summary', icon: 'file-text', onSelect: () => run('pdf') },
+        { label: 'CSV: one row per deal', icon: 'download', onSelect: () => run('csv') },
+        { label: 'CSV: itemised cost lines', icon: 'download', onSelect: () => run('lines') },
+      ]}/>
+  )
+}
+
 // ── COMPANY FUNDING DASHBOARD ───────────────────────────────────────────────
 
 /**
@@ -347,7 +379,7 @@ export function CompanyFundingDashboard({ deals = [], companies = [], coFilter, 
         })}
       </div>
       {selected && data.loaded && (
-        <CompanyFundingPanel group={selected} funding={summaries[selected.id].all}
+        <CompanyFundingPanel group={selected} funding={summaries[selected.id].all} companies={companies}
           positions={selected.unassigned ? [] : (cashByCompany[selected.id] || [])}
           onOpenDeal={onOpenDeal} user={user} showToast={showToast} confirmDialog={confirmDialog}
           onCashChanged={loadCash} deals={deals} T={T}/>
@@ -366,11 +398,13 @@ function CardFigure({ label, value, note, color, muted, T }) {
   )
 }
 
-function CompanyFundingPanel({ group, funding, positions, deals, onOpenDeal, user, showToast, confirmDialog, onCashChanged, T }) {
+function CompanyFundingPanel({ group, funding, positions, deals, companies, onOpenDeal, user, showToast, confirmDialog, onCashChanged, T }) {
   const [form, setForm] = useState({ amount: null, as_of: isoToday(), note: '' })
   const [busy, setBusy] = useState(false)
   const rowsById = useMemo(() => Object.fromEntries(funding.rows.map(r => [r.dealId, r])), [funding.rows])
   const dealById = useMemo(() => Object.fromEntries(deals.map(d => [d.id, d])), [deals])
+  // Every deal of this company (any stage), for the company exports.
+  const companyDeals = useMemo(() => deals.filter(d => group.unassigned ? !d.company_id : d.company_id === group.id), [deals, group])
 
   async function addPosition(e) {
     e.preventDefault()
@@ -409,9 +443,13 @@ function CompanyFundingPanel({ group, funding, positions, deals, onOpenDeal, use
     <div style={card}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',flexWrap:'wrap',gap:8,marginBottom:12}}>
         <div style={{...eyebrow(T),color:T.goldText,fontWeight:700}}>{group.name}: funding schedule</div>
-        <div style={{fontFamily:mono,fontSize:FS.sm,color:T.muted}}>
-          All live deals: need {gbp(funding.needInWindow)} · gap <span style={{color:funding.fundingGap>0?T.red:T.green,fontWeight:700}}>{gbp(funding.fundingGap)}</span>
-          {funding.refurbForecast > 0 && <> · with refurb {gbp(funding.combinedGap)}</>}
+        <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <div style={{fontFamily:mono,fontSize:FS.sm,color:T.muted}}>
+            All live deals: need {gbp(funding.needInWindow)} · gap <span style={{color:funding.fundingGap>0?T.red:T.green,fontWeight:700}}>{gbp(funding.fundingGap)}</span>
+            {funding.refurbForecast > 0 && <> · with refurb {gbp(funding.combinedGap)}</>}
+          </div>
+          <DealExportMenu deals={companyDeals} companies={companies} title={group.name} scopeLabel={`${group.name} deals`}
+            filters={{ companyId: group.unassigned ? '' : group.id, status: 'all' }} showToast={showToast}/>
         </div>
       </div>
 

@@ -23,7 +23,8 @@ import { DEAL_STATUS_CFG, DEAL_STATUS_LABEL, LEGAL_STEPS, LEGAL_STEP_LABEL, lega
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
 import ActionMenu from './ActionMenu'
-import { CostsFundingTab, CompanyFundingDashboard } from './DealFinance'
+import { CostsFundingTab, CompanyFundingDashboard, DealExportMenu } from './DealFinance'
+import { runDealExport } from '../lib/dealExportRun'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -674,6 +675,14 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           <option value="all">All statuses</option>
           {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
         </select>
+        {/* All Deals export (Deals brief §10): the deals listed below, with
+            the company and stage filters printed on the output. */}
+        {!loading && !loadError && deals.length > 0 && (
+          <DealExportMenu deals={filtered} companies={companies} align="left" showToast={showToast}
+            title={coFilter === 'all' ? 'All deals' : coFilter === '' ? 'Unassigned deals' : (companies.find(c => c.id === coFilter)?.name || 'Deals')}
+            scopeLabel={coFilter === 'all' ? 'all deals' : 'filtered deals'}
+            filters={{ companyId: coFilter, status: statusFilter }}/>
+        )}
       </div>
 
       {loading
@@ -1188,8 +1197,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     } catch (e) { showToast(e.message || 'Could not update the purchase tracker', 'error') }
   }
 
-  // Shareable PDF pack: the whole analysis plus contacts, tracker, notes,
-  // document list and the photos. Reads the ref so unsaved edits are included.
+  // Shareable PDF pack: the whole analysis plus costs & funding, contacts,
+  // tracker, notes, documents and photos. Reads the ref so unsaved edits are included.
   async function exportPdf() {
     setExporting(true)
     try {
@@ -1197,6 +1206,18 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
       const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id) })
       showToast(`Deal pack downloaded (${res.pages} page${res.pages === 1 ? '' : 's'}${res.photos ? `, ${res.photos} photo${res.photos === 1 ? '' : 's'}` : ''})`)
     } catch (e) { showToast('Could not build the PDF: ' + (e.message || 'unknown error'), 'error') }
+    setExporting(false)
+  }
+
+  // One-row CSV of this deal's costs and funding position, from the same
+  // export model as the company / All Deals CSVs (contacts never included).
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const current = formRef.current
+      await runDealExport('csv', { deals: [current], companies, filters: { companyId: current.company_id || '', status: 'all', dealId: current.id } })
+      showToast('Deal CSV downloaded')
+    } catch (e) { showToast('Could not build the CSV: ' + (e.message || 'unknown error'), 'error') }
     setExporting(false)
   }
 
@@ -1251,6 +1272,9 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           </Button>
           <Button variant="secondary" size="sm" onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
             {exporting ? 'Building PDF…' : 'Download PDF'}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={exporting} title="Download this deal's costs, funding and cash need as CSV">
+            CSV
           </Button>
           {isPostCompletion(form.status) && (
             <Button variant="primary" size="sm" onClick={()=>onConvert&&onConvert(form)}>Convert to property →</Button>
