@@ -271,16 +271,22 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
 
   const owing = model.owing
   sectionTitle('Rent owed', `${owing.length} ${owing.length === 1 ? 'property' : 'properties'}, largest first`, RED)
+  // With includeNotes (off by default) a Reason column carries each
+  // property's arrears explanation, or "Awaiting review" where none is
+  // written; the other columns narrow to make room.
+  const withNotes = !!model.includeNotes
   table([
-    { label: 'Property', w: 44 }, { label: 'Company', w: 26 }, { label: 'Tenant', w: 32 },
-    { label: 'Missed', w: 13, align: 'right' }, { label: 'Since', w: 17, align: 'right' },
-    { label: `Owed ${model.year}`, w: 22, align: 'right' }, { label: 'This tenancy', w: 32, align: 'right' },
+    { label: 'Property', w: withNotes ? 36 : 44 }, { label: 'Company', w: withNotes ? 18 : 26 }, { label: 'Tenant', w: withNotes ? 24 : 32 },
+    { label: 'Missed', w: withNotes ? 11 : 13, align: 'right' }, { label: 'Since', w: withNotes ? 15 : 17, align: 'right' },
+    { label: `Owed ${model.year}`, w: withNotes ? 18 : 22, align: 'right' }, { label: 'This tenancy', w: withNotes ? 26 : 32, align: 'right' },
+    ...(withNotes ? [{ label: 'Reason', w: 38 }] : []),
   ], owing.map(c => ({
     bar: brandColour(model.byCompany.find(g => g.companyId === c.companyId)?.color),
     cells: [{ t: c.name, bold: true, color: P.ink }, shortCo(c.company), c.tenant || { t: 'not recorded', color: P.faint },
       String(c.missedMonths || '-'), c.oldestMissed || '-', red(c.shortfallYear + c.arrears),
-      c.shortfallTenancy == null ? { t: 'start unknown', color: P.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : P.faint, size: 6.8 }],
-  })), { emptyText: 'Nothing owed: every collectible month is paid.', totals: owing.length ? ['Total', '', '', String(s.missedMonths), '', red(s.shortfallYear + s.arrears), ''] : null })
+      c.shortfallTenancy == null ? { t: 'start unknown', color: P.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : P.faint, size: 6.8 },
+      ...(withNotes ? [{ t: c.explanation || 'Awaiting review', color: c.explanation && c.explanation !== 'Awaiting review' ? P.ink : P.faint, size: 6.8 }] : [])],
+  })), { emptyText: 'Nothing owed: every collectible month is paid.', totals: owing.length ? ['Total', '', '', String(s.missedMonths), '', red(s.shortfallYear + s.arrears), '', ...(withNotes ? [''] : [])] : null })
 
   // Arrears by age (rent brief C7): the same properties, owed split by how
   // long ago each payment window closed. Historic = opening arrears from

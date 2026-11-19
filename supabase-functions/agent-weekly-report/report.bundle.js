@@ -1023,6 +1023,34 @@ function buildingKeyFromName(name) {
   return tail.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() || null;
 }
 
+// src/lib/arrearsNotes.js
+var AWAITING_REVIEW = "Awaiting review";
+var NOTE_STATUSES = Object.freeze([
+  { v: "open", l: "Open" },
+  { v: "needs_investigation", l: "Needs investigation" },
+  { v: "awaiting_review", l: "Awaiting review" },
+  { v: "resolved", l: "Resolved" }
+]);
+var NOTE_STATUS_LABEL = Object.freeze(Object.fromEntries(NOTE_STATUSES.map((s) => [s.v, s.l])));
+var NOTE_FIELDS = Object.freeze(["reason", "response", "payment_plan", "next_action", "follow_up_date", "owner", "status"]);
+function explanationText(note) {
+  const t = note?.reason == null ? "" : String(note.reason).trim();
+  return t || null;
+}
+function explanationLabel(note) {
+  return explanationText(note) || AWAITING_REVIEW;
+}
+var QUEUE_FILTERS = Object.freeze([
+  { v: "all", l: "All", test: () => true },
+  { v: "outstanding", l: "Rent outstanding", test: (r) => r.flags.outstanding },
+  { v: "newlyOverdue", l: "Newly overdue", test: (r) => r.flags.newlyOverdue },
+  { v: "received", l: "Received this month", test: (r) => r.flags.received },
+  { v: "corrected", l: "Corrected or imported", test: (r) => r.flags.corrected || r.flags.imported },
+  { v: "vacancy", l: "Vacancy", test: (r) => r.flags.vacancy },
+  { v: "missingSource", l: "Missing source", test: (r) => r.missingSource },
+  { v: "notCurrent", l: "Explanation not current", test: (r) => r.flags.outstanding && !r.noteCurrent }
+]);
+
 // src/lib/agentReport.js
 var MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var round23 = (n) => Math.round((Number(n) || 0) * 100) / 100;
@@ -1242,7 +1270,7 @@ function groupBuildings(cards) {
   }
   return groups;
 }
-function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null } = {}) {
+function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null, includeNotes = false, notesByProperty = null } = {}) {
   const thisMo = monthKey2(asOf);
   const year = thisMo.year;
   const scoped = (properties || []).filter((p) => !p.deleted_at && !p.archived_at && REPORTED.includes(p.status) && managedByAgent(p, agent));
@@ -1291,11 +1319,13 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
     received = round23(received + Math.min(m.received || 0, m.expected || 0));
   }
   const owing = cards.filter((c) => c.owed > 0 || c.arrears > 0).sort((a, b) => b.owed + b.arrears - (a.owed + a.arrears));
+  if (includeNotes) for (const c of owing) c.explanation = explanationLabel(notesByProperty?.get?.(c.id)?.current);
   const notLet = cards.filter((c) => !c.let);
   return {
     agent: agent ? { id: agent.id, name: agent.name } : null,
     asOf,
     year,
+    includeNotes: !!includeNotes,
     thisMonth: { ...thisMo, label: monthName(thisMo) },
     months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
     recentMonths: recentMonths(thisMo),
@@ -1759,14 +1789,16 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   y += 12;
   const owing = model.owing;
   sectionTitle("Rent owed", `${owing.length} ${owing.length === 1 ? "property" : "properties"}, largest first`, RED);
+  const withNotes = !!model.includeNotes;
   table([
-    { label: "Property", w: 44 },
-    { label: "Company", w: 26 },
-    { label: "Tenant", w: 32 },
-    { label: "Missed", w: 13, align: "right" },
-    { label: "Since", w: 17, align: "right" },
-    { label: `Owed ${model.year}`, w: 22, align: "right" },
-    { label: "This tenancy", w: 32, align: "right" }
+    { label: "Property", w: withNotes ? 36 : 44 },
+    { label: "Company", w: withNotes ? 18 : 26 },
+    { label: "Tenant", w: withNotes ? 24 : 32 },
+    { label: "Missed", w: withNotes ? 11 : 13, align: "right" },
+    { label: "Since", w: withNotes ? 15 : 17, align: "right" },
+    { label: `Owed ${model.year}`, w: withNotes ? 18 : 22, align: "right" },
+    { label: "This tenancy", w: withNotes ? 26 : 32, align: "right" },
+    ...withNotes ? [{ label: "Reason", w: 38 }] : []
   ], owing.map((c) => ({
     bar: brandColour(model.byCompany.find((g) => g.companyId === c.companyId)?.color),
     cells: [
@@ -1776,9 +1808,10 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
       String(c.missedMonths || "-"),
       c.oldestMissed || "-",
       red(c.shortfallYear + c.arrears),
-      c.shortfallTenancy == null ? { t: "start unknown", color: PALETTE.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : PALETTE.faint, size: 6.8 }
+      c.shortfallTenancy == null ? { t: "start unknown", color: PALETTE.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : PALETTE.faint, size: 6.8 },
+      ...withNotes ? [{ t: c.explanation || "Awaiting review", color: c.explanation && c.explanation !== "Awaiting review" ? PALETTE.ink : PALETTE.faint, size: 6.8 }] : []
     ]
-  })), { emptyText: "Nothing owed: every collectible month is paid.", totals: owing.length ? ["Total", "", "", String(s.missedMonths), "", red(s.shortfallYear + s.arrears), ""] : null });
+  })), { emptyText: "Nothing owed: every collectible month is paid.", totals: owing.length ? ["Total", "", "", String(s.missedMonths), "", red(s.shortfallYear + s.arrears), "", ...withNotes ? [""] : []] : null });
   if (owing.length && s.aged) {
     const age = (v, col) => ({ t: v > 0 ? money0(v) : "-", color: v > 0 ? col : PALETTE.faint, bold: v > 0 });
     const ageCells = (a) => [age(a["0-30"], AMBER), age(a["31-60"], RED), age(a["61-90"], RED), age(a["90+"], RED), age(a.historic, PALETTE.slate), age(a.total, RED)];
