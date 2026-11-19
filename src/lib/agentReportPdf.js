@@ -65,8 +65,12 @@ const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 // Locale-free date formatting: Deno's Intl data is not guaranteed to match
 // the browser's, and the email must read the same as the download.
 const parts = iso => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return { y, m, d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() } }
-export const dateShort = iso => { if (!iso) return '-'; const p = parts(iso); return `${p.d} ${MONTHS[p.m - 1]} ${p.y}` }
-export const dateLong = iso => { const p = parts(iso); return `${DAYS[p.dow]} ${p.d} ${MONTHS_LONG[p.m - 1]} ${p.y}` }
+// A value that is not an ISO date (properties.tenancy_end is free text and
+// holds things like "Monthly Rolling" or "2nd August 2025") is shown as
+// written rather than rendered "undefined undefined".
+const isIsoDate = v => /^\d{4}-\d{2}-\d{2}/.test(String(v || '')) && !Number.isNaN(Date.parse(String(v).slice(0, 10)))
+export const dateShort = iso => { if (!iso) return '-'; if (!isIsoDate(iso)) return String(iso).trim() || '-'; const p = parts(iso); return `${p.d} ${MONTHS[p.m - 1]} ${p.y}` }
+export const dateLong = iso => { if (!isIsoDate(iso)) return iso ? String(iso).trim() : '-'; const p = parts(iso); return `${DAYS[p.dow]} ${p.d} ${MONTHS_LONG[p.m - 1]} ${p.y}` }
 
 // Helvetica only has Latin-1 glyphs.
 const clean = s => String(s ?? '')
@@ -251,9 +255,11 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   font(6.6, 'normal', P.muted)
   const notes = [
     'Owed = rent still unpaid after its payment window. Due = collected + owed; rent still inside its window is shown under this month.',
-    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full.`,
+    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent due)` : ''}.`,
+    `Collection % = rent collected / rent due, 1 Jan to ${dateShort(model.asOf)}, months whose payment window has closed only.`,
   ]
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`)
+  if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? 'property' : 'properties'} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`)
   ensure(notes.length * 3.6 + 4)
   notes.forEach(n => { text(n, M, y + 2); y += 3.6 })
 

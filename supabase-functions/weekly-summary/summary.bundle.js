@@ -494,11 +494,10 @@ function instalmentSplit(e, asOf, owed) {
   return out;
 }
 function missedOwed(e, asOf) {
-  if (e?.state !== STATE.MISSED) return 0;
-  const c = e.instalments ? contributionAsOf(e, asOf) : null;
-  if (!c) return Number(e.outstanding) || 0;
-  const owed = round2(Math.max(0, c.due - c.received));
-  return owed > 0 ? outstandingSplit(e, asOf, owed).overdue : 0;
+  if (!e) return 0;
+  const b = periodBreakdown(e, asOf);
+  if (b.split) return round2(b.split.overdue || 0);
+  return b.bucket === "overdue" ? round2(b.owed) : 0;
 }
 function outstandingBucket(e, asOf) {
   if (e.dueDate && e.dueDate > asOf) return "notYetDue";
@@ -517,6 +516,24 @@ function outstandingSplit(e, asOf, owed) {
   const out = {};
   for (const k of ["overdue", "dueToday", "inWindow"]) if (sp[k] > 0) out[k] = sp[k];
   return out;
+}
+function periodBreakdown(e, asOf = isoToday()) {
+  const owed = e.state === STATE.PENDING_REVIEW ? Number(e.outstanding) || 0 : 0;
+  if (e.superseded) return { bucket: "duplicate", owed: 0, needsInfo: 0 };
+  if (e.state === STATE.PENDING_REVIEW) return { bucket: "pendingReview", owed, needsInfo: 0 };
+  if (e.needsBackfill) return { bucket: "needsBackfill", owed: 0, needsInfo: 0 };
+  const c = contributionAsOf(e, asOf);
+  if (!c) return { bucket: "notCollectible", owed: 0, needsInfo: 0 };
+  const o = round2(Math.max(0, c.due - c.received));
+  const later = c.notYetDue > 0 ? { notYetDue: c.notYetDue } : {};
+  if (o > 0) {
+    const split = outstandingSplit(e, asOf, o);
+    const multi = Object.keys(split).length > 1 ? { split } : {};
+    const bucket = ["overdue", "dueToday", "inWindow", "notYetDue"].find((k) => split[k] > 0) || outstandingBucket(e, asOf);
+    return { bucket, owed: o, needsInfo: c.needsInfo, ...multi, ...later };
+  }
+  if (c.notYetDue > 0) return { bucket: "notYetDue", owed: c.notYetDue, needsInfo: c.needsInfo, notYetDue: c.notYetDue };
+  return { bucket: c.needsInfo > 0 ? "needsInfo" : "paid", owed: 0, needsInfo: c.needsInfo };
 }
 function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || [];

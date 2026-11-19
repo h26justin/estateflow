@@ -643,12 +643,18 @@ function instalmentSplit(e, asOf, owed) {
 // What a Missed period owes as at `asOf`: its outstanding balance, less (for
 // non-monthly rent) instalments whose due date is still ahead or whose own
 // payment window is still open. Zero for any other state.
+//
+// Same rule as the Rent Tracker's "overdue" (collectionStats): the overdue
+// bucket of periodBreakdown(). Reconciliation of 18 Nov 2026 found the old
+// state-only test disagreeing with the tracker in two ways: a period
+// overridden to Part paid whose window had closed was left out of the agent
+// report's Owed, and an unverified net-of-fees shortfall (needsInfo) was put
+// in it. Both now follow the tracker, so report and tracker add up.
 export function missedOwed(e, asOf) {
-  if (e?.state !== STATE.MISSED) return 0
-  const c = e.instalments ? contributionAsOf(e, asOf) : null
-  if (!c) return Number(e.outstanding) || 0
-  const owed = round2(Math.max(0, c.due - c.received))
-  return owed > 0 ? outstandingSplit(e, asOf, owed).overdue : 0
+  if (!e) return 0
+  const b = periodBreakdown(e, asOf)
+  if (b.split) return round2(b.split.overdue || 0)
+  return b.bucket === 'overdue' ? round2(b.owed) : 0
 }
 
 // Where an unpaid amount sits on `asOf`. Only 'overdue' is arrears. For a
