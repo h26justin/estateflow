@@ -45,6 +45,9 @@ export const STATUS_GROUP = {
   ready_to_exchange: 'pipeline',  // deposit not yet paid until exchange
   exchanged:   'committed',  // 10% deposit paid, 90% due at completion
   completed:   'refurb',     // purchase done, refurb to come
+  refurbishment: 'refurb',   // works under way
+  ready_to_let:  null,       // purchase and works done: nothing left to fund
+  let:           null,
   dead:        null,         // exclude
 }
 

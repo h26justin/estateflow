@@ -211,6 +211,16 @@ export async function copyDeal(deal, userId, options = DEFAULT_COPY_OPTIONS) {
   return { deal: copy, counts, warnings }
 }
 
+// Stage history, newest first. Rows are written by the deals_stage_change_log
+// trigger on every stage change and cannot be edited.
+export async function fetchDealStageEvents(dealId) {
+  const { data, error } = await supabase.from('deal_stage_events')
+    .select('id, old_status, new_status, comment, changed_by, changed_at')
+    .eq('deal_id', dealId).order('changed_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 export async function fetchDealMilestones(dealId) {
   const { data, error } = await supabase.from('deal_milestones')
     .select('*').eq('deal_id', dealId).order('sort_order')

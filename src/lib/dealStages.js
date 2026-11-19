@@ -13,6 +13,11 @@ export const DEAL_STATUSES = Object.freeze([
   { key: 'ready_to_exchange', label: 'Ready to exchange', color: '#7A9E3A' },
   { key: 'exchanged',         label: 'Exchanged',         color: '#C8A84B' },
   { key: 'completed',         label: 'Completed',         color: '#2ECC8A' },
+  // After completion (Deals brief, 18 Nov 2026). Refurbishment is optional:
+  // a deal can go straight from Completed to Ready to let.
+  { key: 'refurbishment',     label: 'Refurbishment',     color: '#D9822B' },
+  { key: 'ready_to_let',      label: 'Ready to let',      color: '#3A8FB8' },
+  { key: 'let',               label: 'Let / income',      color: '#1F9E6E' },
   { key: 'dead',              label: 'Fallen through',    color: '#E05555' },
 ])
 
@@ -38,6 +43,29 @@ export function legalStepText(key) {
   const i = LEGAL_STEPS.findIndex(s => s.key === key)
   return i < 0 ? null : `${i + 1}/${LEGAL_STEPS.length} ${LEGAL_STEPS[i].label}`
 }
+
+// The lifecycle shown as a progress tracker: every stage except the terminal
+// 'dead'. Returns the steps and the index of the deal's stage (-1 if dead or
+// unknown).
+export const LIFECYCLE = Object.freeze(DEAL_STATUSES.filter(s => s.key !== 'dead'))
+export function lifecycleIndex(status) {
+  return LIFECYCLE.findIndex(s => s.key === (status || 'analysing'))
+}
+// Purchase done: completed or any later stage.
+export const isPostCompletion = status => lifecycleIndex(status) >= lifecycleIndex('completed')
+
+// Attention status, kept separate from the stage so a solicitor delay never
+// moves a deal backwards (deals.attention_status, check constraint lists the
+// same keys).
+export const ATTENTION_STATUSES = Object.freeze([
+  { key: 'on_track',          label: 'On track',          color: '#2ECC8A' },
+  { key: 'awaiting_response', label: 'Awaiting response', color: '#4B8FE0' },
+  { key: 'blocked',           label: 'Blocked',           color: '#E05555' },
+  { key: 'at_risk',           label: 'At risk',           color: '#E0943A' },
+  { key: 'overdue',           label: 'Overdue',           color: '#C0392B' },
+  { key: 'on_hold',           label: 'On hold',           color: '#8A8F98' },
+])
+export const ATTENTION_CFG = Object.freeze(Object.fromEntries(ATTENTION_STATUSES.map(s => [s.key, { label: s.label, color: s.color }])))
 
 // The legal step only means something while the deal is conveyancing.
 export const showsLegalStep = status => status === 'conveyancing'

@@ -19,7 +19,7 @@ import { SignedPhoto } from '../lib/SignedPhoto'
 import { exportDealPdf } from '../lib/dealPdf'
 import CopyDealModal from './modals/CopyDealModal'
 import { summariseCopy } from '../lib/dealCopy'
-import { DEAL_STATUS_CFG, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep } from '../lib/dealStages'
+import { DEAL_STATUS_CFG, DEAL_STATUS_LABEL, LEGAL_STEPS, LEGAL_STEP_LABEL, legalStepText, showsLegalStep, LIFECYCLE, lifecycleIndex, isPostCompletion, ATTENTION_STATUSES, ATTENTION_CFG } from '../lib/dealStages'
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
 import ActionMenu from './ActionMenu'
@@ -1083,6 +1083,15 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   // capture an out-of-date `form`. Reading from a ref avoids that.
   const formRef = useRef(form)
   useEffect(() => { formRef.current = form }, [form])
+  // Stage history (deal_stage_events, written by a DB trigger). Re-read
+  // whenever the saved deal changes, so a stage change shows straight away.
+  const [stageEvents, setStageEvents] = useState(null)
+  useEffect(() => {
+    if (!deal?.id) return
+    let live = true
+    api.fetchDealStageEvents(deal.id).then(r => { if (live) setStageEvents(r) }).catch(() => { if (live) setStageEvents([]) })
+    return () => { live = false }
+  }, [deal?.id, deal?.status, deal?.updated_at])
   // Track when we last successfully saved, for the "Saved ✓" indicator.
   const [savedAt, setSavedAt] = useState(0)
   // showJustSaved is true for ~2s after each save, then auto-clears.
@@ -1235,12 +1244,14 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           <Button variant="secondary" size="sm" onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
             {exporting ? 'Building PDF…' : 'Download PDF'}
           </Button>
-          {form.status === 'completed' && (
+          {isPostCompletion(form.status) && (
             <Button variant="primary" size="sm" onClick={()=>onConvert&&onConvert(form)}>Convert to property →</Button>
           )}
           <Button variant="secondary" size="sm" onClick={onDelete} destructive>Delete</Button>
         </div>
       </div>
+
+      <DealLifecycleTracker status={form.status} events={stageEvents} T={T}/>
 
       {/* Meta row */}
       <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
@@ -1301,6 +1312,28 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             aria-label="Next action or blocker" maxLength={500}
             placeholder="e.g. Waiting on seller's replies to enquiries"
             style={{width:'100%',boxSizing:'border-box',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${form.next_action?T.amber+'88':T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
+        </label>
+        {/* Attention is separate from the stage: a delay never moves the
+            deal backwards through the lifecycle. */}
+        <label style={{flex:1,minWidth:170}}>
+          <span style={sect}>Attention</span>
+          <select value={form.attention_status||''} onChange={e=>setAndSave('attention_status',e.target.value||null)} aria-label="Attention status"
+            style={{width:'100%',fontFamily:SANS,fontSize:FS.sm,background:form.attention_status?(ATTENTION_CFG[form.attention_status]?.color||T.muted)+'18':T.surface,border:`1px solid ${form.attention_status?(ATTENTION_CFG[form.attention_status]?.color||T.border)+'66':T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
+            <option value="">Not set</option>
+            {ATTENTION_STATUSES.map(a=>(<option key={a.key} value={a.key}>{a.label}</option>))}
+          </select>
+        </label>
+        <label style={{flex:1,minWidth:150}}>
+          <span style={sect}>Action owner</span>
+          <input value={form.next_action_owner||''} onChange={e=>set('next_action_owner',e.target.value)} onBlur={autoSave}
+            aria-label="Next action owner" maxLength={120} placeholder="e.g. Tiffany"
+            style={{width:'100%',boxSizing:'border-box',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
+        </label>
+        <label style={{flex:1,minWidth:150}}>
+          <span style={sect}>Due</span>
+          <input type="date" value={form.next_action_due||''} onChange={e=>setAndSave('next_action_due',e.target.value||null)}
+            aria-label="Next action due date"
+            style={{width:'100%',boxSizing:'border-box',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${form.next_action_due && form.next_action_due < new Date().toISOString().slice(0,10) ? T.red+'88' : T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
         </label>
       </div>
 
@@ -2600,11 +2633,77 @@ function CompareModal({ deals, companies, onClose }) {
 function DealProgressLine({ deal, T, compact = false }) {
   const step = showsLegalStep(deal.status) ? legalStepText(deal.legal_step) : null
   const next = (deal.next_action || '').trim()
-  if (!step && !next) return null
+  const att = ATTENTION_CFG[deal.attention_status]
+  const owner = (deal.next_action_owner || '').trim()
+  const due = deal.next_action_due || null
+  const overdue = !!(due && due < new Date().toISOString().slice(0, 10))
+  if (!step && !next && !att && !owner && !due) return null
+  const dueLabel = due ? new Date(due + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null
   return (
-    <div style={{display:'flex',flexDirection:compact?'column':'row',gap:compact?3:12,flexWrap:'wrap',marginBottom:compact?6:8,fontFamily:SANS,fontSize:FS.sm}}>
+    <div style={{display:'flex',flexDirection:compact?'column':'row',gap:compact?3:12,flexWrap:'wrap',alignItems:compact?'flex-start':'center',marginBottom:compact?6:8,fontFamily:SANS,fontSize:FS.sm}}>
+      {att && <AttentionChip k={deal.attention_status} />}
       {step && <span style={{color:DEAL_STATUS_CFG.conveyancing.color}}>Legal: {step}</span>}
       {next && <span style={{color:T.amber}} title={next}>Next: {compact && next.length > 60 ? next.slice(0, 57) + '…' : next}</span>}
+      {(owner || dueLabel) && <span style={{color:overdue?T.red:T.muted}}>{owner}{owner && dueLabel ? ' · ' : ''}{dueLabel ? `due ${dueLabel}${overdue ? ' (overdue)' : ''}` : ''}</span>}
+    </div>
+  )
+}
+
+// Attention badge: colour plus words, so it never relies on colour alone.
+function AttentionChip({ k }) {
+  const a = ATTENTION_CFG[k]
+  if (!a) return null
+  return <span style={{fontFamily:SANS,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:a.color+'22',color:a.color,border:`1px solid ${a.color}44`}}>{a.label}</span>
+}
+
+// Horizontal lifecycle tracker at the top of a deal: done / current / to come,
+// with the date each stage was reached (from the stage history) and the
+// change log underneath. "Fallen through" is shown as a banner, not a step.
+function DealLifecycleTracker({ status, events, T }) {
+  const [open, setOpen] = useState(false)
+  const cur = lifecycleIndex(status)
+  const reached = {}
+  for (const e of [...(events || [])].reverse()) if (!reached[e.new_status]) reached[e.new_status] = e.changed_at
+  const fmtD = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return (
+    <div style={{marginBottom:20}}>
+      {status === 'dead' && (
+        <div role="status" style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:DEAL_STATUS_CFG.dead.color,background:DEAL_STATUS_CFG.dead.color+'14',border:`1px solid ${DEAL_STATUS_CFG.dead.color}44`,borderRadius:8,padding:'8px 12px',marginBottom:10}}>
+          Fallen through. The history below is kept.
+        </div>
+      )}
+      <ol aria-label="Deal progress" style={{display:'flex',listStyle:'none',margin:0,padding:0,overflowX:'auto',gap:0}}>
+        {LIFECYCLE.map((s, i) => {
+          const done = cur >= 0 && i < cur, here = i === cur
+          const col = here ? s.color : done ? T.green : T.border
+          return (
+            <li key={s.key} aria-current={here ? 'step' : undefined} style={{flex:'1 0 92px',minWidth:92,display:'flex',flexDirection:'column',alignItems:'center',position:'relative'}}>
+              <div style={{position:'absolute',top:9,left:i===0?'50%':0,right:i===LIFECYCLE.length-1?'50%':0,height:2,background:done||here?T.green+'88':T.border}}/>
+              <div style={{width:20,height:20,borderRadius:'50%',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,
+                background:here?col:done?T.green:T.card,border:`2px solid ${col}`,color:here||done?'#fff':T.muted}}>{done ? '✓' : i + 1}</div>
+              <div style={{fontFamily:SANS,fontSize:FS.xs,fontWeight:here?700:400,color:here?T.text:T.muted,marginTop:4,textAlign:'center',lineHeight:1.2}}>{s.label}</div>
+              {reached[s.key] && (done || here) && <div style={{fontFamily:MONO,fontSize:10,color:T.muted,marginTop:2}}>{fmtD(reached[s.key])}</div>}
+            </li>
+          )
+        })}
+      </ol>
+      <button type="button" onClick={()=>setOpen(o=>!o)} aria-expanded={open}
+        style={{background:'none',border:'none',padding:'6px 0 0',cursor:'pointer',fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
+        {open ? '▾' : '▸'} Stage history{events ? ` (${events.length})` : ''}
+      </button>
+      {open && (
+        <div style={{marginTop:6,border:`1px solid ${T.border}`,borderRadius:10,padding:'8px 12px',background:T.card}}>
+          {events == null ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>Loading…</div>
+            : !events.length ? <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>No stage changes recorded yet. Changes are logged from 19 Nov 2026.</div>
+            : events.map(e => (
+              <div key={e.id} style={{display:'flex',gap:10,flexWrap:'wrap',fontFamily:SANS,fontSize:FS.sm,padding:'4px 0',borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontFamily:MONO,color:T.muted,minWidth:96}}>{fmtD(e.changed_at)}</span>
+                <span style={{color:T.text}}>{e.old_status ? `${DEAL_STATUS_LABEL[e.old_status] || e.old_status} → ` : ''}<b>{DEAL_STATUS_LABEL[e.new_status] || e.new_status}</b></span>
+                {e.comment && <span style={{color:T.muted}}>{e.comment}</span>}
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -2628,8 +2727,8 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
         {[
           { label:'Total deals', value: deals.length, color: T.text },
           { label:'Pipeline value', value: fmt(totalValue), color: T.goldText },
-          { label:'Active', value: deals.filter(d=>!['dead','completed'].includes(d.status||'analysing')).length, color: T.blue },
-          { label:'Completed', value: byStage.completed?.length||0, color: STATUS_CFG.completed.color },
+          { label:'Active', value: deals.filter(d=>(d.status||'analysing')!=='dead' && !isPostCompletion(d.status)).length, color: T.blue },
+          { label:'Completed', value: deals.filter(d=>isPostCompletion(d.status)).length, color: STATUS_CFG.completed.color },
         ].map(k => (
           <div key={k.label} style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:10, padding:'10px 16px' }}>
             <div style={{ fontFamily:MONO, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>{k.label}</div>
