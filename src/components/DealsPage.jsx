@@ -1199,11 +1199,13 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
   // Shareable PDF pack: the whole analysis plus costs & funding, contacts,
   // tracker, notes, documents and photos. Reads the ref so unsaved edits are included.
+  // Off by default: contact details only go in an internal copy.
+  const [pdfContacts, setPdfContacts] = useState(false)
   async function exportPdf() {
     setExporting(true)
     try {
       const current = formRef.current
-      const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id) })
+      const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id), includeContacts: pdfContacts })
       showToast(`Deal pack downloaded (${res.pages} page${res.pages === 1 ? '' : 's'}${res.photos ? `, ${res.photos} photo${res.photos === 1 ? '' : 's'}` : ''})`)
     } catch (e) { showToast('Could not build the PDF: ' + (e.message || 'unknown error'), 'error') }
     setExporting(false)
@@ -1273,6 +1275,10 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           <Button variant="secondary" size="sm" onClick={exportPdf} disabled={exporting} title="Download a PDF pack of this deal to share">
             {exporting ? 'Building PDF…' : 'Download PDF'}
           </Button>
+          <label title="Contact names, phone numbers and emails are left out unless ticked (internal copies only)"
+            style={{display:'flex',alignItems:'center',gap:4,fontFamily:SANS,fontSize:FS.xs,color:T.muted,cursor:'pointer'}}>
+            <input type="checkbox" checked={pdfContacts} onChange={e=>setPdfContacts(e.target.checked)}/> incl. contacts
+          </label>
           <Button variant="secondary" size="sm" onClick={exportCsv} disabled={exporting} title="Download this deal's costs, funding and cash need as CSV">
             CSV
           </Button>

@@ -247,7 +247,11 @@ describe('PDF output through the real generators', () => {
   })
 
   it('deal pack', async () => {
-    const fp = await run('deal-pack', () => exportDealPdf({ deal, company: companies[0] }))
+    // Contacts are opt-in (decision 19 Nov 2026): left out by default.
+    const plain = allText(await run('deal-pack-no-contacts', () => exportDealPdf({ deal, company: companies[0] })))
+    expect(plain).not.toContain('Sam Solicitor')
+    expect(plain).not.toContain('sam@example.test')
+    const fp = await run('deal-pack', () => exportDealPdf({ deal, company: companies[0], includeContacts: true }))
     const t = allText(fp)
     expect(t).toContain('14 Station Road')
     expect(t).toContain('Sam Solicitor')

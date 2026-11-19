@@ -76,14 +76,17 @@ async function loadLogo() {
  * @param {object[]} [opts.lines]   the deal's cost lines; fetched when not passed
  * @param {object[]} [opts.funding] the deal's funding rows; fetched when not passed
  */
-export async function exportDealPdf({ deal, company, lines, funding }) {
+// Contacts are left out unless includeContacts is set: a pack shared outside
+// the business should not carry names, phone numbers or emails (Deals brief
+// §2 and §10; decision 19 Nov 2026).
+export async function exportDealPdf({ deal, company, lines, funding, includeContacts = false }) {
   if (!deal) throw new Error('No deal to export')
 
   // Gather everything up front so page-flow logic below is synchronous.
   // Cost lines / funding that fail to load are null (not []), so the pack
   // says so instead of quietly falling back to the estimate.
   const [contacts, milestones, documents, costLines, fundingRows] = await Promise.all([
-    api.fetchDealContacts(deal.id).catch(() => []),
+    includeContacts ? api.fetchDealContacts(deal.id).catch(() => []) : Promise.resolve([]),
     api.fetchDealMilestones(deal.id).catch(() => []),
     api.fetchDealDocuments(deal.id).catch(() => []),
     Array.isArray(lines) ? lines : deal.id ? api.fetchDealCostLines(deal.id).catch(() => null) : [],
