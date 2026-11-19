@@ -16,7 +16,7 @@
 // companies whose role allows it (view_rent, view_compliance, view_tenancies).
 // No tenant names, notes, values or mortgage figures are ever included.
 
-import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE, missedOwed } from './rentEngine'
+import { evaluateProperty, arrearsSummary, monthBounds, addDays, STATE, GO_LIVE, missedOwed, rateContribution } from './rentEngine'
 import { getEffectivePermissions } from './api/roles'
 import { CATALOGUE_BY_KEY, canonicalCertType } from './complianceCatalogue'
 import { subscriptionGrantsLive } from './subscriptionLive'
@@ -101,10 +101,10 @@ function effectiveExpiry(item, req) {
   return null
 }
 
-// The period counts as collected in full when the tracker shows it Paid
-// without the money recorded (paid with no amount, or overridden to Paid), so
-// the email never contradicts the Rent Tracker tiles (agentReport.js rule).
-const collectedOf = e => (e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected))
+// Same basis as the Rent Tracker and agent report (decision 1, 19 Nov 2026):
+// a period paid with no amount, or with an unverified shortfall, is left out
+// of both expected and received rather than assumed collected.
+const contrib = e => (e.needsBackfill ? null : rateContribution(e))
 
 function rentSection(properties, { asOf, lastWeek, monthFrom }) {
   const out = {
@@ -119,13 +119,14 @@ function rentSection(properties, { asOf, lastWeek, monthFrom }) {
     let missed = 0
     for (const e of evals) {
       if (!RATED.includes(e.state) || e.expected == null || !e.dueDate) continue
-      if (e.dueDate >= lastWeek.from && e.dueDate <= lastWeek.to) {
-        out.lastWeek.expected = round2(out.lastWeek.expected + e.expected)
-        out.lastWeek.received = round2(out.lastWeek.received + collectedOf(e))
+      const c = contrib(e)
+      if (c && e.dueDate >= lastWeek.from && e.dueDate <= lastWeek.to) {
+        out.lastWeek.expected = round2(out.lastWeek.expected + c.due)
+        out.lastWeek.received = round2(out.lastWeek.received + Math.min(c.received, c.due))
       }
-      if (e.dueDate >= monthFrom && e.dueDate <= asOf) {
-        out.monthToDate.expected = round2(out.monthToDate.expected + e.expected)
-        out.monthToDate.received = round2(out.monthToDate.received + collectedOf(e))
+      if (c && e.dueDate >= monthFrom && e.dueDate <= asOf) {
+        out.monthToDate.expected = round2(out.monthToDate.expected + c.due)
+        out.monthToDate.received = round2(out.monthToDate.received + Math.min(c.received, c.due))
       }
       missed = round2(missed + missedOwed(e, asOf))
     }

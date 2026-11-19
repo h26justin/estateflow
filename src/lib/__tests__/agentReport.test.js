@@ -94,13 +94,15 @@ describe('buildAgentReport', () => {
     expect(g.recent[3].stillDue).toBe(1000)
   })
 
-  it('counts a month the tracker shows Paid as collected even when no amount was recorded', () => {
+  it('leaves a month paid with no amount out of due and collected, as the tracker does (decision 1, 19 Nov 2026)', () => {
     const over = buildAgentReport([prop('o', {
       rent_payments: [month('o', 7, 'unpaid'), month('o', 8, 'unpaid')],
       rent_overrides: [{ id: 'x1', rent_payment_id: 'o-7', state: 'paid', reason: 'agent confirmed', created_at: '2026-08-01' }],
     })], { agent: AGENT, asOf })
     const jul = over.lines[0].recent.find(m => m.label === 'Jul')
-    expect(jul).toMatchObject({ state: 'paid', collected: 500, shortfall: 0, assumed: true })
+    expect(jul).toMatchObject({ state: 'paid', due: 0, collected: 0, shortfall: 0, assumed: true })
+    expect(over.summary.paidNoAmountMonths).toBe(1)
+    expect(over.summary.paidNoAmountValue).toBe(500)
     const aug = over.lines[0].recent.find(m => m.label === 'Aug')
     expect(aug).toMatchObject({ state: 'missed', collected: 0, shortfall: 500 })
   })
@@ -178,5 +180,19 @@ describe('report dates', () => {
     expect(dateShort(null)).toBe('-')
     expect(dateLong('16 Dec 2024')).toBe('16 Dec 2024')
     expect(dateShort('Monthly Rolling')).not.toMatch(/undefined|NaN/)
+  })
+})
+
+describe('overlapping rent periods (decision 4)', () => {
+  it('lists a property whose agent cycle overlaps a charged calendar month', () => {
+    const p = { id: 'ov', name: 'Flat OV', status: 'rented', rent_pcm: 650, managed_by_agent_id: 'ag', company: { name: 'Co' }, company_id: 'c',
+      tenancies: [], rent_receipts: [], non_chargeable_periods: [], rent_overrides: [], stl_bookings: [],
+      rent_payments: [
+        { id: 'r1', year: 2026, month: 9, status: 'paid', amount: 650, period_start: '2026-09-06', period_end: '2026-10-05' },
+        { id: 'r2', year: 2026, month: 10, status: 'void', amount: null, period_start: '2026-10-01', period_end: '2026-10-31' },
+      ] }
+    const rep = buildAgentReport([p], { agent: { id: 'ag', name: 'A' }, asOf: '2026-11-18' })
+    expect(rep.lines[0].overlaps).toEqual([{ a: '2026-09-06 to 2026-10-05', b: '2026-10-01 to 2026-10-31', days: 5 }])
+    expect(rep.summary.overlapProperties).toEqual(['Flat OV'])
   })
 })

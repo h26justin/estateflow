@@ -22,7 +22,7 @@
 // tenant's name is shown to say who to chase. No notes, values or mortgage
 // figures.
 
-import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE, missedOwed } from './rentEngine'
+import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, monthBounds, STATE, GO_LIVE, missedOwed, rateContribution } from './rentEngine'
 import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
@@ -115,12 +115,27 @@ function propertyCard(p, { asOf, year, thisMo }) {
 
   // Owed = missed balances on closed periods, not rent still in its window.
   // assumedOwed: the part of it on periods with no tenancy record, where the
-  // engine assumes a tenancy from go-live at the property's rent. It is an
-  // estimate until the tenancy is recorded, and the report says so.
+  // engine assumes a tenancy from go-live at the property's rent (rulings of
+  // 15 and 25 Sep 2026). It is an estimate until the tenancy is recorded, and
+  // the report says so.
   let owed = 0, missedMonths = 0, assumedOwed = 0
   for (const e of evals) {
     const o = missedOwed(e, asOf)
     if (o > 0) { owed = round2(owed + o); missedMonths++; if (e.fallback) assumedOwed = round2(assumedOwed + o) }
+  }
+  // Decision 4, 19 Nov 2026: two charged rent periods covering the same days
+  // (an agent cycle, 6th to 5th, next to a calendar month) may charge the
+  // same rent twice. Not changed automatically: listed for review.
+  const charged = evals.filter(e => !e.superseded && e.expected > 0 && e.periodStart >= GO_LIVE &&
+    [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(e.state))
+    .sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))
+  const overlaps = []
+  for (let i = 0; i < charged.length; i++) for (let j = i + 1; j < charged.length; j++) {
+    const a = charged[i], b = charged[j]
+    if (b.periodStart > a.periodEnd) break
+    const from = b.periodStart, to = a.periodEnd < b.periodEnd ? a.periodEnd : b.periodEnd
+    const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1
+    if (days >= 3) overlaps.push({ a: `${a.periodStart} to ${a.periodEnd}`, b: `${b.periodStart} to ${b.periodEnd}`, days })
   }
   // Months this year marked paid with no amount: counted as collected in full
   // below, so the value is reported alongside rather than hidden.
@@ -151,13 +166,18 @@ function propertyCard(p, { asOf, year, thisMo }) {
   // (marked paid with no amount, or overridden to Paid) counts as collected
   // in full so the strip never contradicts its tile; it is flagged so the
   // reader knows the amount was not entered.
+  // Decision 1, 19 Nov 2026: same basis as the Rent Tracker. A month paid
+  // with no amount, or with an unverified shortfall, is left out of both due
+  // and collected (rateContribution) and counted separately, never assumed in.
   const recent = recentMonths(thisMo).map(mo => {
     const r = tiles.find(x => x.year === mo.year && x.month === mo.month)
-    const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state)
-    const due = rated ? round2(r.expected) : 0
-    const received = round2(r?.received || 0)
-    const paidUnrecorded = !!(rated && r.state === STATE.PAID && received < due)
-    const collected = paidUnrecorded ? due : received
+    let due = 0, collected = 0, paidUnrecorded = false
+    for (const e of r?.evals || []) {
+      if (e.needsBackfill) { paidUnrecorded = true; continue }
+      const c = rateContribution(e)
+      if (!c) continue
+      due = round2(due + c.due); collected = round2(collected + Math.min(c.received, c.due))
+    }
     const gap = round2(Math.max(0, due - collected))
     // Rent still inside its payment window is not a shortfall yet.
     const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID)
@@ -168,24 +188,25 @@ function propertyCard(p, { asOf, year, thisMo }) {
   // Year to date and this month, on the Rent Tracker's collection basis:
   // collectible rent whose due date has been reached, and what came in
   // against it (capped per period, so an overpayment never hides arrears).
-  // A period the tracker shows Paid without the money recorded against it
-  // (paid with no amount, or overridden to Paid) counts as collected in full,
-  // so these figures never contradict the tiles.
+  // Paid with no amount and unverified shortfalls are left out of both sides
+  // (decision 1, 19 Nov 2026), exactly as the tracker's collection rate.
   const RATED = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED]
-  const collectedOf = e => (e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected))
+  const contrib = e => (e.needsBackfill ? null : rateContribution(e))
   // Year to date counts settled periods only: paid, or missed (payment
   // window closed). Rent still inside its window is neither late nor in, so
   // it stays out and due = collected + owed exactly.
   let yearDue = 0, yearCollected = 0
   if (!isStl) for (const e of evals) {
     if (![STATE.PAID, STATE.MISSED].includes(e.state) || e.expected == null || e.periodStart < yearStart) continue
-    yearDue = round2(yearDue + e.expected); yearCollected = round2(yearCollected + collectedOf(e))
+    const c = contrib(e); if (!c) continue
+    yearDue = round2(yearDue + c.due); yearCollected = round2(yearCollected + Math.min(c.received, c.due))
   }
   const mb = monthBounds(thisMo.year, thisMo.month)
   let monthDue = 0, monthCollected = 0
   if (!isStl) for (const e of evals) {
     if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue
-    monthDue = round2(monthDue + e.expected); monthCollected = round2(monthCollected + collectedOf(e))
+    const c = contrib(e); if (!c) continue
+    monthDue = round2(monthDue + c.due); monthCollected = round2(monthCollected + Math.min(c.received, c.due))
   }
   const firstMissed = evals.filter(e => missedOwed(e, asOf) > 0).sort((a, b) => (a.periodStart < b.periodStart ? -1 : 1))[0]
 
@@ -209,6 +230,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
     assumedOwed,
+    overlaps,
     paidNoAmountMonths: paidNoAmount.length,
     paidNoAmountValue,
     missedMonths,
@@ -362,6 +384,7 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       noTenancyStart: cards.filter(c => c.let && !c.stl && !c.tenancyStart).length,
       assumedOwed: round2(cards.reduce((s, c) => s + c.assumedOwed, 0)),
       assumedOwedCount: cards.filter(c => c.assumedOwed > 0).length,
+      overlapProperties: cards.filter(c => c.overlaps.length).map(c => c.name),
       paidNoAmountMonths: cards.reduce((s, c) => s + c.paidNoAmountMonths, 0),
       paidNoAmountValue: round2(cards.reduce((s, c) => s + c.paidNoAmountValue, 0)),
       ...rollUp(cards),

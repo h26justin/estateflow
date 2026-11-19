@@ -12,6 +12,7 @@ import { useConfirm } from '../lib/ConfirmContext'
 import { currentTenancy, usesBenefit } from '../lib/tenancyUtils'
 import { activePlan } from '../lib/paymentPlans'
 import { isoToday } from '../lib/rentEngine'
+import { suggestAllocation } from '../lib/allocationSuggest'
 import { Button, EmptyState } from './ui'
 import { SkeletonRows } from '../lib/Skeleton'
 
@@ -63,6 +64,13 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
   }
   const setAlloc = (i, k, v) => setForm(f => ({ ...f, allocations: f.allocations.map((a, j) => j === i ? { ...a, [k]: v } : a) }))
   const addAlloc = () => setForm(f => ({ ...f, allocations: [...f.allocations, { target: 'historic_arrears', rent_payment_id: '', amount: '' }] }))
+  // Current rent first, then oldest arrears (decision 3, 19 Nov 2026). Only
+  // fills the lines in: nothing is saved until the user saves.
+  const suggestSplit = () => setForm(f => {
+    const s = suggestAllocation(property, Number(f.amount) || 0, f.received_date || isoToday())
+    if (!s.allocations.length) return f
+    return { ...f, allocations: s.allocations.map(({ why, ...a }) => ({ ...a, notes: why })), allowUnallocated: s.remainder > 0.004 }
+  })
   const removeAlloc = i => setForm(f => ({ ...f, allocations: f.allocations.filter((_, j) => j !== i) }))
 
   const allocated = (form?.allocations || []).reduce((s, a) => s + (Number(a.amount) || 0), 0)
@@ -155,6 +163,7 @@ export default function ReceiptsPanel({ property, tenancies, showToast, canEdit 
           ))}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 4, marginBottom: 12 }}>
             <Button variant="secondary" size="sm" onClick={addAlloc}>+ Split</Button>
+            <Button variant="secondary" size="sm" onClick={suggestSplit} title="Current rent first, then the oldest arrears, then historic arrears. Check before saving.">Suggest split</Button>
             <span style={{ fontFamily: MONO, fontSize: 11, color: Math.abs(remainder) < 0.005 ? T.green : T.amber }}>
               {Math.abs(remainder) < 0.005 ? 'Fully allocated' : remainder > 0 ? `${money(remainder)} unallocated` : `${money(-remainder)} over-allocated`}
             </span>
