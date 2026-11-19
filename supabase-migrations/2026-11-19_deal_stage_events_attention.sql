@@ -1,7 +1,9 @@
 -- Deals transformation, migrations 1 to 3 (DEALS_TRANSFORMATION_PLAN.md).
--- NOT YET APPLIED. A production change on hqrhqbkqxzllmzhcofrh: apply only
--- with Justin's explicit go-ahead, via MCP apply_migration named
--- `deal_stage_events_attention`. Additive and reversible (rollback at the end).
+-- APPLIED 19 Nov 2026 to hqrhqbkqxzllmzhcofrh (Justin's go-ahead), via MCP
+-- apply_migration named `deal_stage_events_attention` (without the begin/commit
+-- wrapper; apply_migration runs it in one transaction). Verified live: table
+-- with RLS (select and insert policies only), trigger, columns, security
+-- advisor clean. Additive and reversible (rollback at the end).
 --
 -- 1. deal_stage_events: an immutable history of stage changes, written by a
 --    trigger so no screen can forget to log. There are no UPDATE or DELETE
