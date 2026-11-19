@@ -1089,6 +1089,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
   const [form, setForm]   = useState(deal ? { ...deal } : {})
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  // Deal PDF contacts: off by default, only for an internal copy.
+  const [pdfContacts, setPdfContacts] = useState(false)
   // Ref for the title input so the Edit button can focus + select-all,
   // making it visually obvious the title is editable. Without this affordance
   // the title looks like static text (Georgia serif, no border) and people
@@ -1199,8 +1201,6 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
   // Shareable PDF pack: the whole analysis plus costs & funding, contacts,
   // tracker, notes, documents and photos. Reads the ref so unsaved edits are included.
-  // Off by default: contact details only go in an internal copy.
-  const [pdfContacts, setPdfContacts] = useState(false)
   async function exportPdf() {
     setExporting(true)
     try {
