@@ -16,12 +16,19 @@
 //     line, so an estimate is never shown as confirmed.
 //   - Expected financing is listed, never deducted.
 //   - Company cash is counted once per company (latest position), not per deal.
-//   - Refurb is forecast separately from completion.
+//   - Refurb is forecast separately from completion. A deal linked to a
+//     Refurbs project (deals.refurb_project_id) uses that project's budget
+//     and paid / outstanding figures instead of its own estimate.
+//   - Group purchases (lib/dealGroups): the parent deal carries the cash
+//     commitment; units of a present parent are listed under it but never
+//     added again to cash need, the gap or the refurb forecast.
 //
 // Pure: no React, no DB. Amounts are summed in pence to avoid float drift.
 
 import { computeDealMetrics, num } from './dealMetrics'
 import { isPostCompletion } from './dealStages'
+import { projectTotals, isLiveProject } from './refurbs'
+import { resolveDealGroups, orderUnitsUnderParents } from './dealGroups'
 
 export const COST_CATEGORIES = Object.freeze([
   { key: 'purchase_price', label: 'Purchase price',          group: 'completion' },
@@ -191,28 +198,68 @@ export function completionPosition(deal = {}, lines = []) {
 }
 
 /**
- * Refurb forecast, kept apart from completion: refurb + contingency lines,
- * else the deal's refurb_cost as an estimate. amount is null when neither
- * is entered.
+ * The refurb project this deal is linked to, or null. `projects` may be the
+ * project itself, an array of projects or a { [id]: project } map. A
+ * deleted project, or one whose id does not match, is not a link.
  */
-export function refurbPosition(deal = {}, lines = []) {
+export function linkedRefurbProject(deal = {}, projects = null) {
+  const id = deal?.refurb_project_id
+  if (!id || !projects) return null
+  let p = null
+  if (Array.isArray(projects)) p = projects.find(x => x?.id === id) || null
+  else if (projects.id != null) p = projects.id === id ? projects : null
+  else p = projects[id] || null
+  return p && isLiveProject(p) ? p : null
+}
+
+const projectTitle = p => (p?.title || '').trim() || 'Refurbishment'
+
+/**
+ * Refurb forecast, kept apart from completion. In order of preference:
+ *   1. the linked Refurbs project (budget = agreed price + extras, with
+ *      paid and outstanding from its payment lines), when it has a budget;
+ *   2. refurb + contingency cost lines on the deal;
+ *   3. the deal's refurb_cost as an estimate.
+ * amount is null when none is entered. `source` says which was used.
+ */
+export function refurbPosition(deal = {}, lines = [], projects = null) {
+  const project = linkedRefurbProject(deal, projects)
+  const projectNote = []
+  if (project) {
+    const t = projectTotals(project)
+    if (t.agreed > 0) {
+      const title = projectTitle(project)
+      const amount = sum([t.agreed])
+      return {
+        amount, paid: sum([t.paid]), outstanding: sum([t.remaining]),
+        basis: 'project', source: `Refurb project "${title}"`, projectId: project.id,
+        state: t.remaining <= 0 ? 'paid' : 'confirmed',
+        components: [{ key: 'refurb', label: `Refurb project budget (${title})`, amount, state: 'confirmed', count: t.lineCount }],
+        missing: [],
+      }
+    }
+    projectNote.push('Linked refurb project has no agreed price yet')
+  }
   const refurbLines = (lines || []).filter(l => costCategoryGroup(l.category) === 'refurb')
   if (refurbLines.length) {
     return {
-      amount: sum(refurbLines.map(l => l.amount)), basis: 'lines',
-      state: weakestState(refurbLines), components: componentsByCategory(refurbLines), missing: [],
+      amount: sum(refurbLines.map(l => l.amount)), basis: 'lines', source: 'Deal refurb cost lines',
+      state: weakestState(refurbLines), components: componentsByCategory(refurbLines), missing: projectNote,
     }
   }
   const flat = num(deal.refurb_cost)
   if (flat > 0) {
     return {
-      amount: sum([flat]), basis: 'estimate', state: 'estimate',
+      amount: sum([flat]), basis: 'estimate', source: 'Deal refurb cost (estimate)', state: 'estimate',
       components: [{ key: 'refurb', label: 'Refurb cost (deal estimate)', amount: sum([flat]), state: 'estimate', count: 0 }],
-      missing: [],
+      missing: projectNote,
     }
   }
-  return { amount: null, basis: 'none', state: null, components: [], missing: ['No refurb forecast entered'] }
+  return { amount: null, basis: 'none', source: null, state: null, components: [], missing: [...projectNote, 'No refurb forecast entered'] }
 }
+
+/** What a refurb position adds to the cash picture: outstanding on a linked project, else the forecast. */
+export const refurbCashAmount = r => (r?.basis === 'project' ? r.outstanding : r?.amount ?? null)
 
 /** Expected or target completion date, else null (Unscheduled). */
 export const dealDueDate = deal => deal?.expected_completion_date || deal?.target_completion_date || null
@@ -235,10 +282,10 @@ export function dealCashNeed(deal = {}, lines = [], funding = []) {
 }
 
 /** Plain-English lines for one deal's "How calculated?" explainer. */
-export function explainDeal(deal = {}, lines = [], funding = []) {
+export function explainDeal(deal = {}, lines = [], funding = [], projects = null) {
   const cn = dealCashNeed(deal, lines, funding)
   const p = cn.position
-  const r = refurbPosition(deal, lines)
+  const r = refurbPosition(deal, lines, projects)
   const out = []
   if (p.basis === 'lines') {
     const comp = p.components.filter(c => !c.credit)
@@ -261,7 +308,10 @@ export function explainDeal(deal = {}, lines = [], funding = []) {
     : `Cash needed from the company = max(0, ${gbp(p.balanceDue)} − confirmed financing ${gbp(cn.financingConfirmed)}) = ${gbp(cn.need)}`)
   if (cn.financingExpected > 0) out.push(`Expected financing of ${gbp(cn.financingExpected)} is not deducted until it is confirmed.`)
   out.push(cn.dueDate ? `Due: ${dateGB(cn.dueDate)}` : 'Due: unscheduled (no expected or target completion date)')
-  out.push(r.amount == null ? 'Refurb forecast: not entered' : `Refurb forecast (separate from completion) = ${gbp(r.amount)}${r.basis === 'estimate' ? ' (estimate from deal refurb cost)' : ''}`)
+  out.push(r.amount == null ? 'Refurb forecast: not entered'
+    : r.basis === 'project'
+      ? `Refurb (separate from completion), from the linked ${r.source}: budget ${gbp(r.amount)}, paid ${gbp(r.paid)}, outstanding ${gbp(r.outstanding)}`
+      : `Refurb forecast (separate from completion) = ${gbp(r.amount)}${r.basis === 'estimate' ? ' (estimate from deal refurb cost)' : ''}`)
   return out
 }
 
@@ -289,15 +339,26 @@ export function latestCashPosition(rows = []) {
  *   from          ISO date: today; earlier due dates are flagged overdue
  *   to            ISO date: window end (inclusive). Null: every live deal,
  *                 unscheduled included.
+ *   refurbProjects refurb projects (array or { [id]: project }) for deals
+ *                 linked by refurb_project_id; optional.
+ *
+ * Group purchases: a unit of a parent present in `deals` (not deleted or
+ * fallen through) is listed straight after its parent with partOf set, and
+ * is left out of every total (need, schedule, gap, refurb, financing). A unit
+ * whose parent is missing or fallen through is counted on its own, with a
+ * note in groupNotes and explain.
  */
-export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {}, cashPosition = null, from = null, to = null } = {}) {
+export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {}, cashPosition = null, from = null, to = null, refurbProjects = null } = {}) {
+  const groups = resolveDealGroups(deals || [])
   const live = (deals || []).filter(isLiveDeal)
-  const rows = live.map(d => {
+  const sorted = live.map(d => {
     const lines = linesByDeal[d.id] || []
     const cn = dealCashNeed(d, lines, fundingByDeal[d.id] || [])
-    const r = refurbPosition(d, lines)
+    const r = refurbPosition(d, lines, refurbProjects)
     const week = cn.dueDate ? weekStart(cn.dueDate) : null
     const inWindow = to ? (cn.dueDate != null && cn.dueDate <= to) : true
+    const parent = groups.parentFor(d)
+    const orphan = groups.orphanFor(d)
     return {
       dealId: d.id, name: d.name || d.address || 'Untitled deal', status: d.status,
       dueDate: cn.dueDate, week, inWindow,
@@ -305,14 +366,24 @@ export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {
       need: cn.need, balanceDue: cn.position.balanceDue, total: cn.position.total, credits: cn.position.credits,
       basis: cn.position.basis, state: cn.position.state, missing: cn.position.missing,
       financingConfirmed: cn.financingConfirmed, financingExpected: cn.financingExpected,
-      refurb: r.amount, refurbBasis: r.basis,
+      refurb: refurbCashAmount(r), refurbBasis: r.basis, refurbSource: r.source,
+      // Group purchase: a unit is shown, never counted again.
+      unit: !!parent, parentId: parent ? parent.id : null,
+      partOf: parent ? (parent.name || parent.address || 'Untitled deal') : null,
+      counted: !parent,
+      units: groups.unitsOf(d).map(u => u.id),
+      groupNote: orphan ? orphan.text : null,
     }
   }).sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : (a.dueDate || '9999') > (b.dueDate || '9999') ? 1 : String(a.name).localeCompare(String(b.name)))
+  const rows = orderUnitsUnderParents(sorted, r => r.dealId, r => (r.unit ? r.parentId : null))
+  const counted = rows.filter(r => r.counted)
+  const unitRows = rows.filter(r => !r.counted)
+  const groupNotes = rows.filter(r => r.groupNote).map(r => `${r.name}: ${r.groupNote}.`)
 
   // Weekly schedule (Monday start) and Unscheduled.
   const weekMap = new Map()
   const unscheduled = { deals: [], need: 0, unknownCount: 0 }
-  for (const r of rows) {
+  for (const r of counted) {
     if (!r.week) {
       unscheduled.deals.push(r.dealId)
       if (r.need == null) unscheduled.unknownCount += 1
@@ -335,11 +406,11 @@ export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {
     return { ...w, cumulative: running, shortfall: Math.max(0, fromPence(pence(running) - pence(cash))) }
   })
 
-  const windowRows = rows.filter(r => r.inWindow)
+  const windowRows = counted.filter(r => r.inWindow)
   const needRows = windowRows.filter(r => r.need != null)
   const unknownRows = windowRows.filter(r => r.need == null)
   const needInWindow = sum(needRows.map(r => r.need))
-  const refurbRows = rows.filter(r => r.refurb != null)
+  const refurbRows = counted.filter(r => r.refurb != null)
   const refurbForecast = sum(refurbRows.map(r => r.refurb))
   const financingExpected = sum(windowRows.map(r => r.financingExpected))
   const fundingGap = Math.max(0, fromPence(pence(needInWindow) - pence(cash)))
@@ -351,6 +422,8 @@ export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {
   const explain = []
   explain.push(`Live deals: ${rows.length} (fallen through, deleted and completed deals are left out).`)
   explain.push(`Each deal's cash need = balance due at completion − confirmed financing (company cash is not financing).`)
+  if (unitRows.length) explain.push(`Group purchases: ${unitRows.length} unit${unitRows.length === 1 ? ' is' : 's are'} listed under ${unitRows.length === 1 ? 'its' : 'their'} parent deal and not added again. The parent carries the purchase cost and funding; a unit's own cost lines are an allocation of it.`)
+  for (const n of groupNotes) explain.push(n)
   explain.push(needRows.length
     ? `Cash needed ${windowText} = ${needRows.map(r => gbp(r.need)).join(' + ')} = ${gbp(needInWindow)}`
     : `Cash needed ${windowText} = £0 (no deals with figures in this window)`)
@@ -364,12 +437,14 @@ export function companyFunding({ deals = [], linesByDeal = {}, fundingByDeal = {
   explain.push(refurbRows.length
     ? `Refurb forecast (separate) = ${refurbRows.map(r => gbp(r.refurb)).join(' + ')} = ${gbp(refurbForecast)}`
     : 'Refurb forecast (separate) = none entered')
+  if (refurbRows.some(r => r.refurbBasis === 'project')) explain.push('Deals linked to a refurb project count what is left to pay on it (budget less payments), not their own estimate.')
   if (refurbForecast > 0) explain.push(`Combined including refurb = max(0, ${gbp(needInWindow)} + ${gbp(refurbForecast)} − ${gbp(cash)}) = ${gbp(combinedGap)}`)
   if (financingExpected > 0) explain.push(`Expected financing of ${gbp(financingExpected)} is not deducted until confirmed.`)
 
   return {
     rows, weeks, unscheduled,
     activeDeals: rows.length,
+    unitCount: unitRows.length, groupNotes,
     needInWindow, unknownCount: unknownRows.length, estimateCount,
     refurbForecast, financingExpected,
     cash: cashKnown ? { amount: cash, asOf: cashPosition.as_of || null, note: cashPosition.note || null } : null,

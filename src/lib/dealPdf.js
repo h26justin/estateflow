@@ -79,7 +79,7 @@ async function loadLogo() {
 // Contacts are left out unless includeContacts is set: a pack shared outside
 // the business should not carry names, phone numbers or emails (Deals brief
 // §2 and §10; decision 19 Nov 2026).
-export async function exportDealPdf({ deal, company, lines, funding, includeContacts = false }) {
+export async function exportDealPdf({ deal, company, lines, funding, includeContacts = false, refurbProject = null }) {
   if (!deal) throw new Error('No deal to export')
 
   // Gather everything up front so page-flow logic below is synchronous.
@@ -255,7 +255,7 @@ export async function exportDealPdf({ deal, company, lines, funding, includeCont
   } else {
     const cn = dealCashNeed(deal, costLines, fundingRows)
     const pos = cn.position
-    const rf = refurbPosition(deal, costLines)
+    const rf = refurbPosition(deal, costLines, refurbProject)
     const stateOf = s => COST_STATE_LABEL[s] || s || ''
     const amt = v => v == null ? 'Unknown' : gbp(v)
     kvRows([
@@ -267,11 +267,13 @@ export async function exportDealPdf({ deal, company, lines, funding, includeCont
       cn.financingExpected > 0 ? ['Expected financing (not deducted)', gbp(cn.financingExpected), MUTED] : null,
       ['Cash needed from the company', amt(cn.need), cn.need > 0 ? RED : GREEN],
       ['Due', cn.dueDate ? dateGB(cn.dueDate) : 'Unscheduled'],
-      ['Refurb forecast (separate)', rf.amount == null ? 'Not entered' : gbp(rf.amount) + (rf.basis === 'estimate' ? ' (estimate)' : '')],
+      rf.basis === 'project'
+        ? ['Refurb (separate), linked project', `${gbp(rf.amount)} budget · ${gbp(rf.outstanding)} outstanding`]
+        : ['Refurb forecast (separate)', rf.amount == null ? 'Not entered' : gbp(rf.amount) + (rf.basis === 'estimate' ? ' (estimate)' : '')],
     ])
     ensure(8)
     setFont(8.5, 'bold', MUTED); text('How calculated', M, y); y += 5
-    for (const line of explainDeal(deal, costLines, fundingRows)) paragraph(line, 8.5, INK)
+    for (const line of explainDeal(deal, costLines, fundingRows, refurbProject)) paragraph(line, 8.5, INK)
     if (pos.missing.length) paragraph('Missing: ' + pos.missing.join('; ') + '.', 8, AMBER)
   }
 
