@@ -16,7 +16,8 @@ import { STL_COLOR } from '../../lib/rentColors'
 import { engineSummary } from '../../lib/rentEngineSummary'
 import { pressable } from '../../lib/pressable'
 import { plural } from '../../lib/format'
-import { ReviewQueuePanel, BankConnectionsModal, BankInboxModal } from './lazyViews'
+import { ReviewQueuePanel, MonthEndReviewPanel, BankConnectionsModal, BankInboxModal } from './lazyViews'
+import { monthEndQueue } from '../../lib/arrearsNotes'
 import { Badge } from './Badges'
 import { RentDots } from './RentDots'
 import { Button, EmptyState } from '../ui'
@@ -125,12 +126,19 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
   // Company pills on top of that
   const visCos = coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))
   const shownProps = visCos.flatMap(c => visibleProps.filter(p => p.company_id===c.id))
+  // Month-end review (rent brief C6): how many properties need a look this
+  // month. Notes are only fetched when the panel opens.
+  const monthEndCount = useMemo(() => {
+    const cos = new Set((coFilter.length === 0 ? companies : companies.filter(c => coFilter.includes(c.id))).map(c => c.id))
+    return monthEndQueue({ properties: visibleProps.filter(p => cos.has(p.company_id)) }).length
+  }, [visibleProps, coFilter, companies])
 
   // Global year filter - applies to all properties
   const allPayments = properties.flatMap(p=>p.rent_payments||[])
   const allYears = [...new Set(allPayments.map(p=>p.year))].sort()
   const [globalYear, setGlobalYear] = useState(() => defaultRentYear(allPayments))
   const [showReview, setShowReview] = useState(false)
+  const [showMonthEnd, setShowMonthEnd] = useState(false)
   const [expandedCompanies, setExpandedCompanies] = useState({})
 
   function toggleCompany(id) {
@@ -290,18 +298,26 @@ export function RentTrackerOverview({companies, properties, fmt, openDetail, onD
         )
       })()}
 
-      {/* Receipts awaiting a human decision (Stage 5) */}
+      {/* Receipts awaiting a human decision (Stage 5), and the month-end
+          review (rent brief C6) beside it. */}
       {(() => {
         const pending = shownProps.flatMap(p => p.rent_receipts || []).filter(r => r.review_status === 'needs_review')
-        if (!pending.length) return null
+        const monthEnd = monthEndCount
+        if (!pending.length && !monthEnd) return null
         return (
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
-            <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
-            <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
-            <Button variant="primary" size="sm" onClick={()=>setShowReview(true)} style={{marginLeft:'auto'}}>Review</Button>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+            {pending.length > 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:10,flex:'1 1 320px',padding:'10px 14px',border:`1px solid ${T.amber}55`,background:T.amber+'12',borderRadius:12}}>
+                <span style={{fontFamily:MONO,fontSize:11,color:T.amber,fontWeight:700}}>{pending.length} receipt{pending.length===1?'':'s'} to review</span>
+                <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>unallocated money or possible duplicates, held until someone decides</span>
+                <Button variant="primary" size="sm" onClick={()=>setShowReview(true)} style={{marginLeft:'auto'}}>Review</Button>
+              </div>
+            )}
+            {monthEnd > 0 && <Button variant="secondary" size="sm" onClick={()=>setShowMonthEnd(true)} title="Arrears, new overdue, receipts, corrections, vacancy and missing sources for this month">Month-end review ({monthEnd})</Button>}
           </div>
         )
       })()}
+      {showMonthEnd && <MonthEndReviewPanel companies={visCos} properties={shownProps} canEditRent={canEditRent} showToast={showToast} openDetail={openDetail} onClose={()=>setShowMonthEnd(false)}/>}
       {showReview && <ReviewQueuePanel companies={visCos} properties={shownProps} companyIds={visCos.map(c=>c.id)} canEdit={visCos.some(c=>canEditRent?.(c.id))} showToast={showToast} onClose={()=>setShowReview(false)} onChanged={onRefresh}/>}
 
       {/* Company filter pills (only render if there's more than one
