@@ -7,7 +7,7 @@ import { DealsPage } from './lazyViews'
 export function DealsView({
   user, companies, properties, showToast, activeFlags, companySubs, isPlatformAdmin,
   setDashboardDeals, convertRefreshKey, setEditProp, setConvertSourceDealId, setConvertSourceDeal,
-  setShowAddProp,
+  setShowAddProp, setProperties,
 }) {
   return (
     <div className="fade">
@@ -15,6 +15,15 @@ export function DealsView({
         canUseInvestor={canUseInvestorFeatures({ subs: companySubs, companies, isPlatformAdmin })}
         onDealsChange={setDashboardDeals}
         convertRefreshKey={convertRefreshKey}
+        onRefurbProjectCreated={project => {
+          // A refurb project created from a deal: add it to its property so
+          // Refurbs and the cashflow see it without a reload.
+          if (!setProperties || !project?.property_id) return
+          const { property: _p, linkedDeals: _l, ...row } = project
+          setProperties(prev => prev.map(p => p.id === row.property_id
+            ? { ...p, refurb_projects: [...(p.refurb_projects || []).filter(x => x.id !== row.id), row] }
+            : p))
+        }}
         onConvertToProperty={(deal)=>{
           // Map deal fields to property fields so the user doesn't
           // have to retype everything. Fields without a clean 1:1

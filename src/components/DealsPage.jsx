@@ -25,6 +25,9 @@ import { Button, EmptyState } from './ui'
 import ActionMenu from './ActionMenu'
 import { CostsFundingTab, CompanyFundingDashboard, DealExportMenu } from './DealFinance'
 import { runDealExport } from '../lib/dealExportRun'
+import { resolveDealGroups, groupParentOptions, wouldCreateLoop, groupBadge } from '../lib/dealGroups'
+import { projectsFromProperties, projectTotals, STAGE_CFG as REFURB_STAGE_CFG } from '../lib/refurbs'
+import { refurbProjectCandidates, propertiesForRefurb, findDuplicateRefurbProject, refurbProjectFieldsFromDeal, dealRefurbBudget } from '../lib/dealRefurbLink'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -109,6 +112,20 @@ function DocCountBadge({ counts, T }) {
     <span title="Photos and documents attached to this deal"
       style={{fontFamily:mono,fontSize:FS.xs,padding:'2px 7px',borderRadius:10,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,display:'inline-flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
       <Icon name="folder" size={10} color={T.muted}/>{parts.join(' · ')}
+    </span>
+  )
+}
+
+// "Group · 4 units" on a group purchase parent, "Unit of <parent>" on one of
+// its units. Renders nothing for a standalone deal.
+function GroupBadge({ deal, groups, T }) {
+  const b = groupBadge(deal, groups)
+  if (!b) return null
+  const c = T.blue
+  return (
+    <span title={b.kind === 'parent' ? 'Group purchase: this deal carries the cash commitment for its units' : 'Unit of a group purchase: its costs are counted on the parent deal'}
+      style={{fontFamily:SANS,fontSize:FS.xs,fontWeight:700,padding:'2px 7px',borderRadius:10,background:c+'1a',border:`1px solid ${c}44`,color:c,whiteSpace:'nowrap',maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',display:'inline-block'}}>
+      {b.label}
     </span>
   )
 }
@@ -307,7 +324,7 @@ function PortfolioModellerInDeals({ properties = [], T }) {
   )
 }
 
-export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false, convertRefreshKey = 0 }) {
+export default function DealsPage({ user, companies, properties = [], onConvertToProperty, onDealsChange, showToast, activeFlags = new Set(), canUseInvestor = false, convertRefreshKey = 0, onRefurbProjectCreated }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   // ── URL SYNC ───────────────────────────────────────────────────────────────
@@ -344,6 +361,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   // cards. Loaded with the deals and refreshed when the user comes back
   // from a deal, since they may have just added photos.
   const [docCounts, setDocCounts] = useState({})
+  // Refurb projects created from a deal this session: App's properties list
+  // only refreshes on its own load, so keep them here until it does.
+  const [createdProjects, setCreatedProjects] = useState([])
   const loadDocCounts = useCallback(() => api.fetchDealDocumentCounts().then(setDocCounts).catch(()=>{}), [])
 
   const loadDeals = useCallback(async () => {
@@ -534,6 +554,14 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   // status filter doesn't apply there (it silently emptied columns and
   // skewed the tiles). The company filter does, and is shown on both tabs.
   const pipelineDeals = useMemo(() => deals.filter(companyMatch), [deals, companyMatch])
+  // Group purchases across every loaded deal, so a badge describes the
+  // link even when the parent is filtered out of the list.
+  const groups = useMemo(() => resolveDealGroups(deals), [deals])
+  const refurbProjects = useMemo(() => {
+    const fromProps = projectsFromProperties(properties)
+    const known = new Set(fromProps.map(p => p.id))
+    return [...fromProps, ...createdProjects.filter(p => !known.has(p.id))]
+  }, [properties, createdProjects])
 
 
   // ── DEAL DETAIL VIEW ────────────────────────────────────────────────────────
@@ -548,6 +576,12 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       onSave={saveDeal}
       onDelete={()=>deleteDeal(selectedDeal.id)}
       onConvert={onConvertToProperty}
+      allDeals={deals}
+      groups={groups}
+      properties={properties}
+      refurbProjects={refurbProjects}
+      onOpenDeal={openDeal}
+      onRefurbProjectCreated={p => { setCreatedProjects(prev => [...prev, p]); onRefurbProjectCreated && onRefurbProjectCreated(p) }}
     />
   )
 
@@ -617,7 +651,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
 
       {/* ── PIPELINE VIEW ── */}
       {dealView==='pipeline' && companyFilterPills}
-      {dealView==='pipeline' && <DealPipeline deals={pipelineDeals} companies={companies} docCounts={docCounts} onOpen={openDeal} onNew={()=>createNewDeal()} T={T}/>}
+      {dealView==='pipeline' && <DealPipeline deals={pipelineDeals} groups={groups} companies={companies} docCounts={docCounts} onOpen={openDeal} onNew={()=>createNewDeal()} T={T}/>}
 
       {/* ── LETTINGS VIEW ── */}
       {dealView==='lettings' && <>
@@ -659,7 +693,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           the selected company opens its weekly funding schedule. */}
       {!loading && !loadError && (
         <CompanyFundingDashboard deals={deals} companies={companies} coFilter={coFilter} setCoFilter={setCoFilter}
-          onOpenDeal={openDeal} user={user} showToast={showToast}/>
+          onOpenDeal={openDeal} user={user} showToast={showToast} refurbProjects={refurbProjects}/>
       )}
 
       {/* Cashflow panel — aggregate cash commitments across all live deals.
@@ -678,7 +712,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
         {/* All Deals export (Deals brief §10): the deals listed below, with
             the company and stage filters printed on the output. */}
         {!loading && !loadError && deals.length > 0 && (
-          <DealExportMenu deals={filtered} companies={companies} align="left" showToast={showToast}
+          <DealExportMenu deals={filtered} companies={companies} align="left" showToast={showToast} refurbProjects={refurbProjects}
             title={coFilter === 'all' ? 'All deals' : coFilter === '' ? 'Unassigned deals' : (companies.find(c => c.id === coFilter)?.name || 'Deals')}
             scopeLabel={coFilter === 'all' ? 'all deals' : 'filtered deals'}
             filters={{ companyId: coFilter, status: statusFilter }}/>
@@ -726,6 +760,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                           {co && <span style={{fontFamily:mono,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:4,background:(co.color||T.gold)+'22',color:co.color||T.goldText}}>{co.abbr}</span>}
                           <span style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>{DEAL_TYPE_LABELS[deal.deal_type]||'BTL'}{deal.is_auction?' · Auction':''}</span>
                           <DocCountBadge counts={counts} T={T}/>
+                          <GroupBadge deal={deal} groups={groups} T={T}/>
                         </div>
                         {deal.address && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:8}}>{deal.address}</div>}
                         <DealProgressLine deal={deal} T={T}/>
@@ -835,6 +870,9 @@ function CashflowBreakdown({ deals = [], properties = [], T }) {
                 <span aria-hidden="true" style={{display:'flex',color:T.muted}}><Icon name="target" size={14}/></span>
                 <div style={{minWidth:0}}>
                   <div style={{color:T.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.name || d.address || 'Untitled deal'}</div>
+                  {cf.unitOf && (
+                    <div style={{fontSize:FS.xs,color:T.blue,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>Unit of {cf.unitOf}: counted on the parent</div>
+                  )}
                   {d.address && d.address !== d.name && (
                     <div style={{fontSize:FS.xs,color:T.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.address}</div>
                   )}
@@ -1079,7 +1117,7 @@ function CashflowPanel({ deals, properties, coFilter = 'all', T }) {
 }
 
 // ── DEAL DETAIL ────────────────────────────────────────────────────────────────
-function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete, onConvert }) {
+function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete, onConvert, allDeals = [], groups = null, properties = [], refurbProjects = [], onOpenDeal, onRefurbProjectCreated }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   // The calculator is a two-column layout (inputs | sticky results). On a
@@ -1205,7 +1243,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     setExporting(true)
     try {
       const current = formRef.current
-      const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id), includeContacts: pdfContacts })
+      const res = await exportDealPdf({ deal: current, company: companies.find(c => c.id === current.company_id), includeContacts: pdfContacts, refurbProject: linkedRefurb })
       showToast(`Deal pack downloaded (${res.pages} page${res.pages === 1 ? '' : 's'}${res.photos ? `, ${res.photos} photo${res.photos === 1 ? '' : 's'}` : ''})`)
     } catch (e) { showToast('Could not build the PDF: ' + (e.message || 'unknown error'), 'error') }
     setExporting(false)
@@ -1217,7 +1255,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     setExporting(true)
     try {
       const current = formRef.current
-      await runDealExport('csv', { deals: [current], companies, filters: { companyId: current.company_id || '', status: 'all', dealId: current.id } })
+      await runDealExport('csv', { deals: [current], companies, refurbProjects, filters: { companyId: current.company_id || '', status: 'all', dealId: current.id } })
       showToast('Deal CSV downloaded')
     } catch (e) { showToast('Could not build the CSV: ' + (e.message || 'unknown error'), 'error') }
     setExporting(false)
@@ -1227,6 +1265,10 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
   const sc = STATUS_CFG[form.status]||STATUS_CFG.analysing
   const co = companies.find(c=>c.id===form.company_id)
+  // Group purchase and refurb link, from the saved deal list.
+  const groupParent = groups ? groups.parentFor(deal) : null
+  const groupUnits = groups ? groups.unitsOf(deal) : []
+  const linkedRefurb = form.refurb_project_id ? (refurbProjects.find(p => p.id === form.refurb_project_id && !p.deleted_at) || null) : null
 
   const tabStyle = (k) => ({
     fontFamily:mono, fontSize:11, padding:'7px 14px', borderRadius:8, border:'none',
@@ -1373,6 +1415,23 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             aria-label="Next action due date"
             style={{width:'100%',boxSizing:'border-box',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${form.next_action_due && form.next_action_due < new Date().toISOString().slice(0,10) ? T.red+'88' : T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}/>
         </label>
+      </div>
+
+      {/* Group purchase (one acquisition, several units) and, once the
+          purchase has completed, the link to its Refurbs project. */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,320px),1fr))',gap:12,marginBottom:20}}>
+        <GroupPurchaseCard deal={form} allDeals={allDeals} parent={groupParent} units={groupUnits}
+          onChangeParent={id => {
+            if (id && wouldCreateLoop(form, id, allDeals)) { showToast('That deal is one of this deal\'s units, so it cannot be its parent', 'error'); return }
+            setAndSave('parent_deal_id', id || null)
+          }}
+          onOpenDeal={onOpenDeal} T={T}/>
+        {isPostCompletion(form.status) && (
+          <RefurbLinkCard deal={form} allDeals={allDeals} properties={properties} refurbProjects={refurbProjects}
+            linked={linkedRefurb} showToast={showToast} confirmDialog={confirmDialog}
+            onLink={id => setAndSave('refurb_project_id', id || null)}
+            onCreated={onRefurbProjectCreated} T={T}/>
+        )}
       </div>
 
       {/* Tabs */}
@@ -1922,7 +1981,8 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
           Its own rows only; never writes the deal, so the form's auto-save
           is unaffected. Gets the live form so the estimate follows edits. */}
       {tab === 'costs' && (
-        <CostsFundingTab deal={form} showToast={showToast}/>
+        <CostsFundingTab deal={form} showToast={showToast} refurbProject={linkedRefurb}
+          group={{ parent: groupParent, units: groupUnits }} onOpenDeal={onOpenDeal}/>
       )}
 
       {/* ── PURCHASE TRACKER TAB ── */}
@@ -1938,6 +1998,206 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
       {/* ── DOCUMENTS TAB ── */}
       {tab === 'documents' && (
         <DocumentsTab dealId={form.id} userId={user?.id} showToast={showToast}/>
+      )}
+    </div>
+  )
+}
+
+// ── GROUP PURCHASE ────────────────────────────────────────────────────────────
+// One acquisition covering several units (lib/dealGroups). A unit points at
+// its parent through deals.parent_deal_id, saved on the deal row like any
+// other field. The select only offers deals of the same company that are not
+// this deal, not one of its units and not one whose chain leads back here.
+function GroupPurchaseCard({ deal, allDeals, parent, units, onChangeParent, onOpenDeal, T }) {
+  const options = groupParentOptions(deal, allDeals)
+  const current = deal.parent_deal_id ? allDeals.find(d => d.id === deal.parent_deal_id) : null
+  const currentMissing = deal.parent_deal_id && !options.some(o => o.id === deal.parent_deal_id)
+  const card = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'16px 18px', minWidth:0 }
+  const eyebrow = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  const link = { fontFamily:SANS, fontSize:FS.sm, color:T.goldText, background:'none', border:'none', padding:0, cursor:'pointer', textAlign:'left', fontWeight:700 }
+  const nm = d => d.name || d.address || 'Untitled deal'
+  return (
+    <div style={card}>
+      <label style={{display:'block'}}>
+        <span style={eyebrow}>Part of group purchase</span>
+        <select value={deal.parent_deal_id || ''} onChange={e=>onChangeParent(e.target.value || null)} aria-label="Part of group purchase"
+          style={{width:'100%',fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'8px 12px'}}>
+          <option value="">Not part of a group purchase</option>
+          {currentMissing && (
+            <option value={deal.parent_deal_id}>{current ? `${nm(current)} (not available)` : 'Deal not found'}</option>
+          )}
+          {options.map(o => (<option key={o.id} value={o.id}>{nm(o)}</option>))}
+        </select>
+      </label>
+      {parent && (
+        <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>
+          Unit of{' '}
+          <button type="button" style={link} onClick={()=>onOpenDeal && onOpenDeal(parent)}>{nm(parent)} →</button>
+          . The parent carries the purchase cost and funding; this unit's costs are not added again to totals.
+        </div>
+      )}
+      {deal.parent_deal_id && !parent && (
+        <div role="note" style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber,marginTop:8}}>
+          {current?.status === 'dead'
+            ? 'The parent deal has fallen through, so this deal is counted on its own.'
+            : 'The parent deal is not available (deleted or not shared with you), so this deal is counted on its own.'}
+        </div>
+      )}
+      {units.length > 0 && (
+        <div style={{marginTop:10}}>
+          <span style={eyebrow}>Units ({units.length})</span>
+          <div style={{display:'grid',gap:4}}>
+            {units.map(u => (
+              <div key={u.id} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                <button type="button" style={link} onClick={()=>onOpenDeal && onOpenDeal(u)}>{nm(u)} →</button>
+                <span style={{fontFamily:SANS,fontSize:FS.xs,color:(STATUS_CFG[u.status]||STATUS_CFG.analysing).color}}>{(STATUS_CFG[u.status]||STATUS_CFG.analysing).label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{fontFamily:SANS,fontSize:FS.xs,color:T.muted,marginTop:6}}>
+            This deal carries the cash commitment for the whole acquisition. Units are tracked for progress and letting.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── REFURBISHMENT LINK ────────────────────────────────────────────────────────
+// Shown from Completed onwards. Links the deal to an existing Refurbs project
+// (deals.refurb_project_id) or creates one through the existing
+// createRefurbProject, never a duplicate: before creating it looks for a
+// project already made from this deal, on the chosen property, or with the
+// same name or address, and offers to link that instead.
+function RefurbLinkCard({ deal, allDeals, properties, refurbProjects, linked, showToast, confirmDialog, onLink, onCreated, T }) {
+  const [mode, setMode] = useState(null) // null | 'link' | 'create'
+  const [pickProject, setPickProject] = useState('')
+  const [pickProperty, setPickProperty] = useState('')
+  const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
+  const candidates = useMemo(() => refurbProjectCandidates(deal, properties, allDeals), [deal, properties, allDeals])
+  const propertyOptions = useMemo(() => propertiesForRefurb(deal, properties), [deal, properties])
+  const extraProjects = useMemo(() => refurbProjects.filter(p => !(properties || []).some(pr => pr.id === p.property_id && (pr.refurb_projects || []).some(x => x.id === p.id))), [refurbProjects, properties])
+
+  const card = { background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'16px 18px', minWidth:0 }
+  const eyebrow = { fontFamily:mono, fontSize:FS.xs, color:T.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8, display:'block' }
+  const field = { width:'100%', fontFamily:SANS, fontSize:FS.sm, background:T.surface, border:`1px solid ${T.border}`, color:T.text, borderRadius:8, padding:'8px 12px' }
+  const propName = p => p ? (p.name || p.address || 'Property') : ''
+
+  async function create() {
+    if (busyRef.current) return
+    const property = propertyOptions.find(p => p.id === pickProperty)
+    if (!property) { showToast('Choose the property the refurb is on', 'error'); return }
+    busyRef.current = true
+    setBusy(true)
+    try {
+      const dup = findDuplicateRefurbProject(deal, properties, property.id, extraProjects)
+      if (dup) {
+        const ok = await confirmDialog({
+          title: 'A refurb project already exists',
+          body: `${dup.reason} "${dup.project.title || 'Refurbishment'}"${dup.project.property ? ` on ${propName(dup.project.property)}` : ''}. Link this deal to it instead? A second project is not created.`,
+          confirmLabel: 'Link existing project',
+          cancelLabel: 'Cancel',
+        })
+        if (ok) { await onLink(dup.project.id); setMode(null) }
+        return
+      }
+      const lines = await api.fetchDealCostLines(deal.id).catch(() => [])
+      const project = await api.createRefurbProject(refurbProjectFieldsFromDeal(deal, property, lines))
+      onCreated && onCreated({ ...project, property })
+      await onLink(project.id)
+      setMode(null)
+      showToast('Refurb project created and linked')
+    } catch (e) {
+      showToast(e.message || 'Could not create the refurb project', 'error')
+    } finally {
+      busyRef.current = false
+      setBusy(false)
+    }
+  }
+
+  if (deal.refurb_project_id) {
+    const t = linked ? projectTotals(linked) : null
+    const st = linked ? (REFURB_STAGE_CFG[linked.stage] || REFURB_STAGE_CFG.planned) : null
+    return (
+      <div style={card}>
+        <span style={eyebrow}>Refurbishment</span>
+        {linked ? (<>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:6}}>
+            <span style={{fontFamily:SANS,fontSize:FS.body,fontWeight:700,color:T.text}}>{linked.title || 'Refurbishment'}</span>
+            <span style={{fontFamily:SANS,fontSize:FS.xs,fontWeight:700,padding:'2px 8px',borderRadius:10,background:st.color+'22',color:st.color}}>{st.label}</span>
+          </div>
+          {linked.property && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:8}}>{propName(linked.property)}</div>}
+          <div style={{display:'flex',gap:16,flexWrap:'wrap',fontFamily:mono,fontSize:12}}>
+            <span>Budget <b>{fmt(t.agreed)}</b></span>
+            <span>Paid <b>{fmt(t.paid)}</b></span>
+            <span>Outstanding <b style={{color:t.remaining>0?T.goldText:T.green}}>{fmt(t.remaining)}</b></span>
+          </div>
+          <div style={{fontFamily:SANS,fontSize:FS.xs,color:T.muted,marginTop:6}}>The deal's refurb figures now come from this project, not its own estimate.</div>
+        </>) : (
+          <div role="note" style={{fontFamily:SANS,fontSize:FS.sm,color:T.amber}}>The linked refurb project could not be found (deleted, or not shared with you). The deal's own refurb estimate is used.</div>
+        )}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+          {linked && <a href={`#/refurbs/project/${linked.id}/overview`} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.goldText,textDecoration:'none',alignSelf:'center'}}>Open in Refurbs →</a>}
+          <Button variant="ghost" size="sm" onClick={async ()=>{
+            if (!await confirmDialog({ title: 'Unlink the refurb project?', body: 'The project itself is kept in Refurbs; only the link from this deal is removed.', confirmLabel: 'Unlink' })) return
+            onLink(null)
+          }}>Unlink</Button>
+        </div>
+      </div>
+    )
+  }
+
+  const flatBudget = dealRefurbBudget(deal, [])
+  return (
+    <div style={card}>
+      <span style={eyebrow}>Refurbishment</span>
+      <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginBottom:10}}>
+        Not linked to a refurb project. Link the existing one, or create it here, so the deal shows its budget and payments.
+      </div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <Button variant={mode==='link'?'primary':'secondary'} size="sm" onClick={()=>setMode(mode==='link'?null:'link')}>Link existing project</Button>
+        <Button variant={mode==='create'?'primary':'secondary'} size="sm" onClick={()=>{
+          setMode(mode==='create'?null:'create')
+          if (!pickProperty && propertyOptions[0]) setPickProperty(propertyOptions[0].id)
+        }}>Create refurb project</Button>
+      </div>
+      {mode === 'link' && (
+        <div style={{marginTop:10,display:'grid',gap:8}}>
+          {candidates.length === 0 ? (
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,fontStyle:'italic'}}>No refurb projects for this company or address yet.</div>
+          ) : (<>
+            <select value={pickProject} onChange={e=>setPickProject(e.target.value)} aria-label="Refurb project to link" style={field}>
+              <option value="">Choose a project…</option>
+              {candidates.map(p => (
+                <option key={p.id} value={p.id}>
+                  {(p.title || 'Refurbishment')} · {propName(p.property)} · {fmt(projectTotals(p).agreed)}{p.linkedDeals.length ? ` · linked to ${p.linkedDeals[0].name || 'another deal'}` : ''}
+                </option>
+              ))}
+            </select>
+            <div><Button size="sm" disabled={!pickProject} onClick={async ()=>{ await onLink(pickProject); setMode(null) }}>Link</Button></div>
+          </>)}
+        </div>
+      )}
+      {mode === 'create' && (
+        <div style={{marginTop:10,display:'grid',gap:8}}>
+          {propertyOptions.length === 0 ? (
+            <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted}}>
+              A refurb project belongs to a property, and this company has none yet. Use “Convert to property”: it creates the refurb project from this deal's refurb budget.
+            </div>
+          ) : (<>
+            <label>
+              <span style={{...eyebrow,marginBottom:4}}>Property</span>
+              <select value={pickProperty} onChange={e=>setPickProperty(e.target.value)} aria-label="Property for the refurb project" style={field}>
+                {propertyOptions.map(p => (<option key={p.id} value={p.id}>{propName(p)}{p.address && p.address !== p.name ? ` · ${p.address}` : ''}</option>))}
+              </select>
+            </label>
+            <div style={{fontFamily:SANS,fontSize:FS.xs,color:T.muted}}>
+              Title “{deal.name || deal.address || 'Refurbishment'}”. Budget: the deal's refurb cost lines if entered, else its refurb cost{flatBudget.source ? ` (${fmt(flatBudget.amount)})` : ' (not entered, so £0)'}.
+            </div>
+            <div><Button size="sm" loading={busy} disabled={busy || !pickProperty} onClick={create}>Create and link</Button></div>
+          </>)}
+        </div>
       )}
     </div>
   )
@@ -2753,7 +3013,7 @@ function DealLifecycleTracker({ status, events, T }) {
   )
 }
 
-function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
+function DealPipeline({ deals, groups = null, companies, docCounts = {}, onOpen, onNew, T }) {
   // Columns come straight from STATUS_CFG so the board can never drift from
   // the status list again. It previously hard-coded 'offer' and 'complete'
   // where the statuses are 'offer_made' and 'completed', so every deal in
@@ -2762,7 +3022,11 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
   const STAGES = Object.entries(STATUS_CFG).map(([key, v]) => ({ key, label: v.label, color: v.color }))
 
   const byStage = Object.fromEntries(STAGES.map(s => [s.key, deals.filter(d => (d.status||'analysing') === s.key)]))
-  const totalValue = deals.filter(d=>d.status!=='dead').reduce((s,d)=>s+(d.purchase_price||0),0)
+  // Units of a group purchase are counted on their parent, never again.
+  // Resolved within the deals on the board, so a unit whose parent is
+  // filtered out counts on its own.
+  const boardGroups = resolveDealGroups(deals)
+  const totalValue = deals.filter(d=>d.status!=='dead' && !boardGroups.isUnit(d)).reduce((s,d)=>s+(d.purchase_price||0),0)
   const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 
   return (
@@ -2829,6 +3093,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                           </span>
                         )}
                         <DocCountBadge counts={counts} T={T}/>
+                        <GroupBadge deal={deal} groups={groups} T={T}/>
                       </div>
                     </div>
                   )

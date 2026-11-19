@@ -1687,7 +1687,12 @@ export default function App({ initialLoginMode = null } = {}) {
           // becomes the agreed price, its refurb dates the schedule, and
           // the BRRR end value the expected value after. Best-effort.
           const d = convertSourceDeal
-          if (d && (Number(d.refurb_cost) > 0 || d.refurb_start_date || d.refurb_end_date)) {
+          // Never a duplicate: a deal already linked to a refurb project
+          // (deals.refurb_project_id), or one a project already points back
+          // at (refurb_projects.deal_id), keeps that project instead.
+          const alreadyLinked = !!d?.refurb_project_id || properties.some(p =>
+            (p.refurb_projects || []).some(rp => !rp.deleted_at && rp.deal_id === convertSourceDealId))
+          if (d && !alreadyLinked && (Number(d.refurb_cost) > 0 || d.refurb_start_date || d.refurb_end_date)) {
             try {
               const project = await api.createRefurbProject({
                 property_id: propId, company_id: created.company_id || d.company_id || null,
@@ -2112,6 +2117,7 @@ export default function App({ initialLoginMode = null } = {}) {
             setDashboardDeals={setDashboardDeals} convertRefreshKey={convertRefreshKey}
             setEditProp={setEditProp} setConvertSourceDealId={setConvertSourceDealId}
             setConvertSourceDeal={setConvertSourceDeal} setShowAddProp={setShowAddProp}
+            setProperties={setProperties}
           />}
 
           {view==='properties'&&<CompaniesPanelContext.Provider value={companiesPanelContext}><PropertiesView

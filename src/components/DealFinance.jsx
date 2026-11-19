@@ -130,7 +130,7 @@ function SummaryFigure({ label, value, sub, color, T, extra }) {
  * estimate fallback follows unsaved calculator edits. It never writes the
  * deal itself, so the main form's auto-save is untouched.
  */
-export function CostsFundingTab({ deal, showToast }) {
+export function CostsFundingTab({ deal, showToast, refurbProject = null, group = null, onOpenDeal }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const [lines, setLines] = useState(null)
@@ -150,8 +150,8 @@ export function CostsFundingTab({ deal, showToast }) {
 
   const position = useMemo(() => completionPosition(deal, lines || []), [deal, lines])
   const cash = useMemo(() => dealCashNeed(deal, lines || [], funding || []), [deal, lines, funding])
-  const refurb = useMemo(() => refurbPosition(deal, lines || []), [deal, lines])
-  const explain = useMemo(() => explainDeal(deal, lines || [], funding || []), [deal, lines, funding])
+  const refurb = useMemo(() => refurbPosition(deal, lines || [], refurbProject), [deal, lines, refurbProject])
+  const explain = useMemo(() => explainDeal(deal, lines || [], funding || [], refurbProject), [deal, lines, funding, refurbProject])
 
   async function save(kind, row) {
     const setRows = kind === 'cost' ? setLines : setFunding
@@ -190,6 +190,20 @@ export function CostsFundingTab({ deal, showToast }) {
             {position.missing.join(' · ')}. Add the completion statement below to replace the estimate.
           </div>
         )}
+        {group?.parent && (
+          <div role="note" style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,background:T.blue+'14',border:`1px solid ${T.blue}44`,borderRadius:8,padding:'8px 12px',marginBottom:14}}>
+            Unit of the group purchase{' '}
+            <button type="button" onClick={()=>onOpenDeal && onOpenDeal(group.parent)}
+              style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.goldText,background:'none',border:'none',padding:0,cursor:onOpenDeal?'pointer':'default'}}>
+              {group.parent.name || group.parent.address || 'Untitled deal'}
+            </button>. The parent carries the cash commitment: the figures below are this unit's allocation and are not added again to company cash need, the funding gap or export totals.
+          </div>
+        )}
+        {group?.units?.length > 0 && (
+          <div role="note" style={{fontFamily:SANS,fontSize:FS.sm,color:T.text,background:T.blue+'14',border:`1px solid ${T.blue}44`,borderRadius:8,padding:'8px 12px',marginBottom:14}}>
+            Group purchase covering {group.units.length} unit{group.units.length === 1 ? '' : 's'}. This deal carries the cash commitment for the whole acquisition; enter the purchase cost lines and funding here.
+          </div>
+        )}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:16}}>
           <SummaryFigure T={T} label="Completion total" value={gbp(position.total)} sub={isEstimate ? 'Estimate' : `${lines.filter(l=>!['on_account','deposit_paid','refurb','contingency','other'].includes(l.category)).length} lines`}/>
           <SummaryFigure T={T} label="Credits" value={gbp(position.credits)} sub="On account + deposit paid"/>
@@ -207,7 +221,9 @@ export function CostsFundingTab({ deal, showToast }) {
               inputs={[{ label: 'Balance due', value: gbp(position.balanceDue) }, { label: 'Confirmed financing', value: gbp(cash.financingConfirmed) }]}
               result={gbp(cash.need)} note="Expected financing is not deducted until it is confirmed. Company cash rows are not financing."/>}/>
           <SummaryFigure T={T} label="Refurb forecast" value={refurb.amount == null ? 'Not entered' : gbp(refurb.amount)}
-            sub={refurb.amount == null ? 'Separate from completion' : `Separate · ${refurb.basis === 'estimate' ? 'deal estimate' : COST_STATE_LABEL[refurb.state]}`}/>
+            sub={refurb.amount == null ? 'Separate from completion'
+              : refurb.basis === 'project' ? `From ${refurb.source} · ${gbp(refurb.paid)} paid · ${gbp(refurb.outstanding)} outstanding`
+              : `Separate · ${refurb.basis === 'estimate' ? 'deal estimate' : COST_STATE_LABEL[refurb.state]}`}/>
         </div>
         <div style={{marginTop:14}}>
           <button type="button" onClick={()=>setShowExplain(v=>!v)} aria-expanded={showExplain}
@@ -264,14 +280,14 @@ export function CostsFundingTab({ deal, showToast }) {
  * (Deals brief §10). Lines, funding and cash are fetched once per export,
  * for exactly these deals, and every figure comes from lib/dealFinance.
  */
-export function DealExportMenu({ deals = [], companies = [], filters = {}, title, scopeLabel = 'deals', showToast, align = 'right' }) {
+export function DealExportMenu({ deals = [], companies = [], filters = {}, title, scopeLabel = 'deals', showToast, align = 'right', refurbProjects = null }) {
   const [busy, setBusy] = useState(false)
   async function run(kind) {
     if (busy) return
     if (!deals.length) { showToast && showToast('No deals to export with these filters', 'error'); return }
     setBusy(true)
     try {
-      const res = await runDealExport(kind, { deals, companies, filters, title })
+      const res = await runDealExport(kind, { deals, companies, filters, title, refurbProjects })
       const what = kind === 'pdf' ? `PDF downloaded (${res.pages} page${res.pages === 1 ? '' : 's'})` : kind === 'lines' ? 'Cost lines CSV downloaded' : 'Deals CSV downloaded'
       showToast && showToast(`${what}: ${res.deals} deal${res.deals === 1 ? '' : 's'}`)
     } catch (e) { showToast && showToast('Could not export: ' + (e.message || 'unknown error'), 'error') }
@@ -294,7 +310,7 @@ export function DealExportMenu({ deals = [], companies = [], filters = {}, title
  * selected company. Lines, funding and cash are loaded once for the live
  * deals shown; cards never fetch on their own.
  */
-export function CompanyFundingDashboard({ deals = [], companies = [], coFilter, setCoFilter, onOpenDeal, user, showToast }) {
+export function CompanyFundingDashboard({ deals = [], companies = [], coFilter, setCoFilter, onOpenDeal, user, showToast, refurbProjects = null }) {
   const { T } = useTheme()
   const confirmDialog = useConfirm()
   const liveDeals = useMemo(() => deals.filter(isLiveDeal), [deals])
@@ -340,11 +356,11 @@ export function CompanyFundingDashboard({ deals = [], companies = [], coFilter, 
     for (const g of groups) {
       const gDeals = deals.filter(d => g.unassigned ? !d.company_id : d.company_id === g.id)
       const cashPosition = g.unassigned ? null : (cashByCompany[g.id] || [])[0] || null
-      const args = { deals: gDeals, linesByDeal: data.linesByDeal, fundingByDeal: data.fundingByDeal, cashPosition, from: today }
+      const args = { deals: gDeals, linesByDeal: data.linesByDeal, fundingByDeal: data.fundingByDeal, cashPosition, from: today, refurbProjects }
       out[g.id] = { next30: companyFunding({ ...args, to: in30 }), all: companyFunding(args) }
     }
     return out
-  }, [groups, deals, data, cashByCompany, today, in30])
+  }, [groups, deals, data, cashByCompany, today, in30, refurbProjects])
 
   if (!groups.length || !deals.length) return null
   const selected = coFilter !== 'all' ? groups.find(g => g.id === coFilter) : null
@@ -379,7 +395,7 @@ export function CompanyFundingDashboard({ deals = [], companies = [], coFilter, 
         })}
       </div>
       {selected && data.loaded && (
-        <CompanyFundingPanel group={selected} funding={summaries[selected.id].all} companies={companies}
+        <CompanyFundingPanel group={selected} funding={summaries[selected.id].all} companies={companies} refurbProjects={refurbProjects}
           positions={selected.unassigned ? [] : (cashByCompany[selected.id] || [])}
           onOpenDeal={onOpenDeal} user={user} showToast={showToast} confirmDialog={confirmDialog}
           onCashChanged={loadCash} deals={deals} T={T}/>
@@ -398,7 +414,7 @@ function CardFigure({ label, value, note, color, muted, T }) {
   )
 }
 
-function CompanyFundingPanel({ group, funding, positions, deals, companies, onOpenDeal, user, showToast, confirmDialog, onCashChanged, T }) {
+function CompanyFundingPanel({ group, funding, positions, deals, companies, onOpenDeal, user, showToast, confirmDialog, onCashChanged, refurbProjects, T }) {
   const [form, setForm] = useState({ amount: null, as_of: isoToday(), note: '' })
   const [busy, setBusy] = useState(false)
   const rowsById = useMemo(() => Object.fromEntries(funding.rows.map(r => [r.dealId, r])), [funding.rows])
@@ -433,7 +449,7 @@ function CompanyFundingPanel({ group, funding, positions, deals, companies, onOp
       <button key={id} type="button" onClick={()=>d && onOpenDeal && onOpenDeal(d)}
         title={r?.need == null ? (r?.missing || []).join('; ') : `${gbp(r.need)}${r.basis === 'estimate' ? ' (estimate)' : ''}`}
         style={{fontFamily:SANS,fontSize:FS.sm,color:T.goldText,background:'none',border:'none',padding:0,cursor:'pointer',textAlign:'left'}}>
-        {r?.name || 'Deal'}{r?.need == null ? ' (unknown)' : r.basis === 'estimate' ? ' (est.)' : ''}
+        {r?.name || 'Deal'}{r?.need == null ? ' (unknown)' : r.basis === 'estimate' ? ' (est.)' : ''}{r?.units?.length ? ` · group of ${r.units.length}` : ''}
       </button>
     )
   }
@@ -448,7 +464,7 @@ function CompanyFundingPanel({ group, funding, positions, deals, companies, onOp
             All live deals: need {gbp(funding.needInWindow)} · gap <span style={{color:funding.fundingGap>0?T.red:T.green,fontWeight:700}}>{gbp(funding.fundingGap)}</span>
             {funding.refurbForecast > 0 && <> · with refurb {gbp(funding.combinedGap)}</>}
           </div>
-          <DealExportMenu deals={companyDeals} companies={companies} title={group.name} scopeLabel={`${group.name} deals`}
+          <DealExportMenu deals={companyDeals} companies={companies} title={group.name} scopeLabel={`${group.name} deals`} refurbProjects={refurbProjects}
             filters={{ companyId: group.unassigned ? '' : group.id, status: 'all' }} showToast={showToast}/>
         </div>
       </div>
