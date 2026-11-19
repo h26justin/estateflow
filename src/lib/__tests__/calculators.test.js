@@ -60,6 +60,13 @@ describe('calcDealScore', () => {
   it('reports insufficient data without a price', () => {
     expect(calcDealScore({}).rating).toBe('insufficient-data')
   })
+
+  it('is not assessed (not Poor) when no rent is entered', () => {
+    const s = calcDealScore({ purchase_price: 150000, monthly_rent: '' })
+    expect(s.score).toBeNull()
+    expect(s.rating).toBe('not-assessed')
+    expect(s.reason).toMatch(/Rent not entered/)
+  })
 })
 
 describe('calcPropertyHealthScore', () => {

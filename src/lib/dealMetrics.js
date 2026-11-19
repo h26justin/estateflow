@@ -101,7 +101,15 @@ export function computeDealMetrics(d = {}) {
   const brrrMoneyLeft = cashIn - brrrCapitalReleased
   const brrrCashOnCash = brrrMoneyLeft > 0 ? (annualProfit / brrrMoneyLeft) * 100 : 0
 
+  // Returns need a price and a rent. Without them yields, profit and the
+  // score would read 0% / a loss / Poor, which says the deal is bad when it
+  // is only unassessed (Deals brief, 18 Nov 2026). Screens show this reason
+  // instead of the figures.
+  const notAssessed = price <= 0 ? 'Purchase price not entered, so returns are not assessed'
+    : gross <= 0 ? 'Rent not entered, so returns are not assessed' : null
+
   return {
+    notAssessed,
     price, isCash, sd, loanAmount, deposit, mortgageFee, otherAcquisition, totalAcquisition, cashIn,
     isInterestOnly, mortgageTerm, monthlyRepayment,
     grossMonthlyRent: gross, effectiveRent, agentFeeVat, agentFeeMultiplier, agentFee, maintenanceFee,

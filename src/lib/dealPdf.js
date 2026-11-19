@@ -196,12 +196,14 @@ export async function exportDealPdf({ deal, company }) {
 
   // ── headline ───────────────────────────────────────────────────────────
   const scoreColor = score.score >= 70 ? GREEN : score.score >= 55 ? AMBER : RED
+  // No rent (or price): returns are unassessed, not 0% / a loss / Poor.
+  const NA = m.notAssessed ? 'Not assessed' : null
   statBoxes([
     { label: 'Purchase price', value: money(m.price) },
     { label: 'Cash in deal', value: money(m.cashIn), sub: m.isCash ? 'Cash purchase' : `after ${money(m.loanAmount)} loan` },
-    { label: 'Monthly profit', value: money(m.monthlyProfit), color: m.monthlyProfit >= 0 ? GREEN : RED, sub: `${money(m.annualProfit)} a year` },
-    { label: 'Gross yield', value: pct(m.grossYield), sub: `net ${pct(m.netYield)}` },
-    { label: 'Deal score', value: `${score.score}/100`, color: scoreColor, sub: score.rating },
+    NA ? { label: 'Monthly profit', value: NA, sub: 'rent not entered' } : { label: 'Monthly profit', value: money(m.monthlyProfit), color: m.monthlyProfit >= 0 ? GREEN : RED, sub: `${money(m.annualProfit)} a year` },
+    NA ? { label: 'Gross yield', value: NA } : { label: 'Gross yield', value: pct(m.grossYield), sub: `net ${pct(m.netYield)}` },
+    score.score == null ? { label: 'Deal score', value: NA || 'Not assessed' } : { label: 'Deal score', value: `${score.score}/100`, color: scoreColor, sub: score.rating },
   ])
 
   // ── acquisition ────────────────────────────────────────────────────────
@@ -270,18 +272,19 @@ export async function exportDealPdf({ deal, company }) {
     isHmo && num(deal.hmo_council_tax_monthly) ? ['Council tax', money(num(deal.hmo_council_tax_monthly))] : null,
     isHmo && num(deal.hmo_licence_annual) ? ['HMO licence (monthly equivalent)', money(num(deal.hmo_licence_annual) / 12)] : null,
     ['Total monthly costs', money(m.totalMonthlyCosts), RED],
-    ['Monthly profit / loss', money(m.monthlyProfit), m.monthlyProfit >= 0 ? GREEN : RED],
+    ['Monthly profit / loss', NA || money(m.monthlyProfit), NA ? INK : m.monthlyProfit >= 0 ? GREEN : RED],
   ])
 
   // ── returns ────────────────────────────────────────────────────────────
   sectionTitle('Returns')
   kvRows([
-    ['Annual profit', money(m.annualProfit), m.annualProfit >= 0 ? GREEN : RED],
-    ['Gross yield', pct(m.grossYield)],
-    ['Net yield (after all costs)', pct(m.netYield)],
-    ['Cash-on-cash return', pct(m.cashOnCash)],
-    ['Return on capital employed', pct(m.roce)],
-    ['Payback period', m.payback > 0 ? m.payback.toFixed(1) + ' years' : '—'],
+    ['Annual profit', NA || money(m.annualProfit), NA ? INK : m.annualProfit >= 0 ? GREEN : RED],
+    ['Gross yield', NA || pct(m.grossYield)],
+    ['Net yield (after all costs)', NA || pct(m.netYield)],
+    ['Cash-on-cash return', NA || pct(m.cashOnCash)],
+    ['Return on capital employed', NA || pct(m.roce)],
+    ['Payback period', NA || (m.payback > 0 ? m.payback.toFixed(1) + ' years' : '—')],
+    NA ? ['Why', m.notAssessed] : null,
   ])
 
   if (isBrrr) {
@@ -390,7 +393,7 @@ export async function exportDealPdf({ deal, company }) {
   sectionTitle('Deal score & stress test')
   const labels = { yield: 'Yield', dscr: 'DSCR', stress: 'Stress test', cash_on_cash: 'Cash-on-cash', ltv: 'LTV' }
   kvRows([
-    ['Overall score', `${score.score} / 100  ·  ${score.rating}`, scoreColor],
+    score.score == null ? ['Overall score', 'Not assessed: ' + (score.reason || 'rent not entered')] : ['Overall score', `${score.score} / 100  ·  ${score.rating}`, scoreColor],
     ...Object.entries(score.breakdown || {}).map(([k, b]) => [labels[k] || k, `${b.value}  ·  ${b.points}/${b.max} pts`]),
   ])
   if (Array.isArray(stress) && stress.length) {
