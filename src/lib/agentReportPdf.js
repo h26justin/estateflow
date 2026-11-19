@@ -260,6 +260,7 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   ]
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`)
   if (s.overlapProperties?.length) notes.push(`Check for rent charged twice (overlapping rent periods): ${s.overlapProperties.slice(0, 8).join(', ')}${s.overlapProperties.length > 8 ? ` and ${s.overlapProperties.length - 8} more` : ''}.`)
+  if (s.aged?.total > 0) notes.push(`Owed by age (what needs doing): days since each payment window closed, all rent since 1 Jan ${GO_LIVE_YEAR}; historic = opening arrears from before tracking began, age unknown.`)
   if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? 'property' : 'properties'} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`)
   ensure(notes.length * 3.6 + 4)
   notes.forEach(n => { text(n, M, y + 2); y += 3.6 })
@@ -280,6 +281,27 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
       String(c.missedMonths || '-'), c.oldestMissed || '-', red(c.shortfallYear + c.arrears),
       c.shortfallTenancy == null ? { t: 'start unknown', color: P.faint } : { t: `${money0(c.shortfallTenancy)} since ${dateShort(c.tenancyStart)}`, color: c.shortfallTenancy > 0 ? RED : P.faint, size: 6.8 }],
   })), { emptyText: 'Nothing owed: every collectible month is paid.', totals: owing.length ? ['Total', '', '', String(s.missedMonths), '', red(s.shortfallYear + s.arrears), ''] : null })
+
+  // Arrears by age (rent brief C7): the same properties, owed split by how
+  // long ago each payment window closed. Historic = opening arrears from
+  // before tracking began, which have no reliable age.
+  if (owing.length && s.aged) {
+    const age = (v, col) => ({ t: v > 0 ? money0(v) : '-', color: v > 0 ? col : P.faint, bold: v > 0 })
+    const ageCells = a => [age(a['0-30'], AMBER), age(a['31-60'], RED), age(a['61-90'], RED), age(a['90+'], RED), age(a.historic, P.slate), age(a.total, RED)]
+    const coRows = model.byCompany.length > 1 ? model.byCompany.filter(g => g.aged?.total > 0).map(g => ({
+      tint: P.tile, bar: brandColour(g.color), cells: [{ t: g.company, bold: true, color: P.ink }, { t: 'company total', color: P.muted }, ...ageCells(g.aged)],
+    })) : []
+    ensure(30)
+    font(6.8, 'bold', P.muted); text('OWED BY AGE - DAYS SINCE THE PAYMENT WINDOW CLOSED', M, y + 3); y += 5
+    table([
+      { label: 'Property', w: 50 }, { label: 'Company', w: 26 },
+      { label: '0-30 days', w: 18, align: 'right' }, { label: '31-60', w: 18, align: 'right' }, { label: '61-90', w: 18, align: 'right' },
+      { label: '90+', w: 18, align: 'right' }, { label: 'Historic', w: 18, align: 'right' }, { label: 'Total', w: 20, align: 'right' },
+    ], [...owing.map(c => ({
+      bar: brandColour(model.byCompany.find(g => g.companyId === c.companyId)?.color),
+      cells: [{ t: c.name, bold: true, color: P.ink }, shortCo(c.company), ...ageCells(c.aged)],
+    })), ...coRows], { totals: ['All companies', '', ...ageCells(s.aged)] })
+  }
 
   const daysEmpty = c => (c.vacantSince ? Math.max(0, Math.round((Date.parse(model.asOf) - Date.parse(c.vacantSince)) / 864e5)) : null)
   const notLet = [...model.notLet].filter(c => !c.stl).sort((a, b) => (a.lettable === b.lettable ? (daysEmpty(b) ?? -1) - (daysEmpty(a) ?? -1) : a.lettable ? -1 : 1))

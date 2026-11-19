@@ -616,8 +616,10 @@ export function contributionAsOf(e, asOf) {
 // has passed, due today on its due date, otherwise in its window. `owed` (the
 // period's fallen-due balance, after any unverified amount) is authoritative:
 // the split is trimmed from the latest instalment back to add up to it.
-function instalmentSplit(e, asOf, owed) {
-  const out = { overdue: 0, dueToday: 0, inWindow: 0 }
+// instalmentParts() is the per-instalment detail behind it: each fallen-due
+// instalment's unpaid part (after the trim), its bucket and its own window
+// end, which agedArrears() uses to age the overdue ones.
+function instalmentParts(e, asOf, owed) {
   let left = e.received == null ? 0 : Number(e.received) || 0
   const parts = []
   for (const x of e.instalments) {
@@ -627,7 +629,7 @@ function instalmentSplit(e, asOf, owed) {
     const unpaid = round2(x.amount - paid)
     if (unpaid <= 0.005) continue
     const bucket = asOf > (x.windowEnd || x.date) ? 'overdue' : x.date === asOf ? 'dueToday' : 'inWindow'
-    parts.push({ bucket, unpaid })
+    parts.push({ bucket, unpaid, date: x.date, windowEnd: x.windowEnd || x.date })
   }
   let excess = round2(parts.reduce((s, x) => s + x.unpaid, 0) - owed)
   for (let i = parts.length - 1; i >= 0 && excess > 0.005; i--) {
@@ -635,6 +637,11 @@ function instalmentSplit(e, asOf, owed) {
     parts[i].unpaid = round2(parts[i].unpaid - cut)
     excess = round2(excess - cut)
   }
+  return { parts, excess }
+}
+function instalmentSplit(e, asOf, owed) {
+  const out = { overdue: 0, dueToday: 0, inWindow: 0 }
+  const { parts, excess } = instalmentParts(e, asOf, owed)
   for (const x of parts) out[x.bucket] = round2(out[x.bucket] + x.unpaid)
   if (excess < -0.005) out.inWindow = round2(out.inWindow - excess)
   return out
@@ -655,6 +662,61 @@ export function missedOwed(e, asOf) {
   const b = periodBreakdown(e, asOf)
   if (b.split) return round2(b.split.overdue || 0)
   return b.bucket === 'overdue' ? round2(b.owed) : 0
+}
+
+// ── Arrears by age (rent brief C7) ──────────────────────────────────────────
+// How old each overdue amount is: days from the payment-window end of the
+// period it belongs to (for non-monthly rent, of each instalment on its own)
+// to `asOf`. Overdue starts the day after the window closes, so the youngest
+// arrears are 1 day old. Historic opening arrears date from before tracking
+// began and have no reliable age: they get their own bucket.
+export const AGE_BUCKETS = ['0-30', '31-60', '61-90', '90+']
+export const AGE_LABEL = { '0-30': '0-30 days', '31-60': '31-60 days', '61-90': '61-90 days', '90+': '90+ days', historic: 'Historic' }
+export function ageBucket(days) {
+  return days <= 30 ? '0-30' : days <= 60 ? '31-60' : days <= 90 ? '61-90' : '90+'
+}
+const ageDays = (from, asOf) => (from ? daysBetween(from, asOf) - 1 : 0)
+export function emptyAged() { return { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, historic: 0, total: 0 } }
+
+// One period's overdue amount (missedOwed) split by age: [{ bucket, amount }].
+// Always adds up to missedOwed(e, asOf) to the penny.
+export function periodAgeing(e, asOf) {
+  const owed = missedOwed(e, asOf)
+  if (!(owed > 0)) return []
+  if (!e.instalments) return [{ bucket: ageBucket(ageDays(e.windowEnd || e.dueDate || e.periodEnd, asOf)), amount: owed }]
+  const b = periodBreakdown(e, asOf)
+  const out = instalmentParts(e, asOf, b.owed).parts.filter(x => x.bucket === 'overdue' && x.unpaid > 0)
+    .map(x => ({ bucket: ageBucket(ageDays(x.windowEnd, asOf)), amount: x.unpaid }))
+  if (!out.length) return [{ bucket: ageBucket(ageDays(e.windowEnd || e.dueDate || e.periodEnd, asOf)), amount: owed }]
+  // missedOwed is authoritative: any rounding residue goes on the newest part.
+  const diff = round2(owed - out.reduce((s, x) => s + x.amount, 0))
+  if (diff !== 0) out[out.length - 1].amount = round2(out[out.length - 1].amount + diff)
+  return out
+}
+
+// Aged arrears from already-evaluated periods plus a historic balance.
+export function agedFromEvals(evals, asOf, historic = 0) {
+  const out = emptyAged()
+  for (const e of evals || []) for (const x of periodAgeing(e, asOf)) out[x.bucket] = round2(out[x.bucket] + x.amount)
+  out.historic = round2(Math.max(0, Number(historic) || 0))
+  out.total = round2(AGE_BUCKETS.reduce((s, k) => s + out[k], 0) + out.historic)
+  return out
+}
+
+// A property's arrears by age on `asOf`: { '0-30', '31-60', '61-90', '90+',
+// historic, total }, in pounds to the penny. The buckets add up to the
+// overdue rent (missedOwed over every period, the tracker's overdue figure)
+// plus the unpaid historic opening balance (arrearsSummary().balance).
+export function agedArrears(property, asOf = isoToday()) {
+  if (!property) return emptyAged()
+  return agedFromEvals(evaluateProperty(property, { today: asOf }), asOf, arrearsSummary(property).balance)
+}
+
+// Add aged arrears together (company and portfolio totals).
+export function sumAged(list) {
+  const out = emptyAged()
+  for (const a of list || []) for (const k of [...AGE_BUCKETS, 'historic', 'total']) out[k] = round2(out[k] + (Number(a?.[k]) || 0))
+  return out
 }
 
 // Where an unpaid amount sits on `asOf`. Only 'overdue' is arrears. For a

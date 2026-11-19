@@ -470,8 +470,7 @@ function contributionAsOf(e, asOf) {
   const prepaid = Math.min(later, Math.max(0, rec - due));
   return { ...c, due, received: round2(Math.min(rec, due)), notYetDue: round2(later - prepaid) };
 }
-function instalmentSplit(e, asOf, owed) {
-  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+function instalmentParts(e, asOf, owed) {
   let left = e.received == null ? 0 : Number(e.received) || 0;
   const parts = [];
   for (const x of e.instalments) {
@@ -481,7 +480,7 @@ function instalmentSplit(e, asOf, owed) {
     const unpaid = round2(x.amount - paid);
     if (unpaid <= 5e-3) continue;
     const bucket = asOf > (x.windowEnd || x.date) ? "overdue" : x.date === asOf ? "dueToday" : "inWindow";
-    parts.push({ bucket, unpaid });
+    parts.push({ bucket, unpaid, date: x.date, windowEnd: x.windowEnd || x.date });
   }
   let excess = round2(parts.reduce((s, x) => s + x.unpaid, 0) - owed);
   for (let i = parts.length - 1; i >= 0 && excess > 5e-3; i--) {
@@ -489,6 +488,11 @@ function instalmentSplit(e, asOf, owed) {
     parts[i].unpaid = round2(parts[i].unpaid - cut);
     excess = round2(excess - cut);
   }
+  return { parts, excess };
+}
+function instalmentSplit(e, asOf, owed) {
+  const out = { overdue: 0, dueToday: 0, inWindow: 0 };
+  const { parts, excess } = instalmentParts(e, asOf, owed);
   for (const x of parts) out[x.bucket] = round2(out[x.bucket] + x.unpaid);
   if (excess < -5e-3) out.inWindow = round2(out.inWindow - excess);
   return out;
