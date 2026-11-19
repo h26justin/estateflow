@@ -12,6 +12,11 @@
 //   - Fallen-through, deleted and completed deals are listed when the filters
 //     include them, but never counted in funding totals (isLiveDeal).
 //   - Deals with no company are kept, in their own "Unassigned" group.
+//   - Group purchases (lib/dealGroups): the parent carries the cash
+//     commitment. A unit of a parent present in the same company group is
+//     listed straight after it ("Part of <parent>") and left out of every
+//     total; a unit whose parent is missing, filtered out or fallen through
+//     is counted on its own, with a data-quality note.
 //   - Contacts are never included: deal rows are built from a whitelist, and
 //     cost-line / funding notes (free text that can hold a name or a phone
 //     number) are left out.
@@ -19,20 +24,21 @@
 // Pure: no React, no DB, no DOM.
 
 import {
-  refurbPosition, dealCashNeed, companyFunding, isLiveDeal,
+  refurbPosition, refurbCashAmount, dealCashNeed, companyFunding, isLiveDeal,
   latestCashPosition, dealDueDate, costCategoryGroup,
   COST_CATEGORY_LABEL, COST_STATE_LABEL, FUNDING_SOURCE_LABEL, FUNDING_STATE_LABEL,
   dateGB,
 } from './dealFinance'
 import { computeDealMetrics } from './dealMetrics'
 import { DEAL_STATUS_LABEL, ATTENTION_CFG, isPostCompletion } from './dealStages'
+import { resolveDealGroups, orderUnitsUnderParents } from './dealGroups'
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const pence = v => Math.round((Number(v) || 0) * 100)
 const sumMoney = values => values.reduce((s, v) => s + pence(v), 0) / 100
 
 const BASIS_LABEL = { lines: 'Itemised cost lines', estimate: 'Estimate from deal fields' }
-const REFURB_BASIS_LABEL = { lines: 'Itemised cost lines', estimate: 'Estimate from deal refurb cost', none: 'Not entered' }
+const REFURB_BASIS_LABEL = { project: 'Linked refurb project', lines: 'Itemised cost lines', estimate: 'Estimate from deal refurb cost', none: 'Not entered' }
 const GROUP_LABEL = { completion: 'Completion', credit: 'Credit (deducted)', refurb: 'Refurb (separate)', other: 'Not counted' }
 
 /** Normalise asOf (Date, ISO string or nothing) to { iso, date, label }. */
@@ -114,17 +120,23 @@ function safeFunding(f) {
  * One deal's export row. Built only from the fields listed here; the deal
  * record itself is never copied in, so contact and solicitor fields cannot
  * leak through.
+ *   parent        the group parent this deal is a counted unit of, or null
+ *   units         the deal's own counted units (it is a group parent)
+ *   groupNote     why a deal with parent_deal_id is counted on its own
+ *   refurbProjects linked refurb projects (array or map), optional
  */
-export function buildDealRow(deal = {}, { lines = [], funding = [], companyName = 'Unassigned' } = {}) {
+export function buildDealRow(deal = {}, { lines = [], funding = [], companyName = 'Unassigned', parent = null, units = [], groupNote = null, refurbProjects = null } = {}) {
   const cn = dealCashNeed(deal, lines, funding)
   const p = cn.position
-  const r = refurbPosition(deal, lines)
+  const r = refurbPosition(deal, lines, refurbProjects)
   const m = computeDealMetrics(deal)
   const excluded = excludedReason(deal)
   const due = dealDueDate(deal)
+  const live = isLiveDeal(deal)
+  const partOf = parent ? (parent.name || parent.address || 'Untitled deal') : null
   const missing = [...p.missing]
   if (!due) missing.push('No expected or target completion date')
-  if (r.amount == null && !excluded) missing.push(...r.missing)
+  if (!excluded) missing.push(...r.missing)
   if (p.basis === 'estimate' && p.total != null) missing.push('Figures are an estimate until the completion statement is entered')
   const estimateComponents = p.basis === 'estimate' ? p.components.filter(c => !c.credit) : []
   return {
@@ -150,13 +162,22 @@ export function buildDealRow(deal = {}, { lines = [], funding = [], companyName 
     financingConfirmed: cn.financingConfirmed,
     financingExpected: cn.financingExpected,
     cashNeed: cn.need,
-    refurbForecast: r.amount,
+    refurbForecast: refurbCashAmount(r),
+    refurbBudget: r.amount,
+    refurbPaid: r.basis === 'project' ? r.paid : null,
     refurbBasis: r.basis,
-    refurbBasisLabel: REFURB_BASIS_LABEL[r.basis] || r.basis,
+    refurbBasisLabel: r.basis === 'project' ? `${REFURB_BASIS_LABEL.project}: outstanding of ${r.source}` : (REFURB_BASIS_LABEL[r.basis] || r.basis),
     expectedCompletion: due,
-    countsInFunding: isLiveDeal(deal),
+    // live: by stage. countsInFunding: live and not a unit counted on its parent.
+    live,
+    countsInFunding: live && !parent,
     excludedReason: excluded,
     groupPurchase: !!deal.parent_deal_id,
+    groupRole: parent ? 'unit' : (units || []).length ? 'parent' : null,
+    parentId: parent ? parent.id : null,
+    partOf,
+    unitCount: (units || []).length,
+    groupNote: groupNote || null,
     missing,
     components: p.components.map(c => ({ key: c.key, label: c.label, amount: c.amount, state: c.state, credit: !!c.credit })),
     estimateComponents: estimateComponents.map(c => ({ key: c.key, label: c.label, amount: c.amount })),
@@ -172,12 +193,15 @@ const byDueThenName = (a, b) => {
 }
 
 function groupTotals(rows, funding, cash) {
+  // Counted: live and not a unit of a group purchase (its parent carries it).
   const live = rows.filter(r => r.countsInFunding)
+  const liveByStage = rows.filter(r => r.live)
   const known = live.filter(r => r.balanceDue != null)
   return {
     deals: rows.length,
-    liveDeals: live.length,
-    excludedDeals: rows.length - live.length,
+    liveDeals: liveByStage.length,
+    excludedDeals: rows.length - liveByStage.length,
+    groupUnits: liveByStage.length - live.length,
     price: sumMoney(live.filter(r => r.price != null).map(r => r.price)),
     balanceDue: sumMoney(known.map(r => r.balanceDue)),
     financingConfirmed: sumMoney(live.map(r => r.financingConfirmed)),
@@ -202,6 +226,8 @@ const METHODOLOGY = [
   'Cash available: the latest cash position recorded for each company, counted once per company and never per deal. If none is recorded it is taken as £0.',
   'Funding gap = the larger of £0 and (cash needed across the company\'s live deals - cash available). For All Deals the gap is the sum of each company\'s gap, because one company\'s cash cannot fund another company\'s purchase.',
   'Refurb forecast is shown separately from completion: refurb and contingency lines, or the deal\'s refurb cost as an estimate. "With refurb" adds it to the cash need before deducting cash.',
+  'Group purchases: one acquisition covering several units is entered as a parent deal with each unit as a child deal. The parent carries the cash commitment (its cost lines and funding). Units are listed under their parent as "Part of <parent>"; their own cost lines are shown as an allocation of the parent\'s cost and are never added again to cash need, the funding gap, the refurb forecast or any total. A unit whose parent is not in the export (deleted, filtered out, in another company or fallen through) is counted on its own and flagged under Data quality.',
+  'Refurb linked to a Refurbs project: the project\'s budget (agreed price plus extras), paid and outstanding figures replace the deal\'s own estimate, and the outstanding amount is what counts as refurb still to fund.',
   'Live deals only count towards funding: fallen-through, deleted and completed deals are listed when the filters include them but are not added to any total.',
   'A total is only as firm as its weakest line: if any line is an estimate, the total is shown as an estimate.',
   'Unknown is not zero: a deal with no price and no completion statement has an unknown cash need. It is counted as unknown and left out of the sums rather than shown as £0.',
@@ -220,7 +246,7 @@ const METHODOLOGY = [
  * @param {Date|string} [o.asOf]      defaults to now
  * @param {object}   [o.filters]      { companyId, status, search, to }
  */
-export function buildDealExportModel({ deals = [], companies = [], linesByDeal = {}, fundingByDeal = {}, cashByCompany = {}, asOf, filters = {} } = {}) {
+export function buildDealExportModel({ deals = [], companies = [], linesByDeal = {}, fundingByDeal = {}, cashByCompany = {}, refurbProjects = null, asOf, filters = {} } = {}) {
   const when = normaliseAsOf(asOf)
   const companyList = companies || []
   const known = new Set(companyList.map(c => c.id))
@@ -228,9 +254,15 @@ export function buildDealExportModel({ deals = [], companies = [], linesByDeal =
   const windowTo = filters?.to || null
 
   function buildGroup(company, gDeals, cashRow) {
-    const rows = gDeals.map(d => buildDealRow(d, { lines: lines[d.id] || [], funding: fundingMap[d.id] || [], companyName: company.name }))
-      .sort(byDueThenName)
-    const funding = companyFunding({ deals: gDeals, linesByDeal: lines, fundingByDeal: fundingMap, cashPosition: cashRow, from: when.date, to: windowTo })
+    // Groups are resolved within this company's deals: a parent filtered out
+    // of the export, or in another company, leaves its units standalone.
+    const groups = resolveDealGroups(gDeals)
+    const sorted = gDeals.map(d => buildDealRow(d, {
+      lines: lines[d.id] || [], funding: fundingMap[d.id] || [], companyName: company.name,
+      parent: groups.parentFor(d), units: groups.unitsOf(d), groupNote: groups.orphanFor(d)?.text || null, refurbProjects,
+    })).sort(byDueThenName)
+    const rows = orderUnitsUnderParents(sorted, r => r.id, r => r.parentId)
+    const funding = companyFunding({ deals: gDeals, linesByDeal: lines, fundingByDeal: fundingMap, cashPosition: cashRow, from: when.date, to: windowTo, refurbProjects })
     return { company, deals: rows, totals: groupTotals(rows, funding, funding.cash), funding }
   }
   const cashFor = id => {
@@ -253,6 +285,7 @@ export function buildDealExportModel({ deals = [], companies = [], linesByDeal =
     deals: t.reduce((s, x) => s + x.deals, 0),
     liveDeals: t.reduce((s, x) => s + x.liveDeals, 0),
     excludedDeals: t.reduce((s, x) => s + x.excludedDeals, 0),
+    groupUnits: t.reduce((s, x) => s + x.groupUnits, 0),
     price: sumMoney(t.map(x => x.price)),
     balanceDue: sumMoney(t.map(x => x.balanceDue)),
     financingConfirmed: sumMoney(t.map(x => x.financingConfirmed)),
@@ -272,7 +305,7 @@ export function buildDealExportModel({ deals = [], companies = [], linesByDeal =
     if (!g.company.unassigned && !g.funding.cash && g.totals.liveDeals) dataQuality.push(`${g.company.name}: no cash position recorded, so cash available is taken as £0.`)
     for (const r of g.deals) {
       if (r.countsInFunding && r.missing.length) dataQuality.push(`${r.name} (${g.company.name}): ${r.missing.join('; ')}.`)
-      if (r.groupPurchase) dataQuality.push(`${r.name} (${g.company.name}): part of a group purchase. Check its costs are not also entered on the parent deal.`)
+      if (r.groupNote) dataQuality.push(`${r.name} (${g.company.name}): ${r.groupNote}. If the parent deal already carries its cost, it is counted twice; check before relying on the totals.`)
     }
   }
   if (unassigned) {
@@ -281,6 +314,7 @@ export function buildDealExportModel({ deals = [], companies = [], linesByDeal =
   }
   if (totals.excludedDeals) dataQuality.push(`${totals.excludedDeals} deal${totals.excludedDeals === 1 ? ' is' : 's are'} fallen through, deleted or completed: listed for reference, not counted in funding totals.`)
   if (!dataQuality.length) dataQuality.push('No gaps found: every live deal has a price or completion statement, a completion date and a refurb forecast.')
+  if (totals.groupUnits) dataQuality.push(`${totals.groupUnits} unit${totals.groupUnits === 1 ? ' of a group purchase is' : 's of group purchases are'} listed under ${totals.groupUnits === 1 ? 'its' : 'their'} parent deal and not added to any total; the parent carries the purchase cost and funding.`)
 
   const filterLabels = describeFilters(filters, companyList)
   return {
@@ -309,7 +343,7 @@ export const DEALS_CSV_HEADERS = [
   'as_of', 'filters', 'company', 'deal', 'address', 'stage', 'attention', 'next_action', 'next_action_owner', 'next_action_due',
   'purchase_price_gbp', 'completion_total_gbp', 'credits_gbp', 'balance_due_gbp', 'basis', 'state',
   'financing_confirmed_gbp', 'financing_expected_gbp', 'cash_need_gbp', 'refurb_forecast_gbp', 'refurb_basis',
-  'expected_completion', 'counts_in_funding', 'excluded_reason', 'missing_data',
+  'expected_completion', 'counts_in_funding', 'excluded_reason', 'missing_data', 'group_role', 'part_of',
 ]
 
 /** One row per deal, header first. GBP as plain numbers, ISO dates. */
@@ -322,6 +356,8 @@ export function dealsToCsv(model) {
         money(r.price), money(r.completionTotal), money(r.credits), money(r.balanceDue), r.basisLabel, r.stateLabel,
         money(r.financingConfirmed), money(r.financingExpected), money(r.cashNeed), money(r.refurbForecast), r.refurbBasisLabel,
         r.expectedCompletion || '', yesNo(r.countsInFunding), r.excludedReason || '', r.missing.join('; '),
+        r.groupRole === 'unit' ? 'Unit' : r.groupRole === 'parent' ? `Group parent (${r.unitCount} unit${r.unitCount === 1 ? '' : 's'})` : '',
+        r.partOf || '',
       ])
     }
   }

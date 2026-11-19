@@ -30,9 +30,17 @@
 // excluded. The time bucket comes from the earliest target_end_date.
 // Properties never appear in 'committed' or 'pipeline': once it is a
 // property record the purchase has already happened.
+//
+// GROUP PURCHASES (lib/dealGroups): the parent deal carries the purchase.
+// A unit of a parent present in the same list is listed (with its own
+// figures kept on _cashflow.own) but adds nothing to any total, so a unit
+// that repeats the parent's purchase_price is never counted twice: the
+// parent wins. A unit whose parent is missing or fallen through counts on
+// its own.
 
 import { propertyRefurbSummary } from './refurbs'
 import { stampDuty, depositPercent } from './dealMetrics'
+import { resolveDealGroups } from './dealGroups'
 
 // ── Status grouping ──────────────────────────────────────────────────────
 // We collapse the 8 deal statuses into 3 buckets that match real cashflow
@@ -236,7 +244,8 @@ export function aggregateDeals(deals, properties = []) {
   const byBucket = {}
   for (const b of TIME_BUCKETS) byBucket[b] = { count: 0, headline: 0, cashOut: 0, deals: [], properties: [] }
 
-  let totalHeadline = 0, totalCashOut = 0, totalCount = 0
+  let totalHeadline = 0, totalCashOut = 0, totalCount = 0, groupUnitCount = 0
+  const groups = resolveDealGroups(deals || [])
 
   // Pass 1: deals
   for (const d of (deals || [])) {
@@ -244,6 +253,15 @@ export function aggregateDeals(deals, properties = []) {
     const cf = dealCashflow(d)
     if (!cf.group) continue
     const bucket = dealTimeBucket(d)
+    const parent = groups.parentFor(d)
+    if (parent) {
+      // Unit of a group purchase: shown under its stage, never added.
+      const unitCf = { headline: 0, cashOut: 0, group: cf.group, own: cf, unitOf: parent.name || parent.address || 'Untitled deal' }
+      byGroup[cf.group].deals.push({ ...d, _cashflow: unitCf })
+      byBucket[bucket].deals.push({ ...d, _cashflow: unitCf })
+      groupUnitCount += 1
+      continue
+    }
     // Attach cashflow numbers to a copy of the deal so the UI can render
     // per-row breakdowns without recomputing. Same approach as properties
     // (we attach _refurbCashflow on properties below).
@@ -310,5 +328,6 @@ export function aggregateDeals(deals, properties = []) {
     byGroup, byBucket,
     totalHeadline, totalCashOut, totalCount,
     propertyRefurbCount, propertyRefurbUndated,
+    groupUnitCount,
   }
 }

@@ -95,14 +95,14 @@ export function drawDealsPdf(JsPDF, model, { title, mark = null } = {}) {
         { label: 'Confirmed financing', w: 0.12, align: 'right' }, { label: 'Cash need', w: 0.11, align: 'right' }, { label: 'Refurb', w: 0.09, align: 'right' }, { label: 'Basis', w: 0.12 }],
       rows: g.deals.map(r => ({
         cells: [
-          [r.name, r.excludedReason || r.attention || r.nextAction || ''],
-          r.excludedReason ? [r.stage, 'Not counted'] : r.stage,
+          [r.partOf ? `  ${r.name}` : r.name, r.partOf ? `Part of ${r.partOf}` : (r.excludedReason || (r.groupRole === 'parent' ? `Group purchase · ${r.unitCount} unit${r.unitCount === 1 ? '' : 's'}` : '') || r.attention || r.nextAction || '')],
+          r.excludedReason ? [r.stage, 'Not counted'] : r.partOf ? [r.stage, 'Counted on parent'] : r.stage,
           r.expectedCompletion ? dateGB(r.expectedCompletion) : 'No date',
           money(r.balanceDue), money(r.financingConfirmed), money(r.cashNeed),
           r.refurbForecast == null ? '-' : money(r.refurbForecast),
           r.basis === 'lines' ? ['Itemised', r.stateLabel] : 'Estimate',
         ],
-        colors: r.excludedReason ? Array(8).fill(P.faint) : undefined,
+        colors: r.excludedReason || r.partOf ? Array(8).fill(P.faint) : undefined,
       })),
       totals: ['Counted in funding', '', '', money(g.totals.balanceDue), money(g.totals.financingConfirmed), money(g.totals.cashNeed), money(g.totals.refurbForecast), ''],
     })

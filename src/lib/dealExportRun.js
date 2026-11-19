@@ -25,13 +25,14 @@ export async function loadDealExportInputs(deals = []) {
 
 /**
  * @param {'pdf'|'csv'|'lines'} kind
- * @param {object} o  { deals, companies, filters, title, inputs? }
+ * @param {object} o  { deals, companies, filters, title, inputs?, refurbProjects? }
  *   inputs: { linesByDeal, fundingByDeal, cashByCompany } already loaded.
+ *   refurbProjects: refurb projects already on the page, for linked deals.
  * Returns { kind, deals, pages? }.
  */
-export async function runDealExport(kind, { deals = [], companies = [], filters = {}, title, inputs } = {}) {
+export async function runDealExport(kind, { deals = [], companies = [], filters = {}, title, inputs, refurbProjects = null } = {}) {
   const data = inputs || await loadDealExportInputs(deals)
-  const model = buildDealExportModel({ deals, companies, ...data, asOf: new Date(), filters })
+  const model = buildDealExportModel({ deals, companies, ...data, refurbProjects, asOf: new Date(), filters })
   if (kind === EXPORT_KINDS.pdf) {
     const { exportDealsPdf } = await import('./dealExportPdf')
     const res = await exportDealsPdf(model, { title })
