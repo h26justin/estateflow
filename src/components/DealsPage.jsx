@@ -23,6 +23,7 @@ import { DEAL_STATUS_CFG, DEAL_STATUS_LABEL, LEGAL_STEPS, LEGAL_STEP_LABEL, lega
 import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
 import ActionMenu from './ActionMenu'
+import { CostsFundingTab, CompanyFundingDashboard } from './DealFinance'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
@@ -652,6 +653,13 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
           in sync. The 'Unassigned' chip catches deals with company_id=null
           (drafts that haven't been assigned to a company yet). */}
       {companyFilterPills}
+
+      {/* Company funding cards (Deals brief §6): click to filter by company;
+          the selected company opens its weekly funding schedule. */}
+      {!loading && !loadError && (
+        <CompanyFundingDashboard deals={deals} companies={companies} coFilter={coFilter} setCoFilter={setCoFilter}
+          onOpenDeal={openDeal} user={user} showToast={showToast}/>
+      )}
 
       {/* Cashflow panel — aggregate cash commitments across all live deals.
           Hidden when there are no deals; collapsible by the user.
@@ -1339,7 +1347,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
 
       {/* Tabs */}
       <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:`1px solid ${T.border}`,flexWrap:'wrap'}}>
-        {[['calculator','Calculator'],['tracker','Purchase Tracker'],['contacts','Contacts'],['documents','Photos & Documents']].map(([k,l])=>(
+        {[['calculator','Calculator'],['costs','Costs & funding'],['tracker','Purchase Tracker'],['contacts','Contacts'],['documents','Photos & Documents']].map(([k,l])=>(
           <button key={k} style={tabStyle(k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -1878,6 +1886,13 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
             </>)
           })()}
         </div>
+      )}
+
+      {/* ── COSTS & FUNDING TAB ──
+          Its own rows only; never writes the deal, so the form's auto-save
+          is unaffected. Gets the live form so the estimate follows edits. */}
+      {tab === 'costs' && (
+        <CostsFundingTab deal={form} showToast={showToast}/>
       )}
 
       {/* ── PURCHASE TRACKER TAB ── */}

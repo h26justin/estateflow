@@ -498,3 +498,127 @@ export async function deleteAddressBookEntry(id) {
   const { error } = await supabase.from('address_book').delete().eq('id', id)
   if (error) throw error
 }
+
+// ── COST LINES, FUNDING AND COMPANY CASH (Deals brief §6) ───────────────────
+// Tables from supabase-migrations/2026-11-19_deal_costs_funding_cash.sql;
+// RLS mirrors deal_milestones (and company access for cash positions). The
+// maths lives in src/lib/dealFinance.js. Writes are whitelisted so a row read
+// back from the DB (id, created_by, timestamps) can be passed straight in.
+const COST_LINE_FIELDS = ['category', 'label', 'amount', 'state', 'due_date', 'vat_included', 'source', 'notes']
+const FUNDING_FIELDS = ['source', 'label', 'amount', 'state', 'expected_date', 'notes']
+// .in() puts every id in the URL; keep each request comfortably short.
+const IN_CHUNK = 150
+
+function pickFields(row, fields) {
+  const out = {}
+  for (const f of fields) if (row[f] !== undefined) out[f] = row[f] === '' ? null : row[f]
+  return out
+}
+
+async function fetchByDealIds(table, dealIds, select = '*') {
+  const ids = [...new Set((dealIds || []).filter(Boolean))]
+  const out = []
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const chunk = ids.slice(i, i + IN_CHUNK)
+    out.push(...await fetchAllPages(() => supabase.from(table).select(select)
+      .in('deal_id', chunk)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })))
+  }
+  return out
+}
+
+function groupByDeal(rows) {
+  const out = {}
+  for (const r of rows || []) (out[r.deal_id] || (out[r.deal_id] = [])).push(r)
+  return out
+}
+
+async function upsertDealChild(table, fields, dealId, row) {
+  const values = pickFields(row, fields)
+  if (row.id) {
+    const { data, error } = await supabase.from(table)
+      .update({ ...values, updated_at: new Date().toISOString() })
+      .eq('id', row.id).select().single()
+    if (error) throw error
+    return data
+  }
+  const { data, error } = await supabase.from(table)
+    .insert({ ...values, deal_id: dealId }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchDealCostLines(dealId) {
+  const { data, error } = await supabase.from('deal_cost_lines')
+    .select('*').eq('deal_id', dealId).order('created_at').order('id')
+  if (error) throw error
+  return data || []
+}
+
+export const upsertDealCostLine = (dealId, line) => upsertDealChild('deal_cost_lines', COST_LINE_FIELDS, dealId, line)
+
+export async function deleteDealCostLine(id) {
+  const { error } = await supabase.from('deal_cost_lines').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Cost lines for many deals, as { [dealId]: rows }. */
+export async function fetchCostLinesForDeals(dealIds) {
+  return groupByDeal(await fetchByDealIds('deal_cost_lines', dealIds))
+}
+
+export async function fetchDealFunding(dealId) {
+  const { data, error } = await supabase.from('deal_funding')
+    .select('*').eq('deal_id', dealId).order('created_at').order('id')
+  if (error) throw error
+  return data || []
+}
+
+export const upsertDealFunding = (dealId, row) => upsertDealChild('deal_funding', FUNDING_FIELDS, dealId, row)
+
+export async function deleteDealFunding(id) {
+  const { error } = await supabase.from('deal_funding').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Funding rows for many deals, as { [dealId]: rows }. */
+export async function fetchFundingForDeals(dealIds) {
+  return groupByDeal(await fetchByDealIds('deal_funding', dealIds))
+}
+
+/**
+ * Cash position history for the companies, newest first (as_of, then
+ * created_at). The first row per company is its current cash.
+ */
+export async function fetchCompanyCashPositions(companyIds) {
+  const ids = [...new Set((companyIds || []).filter(Boolean))]
+  const out = []
+  for (let i = 0; i < ids.length; i += IN_CHUNK) {
+    const chunk = ids.slice(i, i + IN_CHUNK)
+    out.push(...await fetchAllPages(() => supabase.from('company_cash_positions')
+      .select('id, company_id, as_of, amount, note, created_by, created_at')
+      .in('company_id', chunk)
+      .order('as_of', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })))
+  }
+  return out
+}
+
+// History table: insert and delete only (no update policy). A correction is
+// a new position. Both are logged, as they move the funding gap directors see.
+export async function addCompanyCashPosition({ company_id, as_of, amount, note }, userId) {
+  const row = { company_id, amount, note: note || null }
+  if (as_of) row.as_of = as_of
+  const { data, error } = await supabase.from('company_cash_positions').insert(row).select().single()
+  if (error) throw error
+  if (userId) { try { await logAction(userId, company_id, 'company_cash.added', 'company_cash_position', data.id, null, { as_of: data.as_of, amount: data.amount }) } catch (_) {} }
+  return data
+}
+
+export async function deleteCompanyCashPosition(id, userId, companyId = null) {
+  const { error } = await supabase.from('company_cash_positions').delete().eq('id', id)
+  if (error) throw error
+  if (userId) { try { await logAction(userId, companyId, 'company_cash.deleted', 'company_cash_position', id, null) } catch (_) {} }
+}
