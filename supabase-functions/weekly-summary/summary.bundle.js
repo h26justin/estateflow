@@ -1004,7 +1004,7 @@ function effectiveExpiry(item, req) {
   if (req?.isCheck && req.cycleMonths && item.issue_date) return addMonthsIso(String(item.issue_date).slice(0, 10), req.cycleMonths);
   return null;
 }
-var collectedOf = (e) => e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected);
+var contrib = (e) => e.needsBackfill ? null : rateContribution(e);
 function rentSection(properties, { asOf, lastWeek, monthFrom }) {
   const out = {
     lastWeek: { expected: 0, received: 0 },
@@ -1018,13 +1018,14 @@ function rentSection(properties, { asOf, lastWeek, monthFrom }) {
     let missed = 0;
     for (const e of evals) {
       if (!RATED.includes(e.state) || e.expected == null || !e.dueDate) continue;
-      if (e.dueDate >= lastWeek.from && e.dueDate <= lastWeek.to) {
-        out.lastWeek.expected = round22(out.lastWeek.expected + e.expected);
-        out.lastWeek.received = round22(out.lastWeek.received + collectedOf(e));
+      const c = contrib(e);
+      if (c && e.dueDate >= lastWeek.from && e.dueDate <= lastWeek.to) {
+        out.lastWeek.expected = round22(out.lastWeek.expected + c.due);
+        out.lastWeek.received = round22(out.lastWeek.received + Math.min(c.received, c.due));
       }
-      if (e.dueDate >= monthFrom && e.dueDate <= asOf) {
-        out.monthToDate.expected = round22(out.monthToDate.expected + e.expected);
-        out.monthToDate.received = round22(out.monthToDate.received + collectedOf(e));
+      if (c && e.dueDate >= monthFrom && e.dueDate <= asOf) {
+        out.monthToDate.expected = round22(out.monthToDate.expected + c.due);
+        out.monthToDate.received = round22(out.monthToDate.received + Math.min(c.received, c.due));
       }
       missed = round22(missed + missedOwed(e, asOf));
     }

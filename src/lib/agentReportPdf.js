@@ -255,10 +255,11 @@ export function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {
   font(6.6, 'normal', P.muted)
   const notes = [
     'Owed = rent still unpaid after its payment window. Due = collected + owed; rent still inside its window is shown under this month.',
-    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent due)` : ''}.`,
+    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are left out of due and collected until the amount is entered${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent)` : ''}.`,
     `Collection % = rent collected / rent due, 1 Jan to ${dateShort(model.asOf)}, months whose payment window has closed only.`,
   ]
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`)
+  if (s.overlapProperties?.length) notes.push(`Check for rent charged twice (overlapping rent periods): ${s.overlapProperties.slice(0, 8).join(', ')}${s.overlapProperties.length > 8 ? ` and ${s.overlapProperties.length - 8} more` : ''}.`)
   if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? 'property' : 'properties'} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`)
   ensure(notes.length * 3.6 + 4)
   notes.forEach(n => { text(n, M, y + 2); y += 3.6 })

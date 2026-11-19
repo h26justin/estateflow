@@ -60,15 +60,26 @@ Current definitions (decided 2 Sep 2026, unchanged by this work):
 - Paid with no amount: Green, "needs backfill", excluded from the tracker rate.
 - Arrears = overdue current rent + unpaid historic opening balances.
 
-**Decisions needed (Tiffany / Justin). No defaults have been chosen silently:**
-1. Should the agent report keep counting paid-with-no-amount months as
-   collected (the tracker does not)? Recommendation: match the tracker and show
-   the excluded value.
-2. Properties with no tenancy record: keep the go-live estimate (now labelled),
-   or show "unable to calculate" until a tenancy is entered (the brief's preference)?
-3. Allocation policy for new receipts: current rent first, then oldest arrears (brief C4)?
-4. Overlapping agent-cycle and calendar-month periods (finding 6): review each
-   case, or have the duplicate detector extend to periods that carry money?
+**Decisions (19 Nov 2026, Justin: "do all").** Each is reversible:
+1. **Paid with no amount:** applied. The agent report and weekly email now
+   match the tracker: these months are left out of both due and collected and
+   reported separately (93 months, £54,143). The report's rate moved from
+   86.3% to 84.4%; the tracker shows 83.1% for the same properties, and the
+   remaining gap is rent still in its window, which the tracker counts as due.
+2. **No tenancy record:** **not changed.** The rulings of 15 and 25 Sep 2026
+   rely on the go-live tenancy assumption, and the engine's tests encode them.
+   The report labels the £30,175 as an estimate. Entering the 21 tenancies
+   resolves it. Reversing those rulings needs an explicit decision.
+3. **Allocation:** applied as a *suggestion*. A "Suggest split" button on the
+   receipt form (`src/lib/allocationSuggest.js`) fills in the lines:
+   - current period first;
+   - then the oldest overdue periods;
+   - then historic arrears;
+   - any surplus is held for review.
+   The user checks the lines and saves. Nothing is posted automatically.
+4. **Overlapping periods:** applied as a review list. The agent report names
+   properties whose charged periods overlap by 3 days or more (32 properties at
+   18 Nov). Nothing is changed automatically.
 
 ## Already in place (retain, do not rebuild)
 

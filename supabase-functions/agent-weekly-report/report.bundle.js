@@ -1072,6 +1072,15 @@ function propertyCard(p, { asOf, year, thisMo }) {
       if (e.fallback) assumedOwed = round23(assumedOwed + o);
     }
   }
+  const charged = evals.filter((e) => !e.superseded && e.expected > 0 && e.periodStart >= GO_LIVE && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(e.state)).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1);
+  const overlaps = [];
+  for (let i = 0; i < charged.length; i++) for (let j = i + 1; j < charged.length; j++) {
+    const a = charged[i], b = charged[j];
+    if (b.periodStart > a.periodEnd) break;
+    const from = b.periodStart, to = a.periodEnd < b.periodEnd ? a.periodEnd : b.periodEnd;
+    const days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1;
+    if (days >= 3) overlaps.push({ a: `${a.periodStart} to ${a.periodEnd}`, b: `${b.periodStart} to ${b.periodEnd}`, days });
+  }
   const paidNoAmount = evals.filter((e) => e.needsBackfill && e.periodStart >= `${year}-01-01` && e.periodStart <= asOf && e.state === STATE.PAID);
   const paidNoAmountValue = round23(paidNoAmount.reduce((s, e) => s + (Number(e.expected) || 0), 0));
   const arrears = Math.max(0, arrearsSummary(p).balance);
@@ -1088,30 +1097,40 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
   const recent = recentMonths(thisMo).map((mo) => {
     const r = tiles.find((x) => x.year === mo.year && x.month === mo.month);
-    const rated = r && [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED].includes(r.state);
-    const due = rated ? round23(r.expected) : 0;
-    const received2 = round23(r?.received || 0);
-    const paidUnrecorded = !!(rated && r.state === STATE.PAID && received2 < due);
-    const collected = paidUnrecorded ? due : received2;
+    let due = 0, collected = 0, paidUnrecorded = false;
+    for (const e of r?.evals || []) {
+      if (e.needsBackfill) {
+        paidUnrecorded = true;
+        continue;
+      }
+      const c = rateContribution(e);
+      if (!c) continue;
+      due = round23(due + c.due);
+      collected = round23(collected + Math.min(c.received, c.due));
+    }
     const gap = round23(Math.max(0, due - collected));
     const open = r && (r.state === STATE.DUE || r.state === STATE.PART_PAID);
     return { ...mo, state: r?.state || null, due, collected, shortfall: open ? 0 : gap, stillDue: open ? gap : 0, assumed: paidUnrecorded };
   });
   const cur = tiles.find((x) => x.year === thisMo.year && x.month === thisMo.month) || null;
   const RATED = [STATE.PAID, STATE.DUE, STATE.PART_PAID, STATE.MISSED];
-  const collectedOf = (e) => e.state === STATE.PAID && (e.received || 0) < e.expected ? e.expected : Math.min(e.received || 0, e.expected);
+  const contrib = (e) => e.needsBackfill ? null : rateContribution(e);
   let yearDue = 0, yearCollected = 0;
   if (!isStl) for (const e of evals) {
     if (![STATE.PAID, STATE.MISSED].includes(e.state) || e.expected == null || e.periodStart < yearStart) continue;
-    yearDue = round23(yearDue + e.expected);
-    yearCollected = round23(yearCollected + collectedOf(e));
+    const c = contrib(e);
+    if (!c) continue;
+    yearDue = round23(yearDue + c.due);
+    yearCollected = round23(yearCollected + Math.min(c.received, c.due));
   }
   const mb = monthBounds(thisMo.year, thisMo.month);
   let monthDue = 0, monthCollected = 0;
   if (!isStl) for (const e of evals) {
     if (e.periodStart < mb.start || e.periodStart > mb.end || !RATED.includes(e.state) || e.expected == null) continue;
-    monthDue = round23(monthDue + e.expected);
-    monthCollected = round23(monthCollected + collectedOf(e));
+    const c = contrib(e);
+    if (!c) continue;
+    monthDue = round23(monthDue + c.due);
+    monthCollected = round23(monthCollected + Math.min(c.received, c.due));
   }
   const firstMissed = evals.filter((e) => missedOwed(e, asOf) > 0).sort((a, b) => a.periodStart < b.periodStart ? -1 : 1)[0];
   return {
@@ -1134,6 +1153,7 @@ function propertyCard(p, { asOf, year, thisMo }) {
     thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
     assumedOwed,
+    overlaps,
     paidNoAmountMonths: paidNoAmount.length,
     paidNoAmountValue,
     missedMonths,
@@ -1269,6 +1289,7 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       noTenancyStart: cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length,
       assumedOwed: round23(cards.reduce((s, c) => s + c.assumedOwed, 0)),
       assumedOwedCount: cards.filter((c) => c.assumedOwed > 0).length,
+      overlapProperties: cards.filter((c) => c.overlaps.length).map((c) => c.name),
       paidNoAmountMonths: cards.reduce((s, c) => s + c.paidNoAmountMonths, 0),
       paidNoAmountValue: round23(cards.reduce((s, c) => s + c.paidNoAmountValue, 0)),
       ...rollUp(cards)
@@ -1681,10 +1702,11 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   font(6.6, "normal", PALETTE.muted);
   const notes = [
     "Owed = rent still unpaid after its payment window. Due = collected + owed; rent still inside its window is shown under this month.",
-    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent due)` : ""}.`,
+    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are left out of due and collected until the amount is entered${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent)` : ""}.`,
     `Collection % = rent collected / rent due, 1 Jan to ${dateShort(model.asOf)}, months whose payment window has closed only.`
   ];
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`);
+  if (s.overlapProperties?.length) notes.push(`Check for rent charged twice (overlapping rent periods): ${s.overlapProperties.slice(0, 8).join(", ")}${s.overlapProperties.length > 8 ? ` and ${s.overlapProperties.length - 8} more` : ""}.`);
   if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? "property" : "properties"} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`);
   ensure(notes.length * 3.6 + 4);
   notes.forEach((n) => {
