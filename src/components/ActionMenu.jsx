@@ -25,7 +25,7 @@ import { Button } from './ui'
  * Disabled items: pass `disabled: true` and they won't trigger.
  * Hidden items: filter them out in the parent before passing.
  */
-export default function ActionMenu({ items = [], buttonLabel = 'More actions', align = 'right' }) {
+export default function ActionMenu({ items = [], buttonLabel = 'More actions', align = 'right', triggerLabel = null, triggerIcon = null, disabled = false }) {
   const { T } = useTheme()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -54,9 +54,16 @@ export default function ActionMenu({ items = [], buttonLabel = 'More actions', a
 
   return (
     <span ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
-      <Button variant="secondary" size="sm" iconOnly ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel}>
-        ⋯
-      </Button>
+      {triggerLabel ? (
+        // Labelled trigger (e.g. "Export") for menus that aren't row actions.
+        <Button variant="secondary" size="sm" icon={triggerIcon || undefined} ref={triggerRef} type="button" disabled={disabled} onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel}>
+          {triggerLabel}
+        </Button>
+      ) : (
+        <Button variant="secondary" size="sm" iconOnly ref={triggerRef} type="button" onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={buttonLabel}>
+          ⋯
+        </Button>
+      )}
       {open && (
         <div role="menu" ref={menuRef} aria-label={buttonLabel}
           onKeyDown={e => {

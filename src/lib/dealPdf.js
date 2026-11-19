@@ -1,6 +1,7 @@
 // ── DEAL PACK PDF ────────────────────────────────────────────────────────────
 // Builds a shareable A4 PDF for one deal: headline numbers, the full
-// calculator breakdown, deal score + stress test, timeline, purchase-tracker
+// calculator breakdown, costs & funding (lib/dealFinance), deal score +
+// stress test, timeline, purchase-tracker
 // progress, contacts, notes, a list of attached documents and the photos
 // themselves. Meant for sending to a partner, broker or lender.
 //
@@ -14,6 +15,7 @@ import * as api from './api'
 import { loadJsPDF } from './pdfLibs'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from './dealMetrics'
 import { DEAL_STATUS_LABEL, legalStepText, showsLegalStep } from './dealStages'
+import { dealCashNeed, refurbPosition, explainDeal, COST_STATE_LABEL, gbp } from './dealFinance'
 
 
 const STATUS_LABEL   = DEAL_STATUS_LABEL
@@ -71,15 +73,24 @@ async function loadLogo() {
  * @param {object} opts
  * @param {object} opts.deal      deal row (or the editor's form state)
  * @param {object} [opts.company] the deal's company row, for the header
+ * @param {object[]} [opts.lines]   the deal's cost lines; fetched when not passed
+ * @param {object[]} [opts.funding] the deal's funding rows; fetched when not passed
  */
-export async function exportDealPdf({ deal, company }) {
+// Contacts are left out unless includeContacts is set: a pack shared outside
+// the business should not carry names, phone numbers or emails (Deals brief
+// §2 and §10; decision 19 Nov 2026).
+export async function exportDealPdf({ deal, company, lines, funding, includeContacts = false }) {
   if (!deal) throw new Error('No deal to export')
 
   // Gather everything up front so page-flow logic below is synchronous.
-  const [contacts, milestones, documents] = await Promise.all([
-    api.fetchDealContacts(deal.id).catch(() => []),
+  // Cost lines / funding that fail to load are null (not []), so the pack
+  // says so instead of quietly falling back to the estimate.
+  const [contacts, milestones, documents, costLines, fundingRows] = await Promise.all([
+    includeContacts ? api.fetchDealContacts(deal.id).catch(() => []) : Promise.resolve([]),
     api.fetchDealMilestones(deal.id).catch(() => []),
     api.fetchDealDocuments(deal.id).catch(() => []),
+    Array.isArray(lines) ? lines : deal.id ? api.fetchDealCostLines(deal.id).catch(() => null) : [],
+    Array.isArray(funding) ? funding : deal.id ? api.fetchDealFunding(deal.id).catch(() => null) : [],
   ])
   const photoDocs = documents.filter(api.isDealPhoto)
   const fileDocs  = documents.filter(d => !api.isDealPhoto(d))
@@ -106,7 +117,7 @@ export async function exportDealPdf({ deal, company }) {
   // (✦ on a milestone label, emoji in a caption) prints as stray characters.
   const clean = (s) => String(s ?? '')
     .replace(/[\u2013\u2014]/g, '-').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u2026/g, '...').replace(/\u2022/g, '-')
+    .replace(/\u2026/g, '...').replace(/\u2022/g, '-').replace(/\u2212/g, '-')
     .replace(/[^\u0009\u000A\u0020-\u007E\u00A0-\u00FF]/g, '').replace(/ {2,}/g, ' ').trim()
   const text = (s, x, yy, opts = {}) => doc.text(clean(s), x, yy, opts)
   const setFont = (size, style = 'normal', color = INK) => { doc.setFontSize(size); doc.setFont('helvetica', style); doc.setTextColor(...color) }
@@ -235,6 +246,33 @@ export async function exportDealPdf({ deal, company }) {
       [m.isInterestOnly ? 'Monthly payment (interest only)' : 'Monthly repayment', money(m.monthlyRepayment)],
       ['Cash in deal', money(m.cashIn), GOLD],
     ])
+  }
+
+  // ── costs & funding (lib/dealFinance, same as the Costs & funding tab) ──
+  sectionTitle('Costs & funding')
+  if (costLines == null || fundingRows == null) {
+    paragraph('Itemised costs and funding could not be loaded, so this section is left out. Download the pack again, or see the Costs & funding tab in the app.', 8.5, MUTED)
+  } else {
+    const cn = dealCashNeed(deal, costLines, fundingRows)
+    const pos = cn.position
+    const rf = refurbPosition(deal, costLines)
+    const stateOf = s => COST_STATE_LABEL[s] || s || ''
+    const amt = v => v == null ? 'Unknown' : gbp(v)
+    kvRows([
+      ...pos.components.filter(c => !c.credit).map(c => [`${c.label}${c.count > 1 ? ` (${c.count} lines)` : ''}  ·  ${stateOf(c.state)}`, gbp(c.amount)]),
+      [pos.basis === 'lines' ? 'Completion total' : 'Completion total (estimate, no completion statement)', amt(pos.total)],
+      ...pos.components.filter(c => c.credit).map(c => [`Less: ${c.label}  ·  ${stateOf(c.state)}`, '-' + gbp(c.amount)]),
+      ['Balance due at completion' + (pos.balanceDue == null ? '' : `  ·  ${stateOf(pos.state)}`), amt(pos.balanceDue), INK],
+      ['Confirmed financing (deducted)', gbp(cn.financingConfirmed)],
+      cn.financingExpected > 0 ? ['Expected financing (not deducted)', gbp(cn.financingExpected), MUTED] : null,
+      ['Cash needed from the company', amt(cn.need), cn.need > 0 ? RED : GREEN],
+      ['Due', cn.dueDate ? dateGB(cn.dueDate) : 'Unscheduled'],
+      ['Refurb forecast (separate)', rf.amount == null ? 'Not entered' : gbp(rf.amount) + (rf.basis === 'estimate' ? ' (estimate)' : '')],
+    ])
+    ensure(8)
+    setFont(8.5, 'bold', MUTED); text('How calculated', M, y); y += 5
+    for (const line of explainDeal(deal, costLines, fundingRows)) paragraph(line, 8.5, INK)
+    if (pos.missing.length) paragraph('Missing: ' + pos.missing.join('; ') + '.', 8, AMBER)
   }
 
   // ── income ─────────────────────────────────────────────────────────────
