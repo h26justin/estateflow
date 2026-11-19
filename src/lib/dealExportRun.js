@@ -1,13 +1,14 @@
 // Runs a Deals export from the UI: loads cost lines, funding and company cash
 // once for the deals being exported, builds the model (lib/dealExport) and
-// downloads it. CSVs go through lib/csv's downloadCsv; the PDF module is
-// imported on demand so it and jsPDF stay out of the Deals page chunk.
+// downloads it. CSVs go through lib/csv's downloadCsv; the PDF and Excel
+// modules are imported on demand so they, jsPDF and write-excel-file stay out
+// of the Deals page chunk.
 
 import * as api from './api'
 import { downloadCsv } from './csv'
 import { buildDealExportModel, dealsToCsv, costLinesToCsv, exportFileName } from './dealExport'
 
-export const EXPORT_KINDS = Object.freeze({ pdf: 'pdf', csv: 'csv', lines: 'lines' })
+export const EXPORT_KINDS = Object.freeze({ pdf: 'pdf', xlsx: 'xlsx', csv: 'csv', lines: 'lines' })
 
 /** Fetch what the model needs for these deals. Cash is the history; the model takes the latest. */
 export async function loadDealExportInputs(deals = []) {
@@ -24,11 +25,11 @@ export async function loadDealExportInputs(deals = []) {
 }
 
 /**
- * @param {'pdf'|'csv'|'lines'} kind
+ * @param {'pdf'|'xlsx'|'csv'|'lines'} kind
  * @param {object} o  { deals, companies, filters, title, inputs?, refurbProjects? }
  *   inputs: { linesByDeal, fundingByDeal, cashByCompany } already loaded.
  *   refurbProjects: refurb projects already on the page, for linked deals.
- * Returns { kind, deals, pages? }.
+ * Returns { kind, deals, pages?, sheets? }.
  */
 export async function runDealExport(kind, { deals = [], companies = [], filters = {}, title, inputs, refurbProjects = null } = {}) {
   const data = inputs || await loadDealExportInputs(deals)
@@ -37,6 +38,11 @@ export async function runDealExport(kind, { deals = [], companies = [], filters 
     const { exportDealsPdf } = await import('./dealExportPdf')
     const res = await exportDealsPdf(model, { title })
     return { kind, deals: model.totals.deals, pages: res.pages }
+  }
+  if (kind === EXPORT_KINDS.xlsx) {
+    const { exportDealsXlsx } = await import('./dealExportXlsx')
+    const res = await exportDealsXlsx(model, { title })
+    return { kind, deals: model.totals.deals, sheets: res.sheets }
   }
   if (kind === EXPORT_KINDS.lines) {
     downloadCsv(exportFileName(model, 'deal-cost-lines', 'csv'), costLinesToCsv(model))

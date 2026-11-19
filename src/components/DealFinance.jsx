@@ -276,7 +276,7 @@ export function CostsFundingTab({ deal, showToast, refurbProject = null, group =
 // ── EXPORT MENU ─────────────────────────────────────────────────────────────
 
 /**
- * "Export" menu: PDF, deals CSV and cost lines CSV for the deals given
+ * "Export" menu: PDF, Excel workbook, deals CSV and cost lines CSV for the deals given
  * (Deals brief §10). Lines, funding and cash are fetched once per export,
  * for exactly these deals, and every figure comes from lib/dealFinance.
  */
@@ -288,7 +288,8 @@ export function DealExportMenu({ deals = [], companies = [], filters = {}, title
     setBusy(true)
     try {
       const res = await runDealExport(kind, { deals, companies, filters, title, refurbProjects })
-      const what = kind === 'pdf' ? `PDF downloaded (${res.pages} page${res.pages === 1 ? '' : 's'})` : kind === 'lines' ? 'Cost lines CSV downloaded' : 'Deals CSV downloaded'
+      const what = kind === 'pdf' ? `PDF downloaded (${res.pages} page${res.pages === 1 ? '' : 's'})`
+        : kind === 'xlsx' ? `Excel workbook downloaded (${res.sheets} sheets)` : kind === 'lines' ? 'Cost lines CSV downloaded' : 'Deals CSV downloaded'
       showToast && showToast(`${what}: ${res.deals} deal${res.deals === 1 ? '' : 's'}`)
     } catch (e) { showToast && showToast('Could not export: ' + (e.message || 'unknown error'), 'error') }
     setBusy(false)
@@ -297,6 +298,7 @@ export function DealExportMenu({ deals = [], companies = [], filters = {}, title
     <ActionMenu triggerLabel={busy ? 'Exporting…' : 'Export'} triggerIcon="download" disabled={busy} align={align}
       buttonLabel={`Export ${scopeLabel}`} items={[
         { label: 'PDF: funding summary', icon: 'file-text', onSelect: () => run('pdf') },
+        { label: 'Excel (.xlsx): workbook', icon: 'download', onSelect: () => run('xlsx') },
         { label: 'CSV: one row per deal', icon: 'download', onSelect: () => run('csv') },
         { label: 'CSV: itemised cost lines', icon: 'download', onSelect: () => run('lines') },
       ]}/>
