@@ -4,7 +4,10 @@
 import { loadPdfjs } from './pdfLibs'
 import { linesFromTextItems, textFromPages } from './pdfText'
 
-export async function extractPdfTextFromFile(file) {
+// One array of reading-order lines per page (page 1 first), so callers can
+// cite the page a value came from. A scanned PDF has no text layer and comes
+// back as empty pages.
+export async function extractPdfPagesFromFile(file) {
   const pdfjsLib = await loadPdfjs()
   let pdf
   try {
@@ -21,5 +24,9 @@ export async function extractPdfTextFromFile(file) {
     const content = await page.getTextContent()
     pages.push(linesFromTextItems(content.items, viewport.transform))
   }
-  return textFromPages(pages)
+  return pages
+}
+
+export async function extractPdfTextFromFile(file) {
+  return textFromPages(await extractPdfPagesFromFile(file))
 }
