@@ -24,6 +24,7 @@ import { pressable } from '../lib/pressable'
 import { Button, EmptyState } from './ui'
 import ActionMenu from './ActionMenu'
 import { CostsFundingTab, CompanyFundingDashboard, DealExportMenu } from './DealFinance'
+import DealDocumentExtract, { isExtractableDoc } from './DealDocumentExtract'
 import { runDealExport } from '../lib/dealExportRun'
 import { resolveDealGroups, groupParentOptions, wouldCreateLoop, groupBadge } from '../lib/dealGroups'
 import { projectsFromProperties, projectTotals, STAGE_CFG as REFURB_STAGE_CFG } from '../lib/refurbs'
@@ -2621,6 +2622,7 @@ function DocumentsTab({ dealId, userId, showToast }) {
   const [dragging, setDragging]   = useState(false)
   const [lightbox, setLightbox]   = useState(null)   // index into `photos`
   const [captionEdit, setCaptionEdit] = useState(null) // { id, value }
+  const [extractDoc, setExtractDoc] = useState(null)   // deal document under assisted import
   const photoInputRef = useRef(null)
   const docInputRef   = useRef(null)
 
@@ -2825,6 +2827,12 @@ function DocumentsTab({ dealId, userId, showToast }) {
                     </button>
                     <div style={{fontFamily:mono, fontSize:FS.xs, color:T.muted, marginTop:2}}>{meta(doc)}</div>
                   </div>
+                  {isExtractableDoc(doc) && (
+                    <Button variant="secondary" size="sm" onClick={() => setExtractDoc(doc)}
+                      title="Suggest figures from a completion statement or offer letter for you to approve">
+                      Extract figures
+                    </Button>
+                  )}
                   <Button variant="secondary" size="sm" onClick={() => remove(doc)} destructive>Remove</Button>
                 </div>
               ))}
@@ -2832,6 +2840,11 @@ function DocumentsTab({ dealId, userId, showToast }) {
           )}
         </div>
       </>)}
+
+      {/* ── ASSISTED IMPORT (Deals brief §9) ── */}
+      {extractDoc && (
+        <DealDocumentExtract dealId={dealId} doc={extractDoc} showToast={showToast} onClose={() => setExtractDoc(null)}/>
+      )}
 
       {/* ── LIGHTBOX ── */}
       {current && (
