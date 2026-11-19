@@ -26,6 +26,7 @@ import { evaluateProperty, groupByMonth, arrearsSummary, isoToday, monthlyRent, 
 import { summariseStl, managerPayouts, observedChannelRates, unitCount } from './stlIncome'
 import { tenancyForDate } from './tenancyUtils'
 import { buildingTailFromName, buildingKeyFromName } from './addressUtils'
+import { explanationLabel } from './arrearsNotes'
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const round2 = n => Math.round((Number(n) || 0) * 100) / 100
@@ -295,8 +296,15 @@ function groupBuildings(cards) {
  * @param {object}   opts.agent      { id, name } estate_agents row
  * @param {object[]} [opts.companies] company rows ({ id, name, color, logo_url })
  * @param {string}   [opts.asOf]     ISO date, default today
+ * @param {boolean}  [opts.includeNotes] add each owing property's arrears
+ *   explanation (rent brief C6) to the Rent owed table. Off by default: notes
+ *   can hold sensitive text, so nothing from them reaches the emailed report
+ *   unless a caller asks for it.
+ * @param {Map}      [opts.notesByProperty] currentNotes() output, fetched by
+ *   the caller. A property with no written reason shows "Awaiting review";
+ *   no text is ever made up.
  */
-export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null } = {}) {
+export function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null, includeNotes = false, notesByProperty = null } = {}) {
   const thisMo = monthKey(asOf)
   const year = thisMo.year
   const scoped = (properties || []).filter(p =>
@@ -353,12 +361,14 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
     received = round2(received + Math.min(m.received || 0, m.expected || 0))
   }
   const owing = cards.filter(c => c.owed > 0 || c.arrears > 0).sort((a, b) => (b.owed + b.arrears) - (a.owed + a.arrears))
+  if (includeNotes) for (const c of owing) c.explanation = explanationLabel(notesByProperty?.get?.(c.id)?.current)
   const notLet = cards.filter(c => !c.let)
 
   return {
     agent: agent ? { id: agent.id, name: agent.name } : null,
     asOf,
     year,
+    includeNotes: !!includeNotes,
     thisMonth: { ...thisMo, label: monthName(thisMo) },
     months: MONTH_SHORT.map((label, i) => ({ month: i + 1, label })),
     recentMonths: recentMonths(thisMo),

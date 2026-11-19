@@ -9,11 +9,12 @@ import * as api from '../lib/api'
 import { useTheme } from '../lib/ThemeContext'
 import MoneyInput from '../lib/MoneyInput'
 import { useConfirm } from '../lib/ConfirmContext'
-import { evaluateProperty, collectionStats, arrearsSummary, isoToday } from '../lib/rentEngine'
+import { evaluateProperty, collectionStats, arrearsSummary, isoToday, propertyArrears } from '../lib/rentEngine'
 import { planProgress, activePlan, PLAN_STATUS_LABEL, PLAN_FREQUENCIES } from '../lib/paymentPlans'
 import { currentTenancy } from '../lib/tenancyUtils'
 import { SkeletonList } from '../lib/Skeleton'
 import { Button } from './ui'
+import ArrearsNotesPanel from './ArrearsNotesPanel'
 
 const money = n => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -39,6 +40,8 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
   const plan = plans ? activePlan(plans) : null
   const prog = plan ? planProgress(plan, receipts) : null
   const tenancy = currentTenancy(property.tenancies || [])
+  // The versioned explanation (rent brief C6) shows wherever rent is owed.
+  const owing = propertyArrears(property) > 0 || cs.outstanding > 0
   const statusColor = { on_track: T.green, due_soon: T.amber, broken: T.red, completed: T.muted, paused: T.blue }
 
   function startPlan(existing) {
@@ -95,6 +98,8 @@ export default function ArrearsPanel({ property, showToast, canEdit = true, onCh
           The property card carries {money(property.arrears)} of arrears typed by hand. Record it as the opening arrears on the tenancy so it is tracked here.
         </div>
       )}
+
+      {owing && <ArrearsNotesPanel property={property} canEdit={canEdit} showToast={showToast} />}
 
       {prog && plan && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 10 }}>
