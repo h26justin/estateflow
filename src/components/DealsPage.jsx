@@ -26,6 +26,10 @@ import ActionMenu from './ActionMenu'
 
 const fmt = n => new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(n||0)
 const fmtPct = n => (n||0).toFixed(1) + '%'
+// Shown in place of a return figure that cannot be worked out yet.
+function NotAssessed({ reason, T }) {
+  return <div title={reason || undefined} style={{fontFamily:SANS,fontSize:FS.sm,fontWeight:700,color:T.muted}}>Not assessed</div>
+}
 const mono = MONO
 
 // Stage list lives in src/lib/dealStages.js (shared with the PDF pack).
@@ -682,7 +686,7 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                 const co = companies.find(c=>c.id===deal.company_id)
                 const sc = STATUS_CFG[deal.status]||STATUS_CFG.analysing
                 // Same maths as the deal editor — see src/lib/dealMetrics.js.
-                const { cashIn, grossMonthlyRent: grossRent, grossYield, monthlyProfit } = computeDealMetrics(deal)
+                const { cashIn, grossMonthlyRent: grossRent, grossYield, monthlyProfit, notAssessed } = computeDealMetrics(deal)
                 const counts = docCounts[deal.id]
                 const inCompare = compareIds.includes(deal.id)
 
@@ -710,8 +714,8 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                         <DealProgressLine deal={deal} T={T}/>
                         <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
                           <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Purchase</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(deal.purchase_price)}</div></div>
-                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div></div>
-                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Mo. profit</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:monthlyProfit>0?T.green:T.red}}>{fmt(monthlyProfit)}</div></div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Gross yield</div>{notAssessed ? <NotAssessed reason={notAssessed} T={T}/> : <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:grossYield>=6?T.green:grossYield>=4?T.amber:T.red}}>{fmtPct(grossYield)}</div>}</div>
+                          <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Mo. profit</div>{notAssessed ? <NotAssessed reason={notAssessed} T={T}/> : <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:monthlyProfit>0?T.green:T.red}}>{fmt(monthlyProfit)}</div>}</div>
                           <div><div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Cash in</div><div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:T.text}}>{fmt(cashIn)}</div></div>
                           {(() => {
                             const scoreData = api.calcDealScore({ ...deal, expected_rent: grossRent })
@@ -719,10 +723,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
                             return (
                               <div>
                                 <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,textTransform:'uppercase',letterSpacing:'0.1em'}}>Deal score</div>
+                                {scoreData.score == null ? <NotAssessed reason={scoreData.reason} T={T}/> :
                                 <div style={{fontFamily:mono,fontSize:13,fontWeight:700,color:scoreColor,display:'flex',alignItems:'center',gap:6}}>
                                   {scoreData.score}/100
                                   <span style={{fontSize:FS.xs,padding:'2px 6px',borderRadius:4,background:scoreColor+'22',color:scoreColor,textTransform:'uppercase'}}>{scoreData.rating}</span>
-                                </div>
+                                </div>}
                               </div>
                             )
                           })()}
@@ -1114,8 +1119,10 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
     sd, loanAmount, mortgageFee, totalAcquisition, cashIn, isInterestOnly, monthlyRepayment,
     grossMonthlyRent, effectiveRent, agentFee, maintenanceFee, hmoExtras, totalMonthlyCosts,
     monthlyProfit, annualProfit, grossYield, netYield, cashOnCash, roce, payback,
-    brrrNewLoan, brrrNewRepayment, brrrMoneyLeft, brrrCashOnCash,
+    brrrNewLoan, brrrNewRepayment, brrrMoneyLeft, brrrCashOnCash, notAssessed,
   } = computeDealMetrics(form)
+  // Unassessed returns read "Not assessed", never 0% or a loss.
+  const NA = 'Not assessed'
 
   async function handleSave() {
     setSaving(true)
@@ -1666,22 +1673,29 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
               <ResultRow label="Effective rent (after void)" value={fmt(effectiveRent)} T={T}/>
               <ResultRow label={`Agent fee (${form.agent_fee_percent||10}%${(form.agent_fee_vat||'ex_vat')==='ex_vat'?' + VAT':' inc VAT'})`} value={fmt(agentFee)} color={T.muted} T={T}/>
               <ResultRow label="Total monthly costs" value={fmt(totalMonthlyCosts)} color={T.red} T={T}/>
-              <ResultRow label="Monthly profit / loss" value={fmt(monthlyProfit)} color={monthlyProfit>0?T.green:T.red} big T={T}/>
-              <ResultRow label="Annual profit" value={fmt(annualProfit)} color={monthlyProfit>0?T.green:T.red} T={T}/>
+              <ResultRow label="Monthly profit / loss" value={notAssessed ? NA : fmt(monthlyProfit)} color={notAssessed ? T.muted : monthlyProfit>0?T.green:T.red} big T={T}/>
+              <ResultRow label="Annual profit" value={notAssessed ? NA : fmt(annualProfit)} color={notAssessed ? T.muted : monthlyProfit>0?T.green:T.red} T={T}/>
+              {notAssessed && <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:6}}>{notAssessed}.</div>}
             </div>
 
             <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
               <span style={sect}>Yield &amp; return metrics</span>
-              <ResultRow label="Gross yield" value={fmtPct(grossYield)} color={grossYield>=6?T.green:grossYield>=4?T.amber:T.red} big T={T}/>
-              <ResultRow label="Net yield (after all costs)" value={fmtPct(netYield)} color={netYield>=4?T.green:netYield>=2?T.amber:T.red} T={T}/>
-              <ResultRow label="Cash-on-cash return" value={fmtPct(cashOnCash)} color={cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} big T={T}/>
-              <ResultRow label="ROCE" value={fmtPct(roce)} color={roce>=8?T.green:roce>=5?T.amber:T.red} T={T}/>
-              <ResultRow label="Payback period" value={payback>0?payback.toFixed(1)+' years':'—'} T={T}/>
+              <ResultRow label="Gross yield" value={notAssessed ? NA : fmtPct(grossYield)} color={notAssessed ? T.muted : grossYield>=6?T.green:grossYield>=4?T.amber:T.red} big T={T}/>
+              <ResultRow label="Net yield (after all costs)" value={notAssessed ? NA : fmtPct(netYield)} color={notAssessed ? T.muted : netYield>=4?T.green:netYield>=2?T.amber:T.red} T={T}/>
+              <ResultRow label="Cash-on-cash return" value={notAssessed ? NA : fmtPct(cashOnCash)} color={notAssessed ? T.muted : cashOnCash>=8?T.green:cashOnCash>=5?T.amber:T.red} big T={T}/>
+              <ResultRow label="ROCE" value={notAssessed ? NA : fmtPct(roce)} color={notAssessed ? T.muted : roce>=8?T.green:roce>=5?T.amber:T.red} T={T}/>
+              <ResultRow label="Payback period" value={notAssessed ? NA : payback>0?payback.toFixed(1)+' years':'—'} T={T}/>
             </div>
 
             {/* ── DSCR, STRESS TEST & OVERALL DEAL SCORE ── */}
             {(() => {
               const scoreData = api.calcDealScore({ ...form, expected_rent: grossMonthlyRent })
+              if (scoreData.score == null) return (
+                <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:14,padding:'20px 22px',marginBottom:12}}>
+                  <span style={sect}>Deal score &amp; stress test</span>
+                  <div style={{fontFamily:SANS,fontSize:FS.sm,color:T.muted,marginTop:8}}>Unassessed. {scoreData.reason}. Enter the expected rent to see the score, its breakdown and the stress test.</div>
+                </div>
+              )
               const scoreColor = scoreData.score >= 70 ? T.green : scoreData.score >= 55 ? T.amber : T.red
               const stressData = form.purchase_type === 'cash' ? null : api.calcStressTest(loanAmount, num('mortgage_term') || 25, grossMonthlyRent * 12, num('mortgage_rate') || 5)
               return (
@@ -2528,11 +2542,11 @@ function CompareModal({ deals, companies, onClose }) {
     { label:'Total cash in', fn: d => fmt(M[d.id].cashIn) },
     { label:'Gross monthly rent', fn: d => fmt(M[d.id].grossMonthlyRent) },
     { label:'Monthly mortgage', fn: d => fmt(M[d.id].monthlyRepayment) },
-    { label:'Monthly profit', fn: d => fmt(M[d.id].monthlyProfit), color: d => M[d.id].monthlyProfit > 0 ? T.green : T.red },
-    { label:'Gross yield', fn: d => M[d.id].price > 0 ? fmtPct(M[d.id].grossYield) : '—', highlight: true },
-    { label:'Net yield', fn: d => M[d.id].price > 0 ? fmtPct(M[d.id].netYield) : '—' },
-    { label:'Cash-on-cash', fn: d => M[d.id].cashIn > 0 ? fmtPct(M[d.id].cashOnCash) : '—' },
-    { label:'Deal score', fn: d => { const sc = api.calcDealScore({ ...d, expected_rent: M[d.id].grossMonthlyRent }); return `${sc.score}/100 · ${sc.rating}` } },
+    { label:'Monthly profit', fn: d => M[d.id].notAssessed ? 'Not assessed' : fmt(M[d.id].monthlyProfit), color: d => M[d.id].notAssessed ? T.muted : M[d.id].monthlyProfit > 0 ? T.green : T.red },
+    { label:'Gross yield', fn: d => M[d.id].notAssessed ? 'Not assessed' : fmtPct(M[d.id].grossYield), highlight: true },
+    { label:'Net yield', fn: d => M[d.id].notAssessed ? 'Not assessed' : fmtPct(M[d.id].netYield) },
+    { label:'Cash-on-cash', fn: d => M[d.id].notAssessed ? 'Not assessed' : M[d.id].cashIn > 0 ? fmtPct(M[d.id].cashOnCash) : '—' },
+    { label:'Deal score', fn: d => { const sc = api.calcDealScore({ ...d, expected_rent: M[d.id].grossMonthlyRent }); return sc.score == null ? 'Not assessed' : `${sc.score}/100 · ${sc.rating}` } },
     { label:'Deal type', fn: d => DEAL_TYPE_LABELS[d.deal_type]||'BTL' },
     { label:'Purchase type', fn: d => PURCHASE_TYPES[d.purchase_type]||'Mortgage' },
     { label:'Status', fn: d => STATUS_CFG[d.status]?.label||d.status },
@@ -2667,7 +2681,7 @@ function DealPipeline({ deals, companies, docCounts = {}, onOpen, onNew, T }) {
                         )}
                         {deal.purchase_price > 0 && (
                           <span style={{ fontFamily:MONO, fontSize:FS.xs, padding:'2px 6px', borderRadius:4, background:T.bg, color:T.muted }}>
-                            {m.grossYield.toFixed(1)}% yield
+                            {m.notAssessed ? 'Yield not assessed' : `${m.grossYield.toFixed(1)}% yield`}
                           </span>
                         )}
                         <DocCountBadge counts={counts} T={T}/>

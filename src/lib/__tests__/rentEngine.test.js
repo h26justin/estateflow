@@ -563,3 +563,26 @@ describe('propertyArrears — one arrears figure for every screen', () => {
     expect(propertyArrears({ ...p, arrears: 9999 }, '2026-06-15')).toBe(658)
   })
 })
+
+describe('missedOwed follows the Rent Tracker overdue rule (reconciliation 18 Nov 2026)', () => {
+  it('a period overridden to Part paid whose window has closed still owes its balance', () => {
+    const r = month('m1', 2026, 1, 'void')
+    const pay = [receipt('a', '2026-01-02', 200, [{ period: 'm1', amount: 200 }])]
+    const ov = [{ rent_payment_id: 'm1', state: 'part_paid', reason: 'agent confirms part', created_at: '2026-01-10' }]
+    const e = evaluatePeriod(r, ctx({ receipts: pay, overrides: ov, today: '2026-02-10' }))
+    expect(e.state).toBe(STATE.PART_PAID)
+    expect(collectionStats([e], { asOf: '2026-02-10' }).overdue).toBe(300)
+    expect(missedOwed(e, '2026-02-10')).toBe(300)
+  })
+  it('an unverified net-of-fees shortfall is not owed', () => {
+    const r = { ...month('m1', 2026, 1, 'paid', 460), notes: 'Xero rental income Jan' }
+    const e = evaluatePeriod(r, ctx({ tenancies: [], today: '2026-03-01' }))
+    expect(e.needsInfo).toBe(40)
+    expect(collectionStats([e], { asOf: '2026-03-01' }).overdue).toBe(0)
+    expect(missedOwed(e, '2026-03-01')).toBe(0)
+  })
+  it('rent still inside its window is not owed', () => {
+    const e = evaluatePeriod(month('m6', 2026, 6, 'void'), ctx({ today: '2026-06-03' }))
+    expect(missedOwed(e, '2026-06-03')).toBe(0)
+  })
+})

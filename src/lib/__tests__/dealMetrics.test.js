@@ -153,3 +153,12 @@ describe('computeDealMetrics', () => {
     expect(b).toEqual(a)
   })
 })
+
+describe('notAssessed (Deals brief: no misleading 0% / loss without rent)', () => {
+  it('flags a deal with no rent', async () => {
+    const { computeDealMetrics } = await import('../dealMetrics')
+    expect(computeDealMetrics({ purchase_price: 55000 }).notAssessed).toMatch(/Rent not entered/)
+    expect(computeDealMetrics({}).notAssessed).toMatch(/Purchase price not entered/)
+    expect(computeDealMetrics({ purchase_price: 55000, monthly_rent: 600 }).notAssessed).toBeNull()
+  })
+})

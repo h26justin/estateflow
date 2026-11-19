@@ -168,3 +168,15 @@ describe('agent-weekly-report edge function bundle', () => {
     expect(readFileSync(OUT, 'utf8')).toBe(await bundleAgentReport())
   })
 })
+
+describe('report dates', () => {
+  it('shows free-text end dates as written, never "undefined undefined"', async () => {
+    const { dateShort, dateLong } = await import('../agentReportPdf')
+    expect(dateShort('2026-11-26')).toBe('26 Nov 2026')
+    expect(dateShort('Monthly Rolling')).toBe('Monthly Rolling')
+    expect(dateShort('2nd August 2025')).toBe('2nd August 2025')
+    expect(dateShort(null)).toBe('-')
+    expect(dateLong('16 Dec 2024')).toBe('16 Dec 2024')
+    expect(dateShort('Monthly Rolling')).not.toMatch(/undefined|NaN/)
+  })
+})

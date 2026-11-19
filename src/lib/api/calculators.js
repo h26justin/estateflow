@@ -173,6 +173,8 @@ export function calcDealScore(deal) {
   const m = computeDealMetrics(deal || {})
   const purchasePrice = m.price
   if (purchasePrice <= 0) return { score: 0, breakdown: {}, rating: 'insufficient-data' }
+  // No rent: unassessed, not "Poor". score is null so nothing colours it.
+  if (!(m.grossMonthlyRent > 0)) return { score: null, breakdown: {}, rating: 'not-assessed', reason: m.notAssessed }
 
   const annualRent = m.grossMonthlyRent * 12
   const grossYield = m.grossYield

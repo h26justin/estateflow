@@ -114,11 +114,18 @@ function propertyCard(p, { asOf, year, thisMo }) {
   }
 
   // Owed = missed balances on closed periods, not rent still in its window.
-  let owed = 0, missedMonths = 0
+  // assumedOwed: the part of it on periods with no tenancy record, where the
+  // engine assumes a tenancy from go-live at the property's rent. It is an
+  // estimate until the tenancy is recorded, and the report says so.
+  let owed = 0, missedMonths = 0, assumedOwed = 0
   for (const e of evals) {
     const o = missedOwed(e, asOf)
-    if (o > 0) { owed = round2(owed + o); missedMonths++ }
+    if (o > 0) { owed = round2(owed + o); missedMonths++; if (e.fallback) assumedOwed = round2(assumedOwed + o) }
   }
+  // Months this year marked paid with no amount: counted as collected in full
+  // below, so the value is reported alongside rather than hidden.
+  const paidNoAmount = evals.filter(e => e.needsBackfill && e.periodStart >= `${year}-01-01` && e.periodStart <= asOf && e.state === STATE.PAID)
+  const paidNoAmountValue = round2(paidNoAmount.reduce((s, e) => s + (Number(e.expected) || 0), 0))
   const arrears = Math.max(0, arrearsSummary(p).balance)
   const t = tenancyForDate(p.tenancies || [], asOf)
 
@@ -201,6 +208,9 @@ function propertyCard(p, { asOf, year, thisMo }) {
     received: round2(received),
     thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
+    assumedOwed,
+    paidNoAmountMonths: paidNoAmount.length,
+    paidNoAmountValue,
     missedMonths,
     arrears: round2(arrears),
     recent,
@@ -350,6 +360,10 @@ export function buildAgentReport(properties, { agent, companies = [], asOf = iso
       shortfallYear: round2(cards.reduce((s, c) => s + c.shortfallYear, 0)),
       shortfallTenancy: round2(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
       noTenancyStart: cards.filter(c => c.let && !c.stl && !c.tenancyStart).length,
+      assumedOwed: round2(cards.reduce((s, c) => s + c.assumedOwed, 0)),
+      assumedOwedCount: cards.filter(c => c.assumedOwed > 0).length,
+      paidNoAmountMonths: cards.reduce((s, c) => s + c.paidNoAmountMonths, 0),
+      paidNoAmountValue: round2(cards.reduce((s, c) => s + c.paidNoAmountValue, 0)),
       ...rollUp(cards),
     },
   }

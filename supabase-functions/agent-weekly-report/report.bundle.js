@@ -534,11 +534,10 @@ function instalmentSplit(e, asOf, owed) {
   return out;
 }
 function missedOwed(e, asOf) {
-  if (e?.state !== STATE.MISSED) return 0;
-  const c = e.instalments ? contributionAsOf(e, asOf) : null;
-  if (!c) return Number(e.outstanding) || 0;
-  const owed = round2(Math.max(0, c.due - c.received));
-  return owed > 0 ? outstandingSplit(e, asOf, owed).overdue : 0;
+  if (!e) return 0;
+  const b = periodBreakdown(e, asOf);
+  if (b.split) return round2(b.split.overdue || 0);
+  return b.bucket === "overdue" ? round2(b.owed) : 0;
 }
 function outstandingBucket(e, asOf) {
   if (e.dueDate && e.dueDate > asOf) return "notYetDue";
@@ -557,6 +556,24 @@ function outstandingSplit(e, asOf, owed) {
   const out = {};
   for (const k of ["overdue", "dueToday", "inWindow"]) if (sp[k] > 0) out[k] = sp[k];
   return out;
+}
+function periodBreakdown(e, asOf = isoToday()) {
+  const owed = e.state === STATE.PENDING_REVIEW ? Number(e.outstanding) || 0 : 0;
+  if (e.superseded) return { bucket: "duplicate", owed: 0, needsInfo: 0 };
+  if (e.state === STATE.PENDING_REVIEW) return { bucket: "pendingReview", owed, needsInfo: 0 };
+  if (e.needsBackfill) return { bucket: "needsBackfill", owed: 0, needsInfo: 0 };
+  const c = contributionAsOf(e, asOf);
+  if (!c) return { bucket: "notCollectible", owed: 0, needsInfo: 0 };
+  const o = round2(Math.max(0, c.due - c.received));
+  const later = c.notYetDue > 0 ? { notYetDue: c.notYetDue } : {};
+  if (o > 0) {
+    const split = outstandingSplit(e, asOf, o);
+    const multi = Object.keys(split).length > 1 ? { split } : {};
+    const bucket = ["overdue", "dueToday", "inWindow", "notYetDue"].find((k) => split[k] > 0) || outstandingBucket(e, asOf);
+    return { bucket, owed: o, needsInfo: c.needsInfo, ...multi, ...later };
+  }
+  if (c.notYetDue > 0) return { bucket: "notYetDue", owed: c.notYetDue, needsInfo: c.needsInfo, notYetDue: c.notYetDue };
+  return { bucket: c.needsInfo > 0 ? "needsInfo" : "paid", owed: 0, needsInfo: c.needsInfo };
 }
 function arrearsSummary(property, opts = {}) {
   const tenancies = opts.tenancies || property.tenancies || [];
@@ -1046,14 +1063,17 @@ function propertyCard(p, { asOf, year, thisMo }) {
     if (t2.needsBackfill) counts.backfill++;
     received += t2.received || 0;
   }
-  let owed = 0, missedMonths = 0;
+  let owed = 0, missedMonths = 0, assumedOwed = 0;
   for (const e of evals) {
     const o = missedOwed(e, asOf);
     if (o > 0) {
       owed = round23(owed + o);
       missedMonths++;
+      if (e.fallback) assumedOwed = round23(assumedOwed + o);
     }
   }
+  const paidNoAmount = evals.filter((e) => e.needsBackfill && e.periodStart >= `${year}-01-01` && e.periodStart <= asOf && e.state === STATE.PAID);
+  const paidNoAmountValue = round23(paidNoAmount.reduce((s, e) => s + (Number(e.expected) || 0), 0));
   const arrears = Math.max(0, arrearsSummary(p).balance);
   const t = tenancyForDate(p.tenancies || [], asOf);
   const tenancy = t || [...p.tenancies || []].filter((x) => x.status !== "ended" && x.tenancy_start).sort((a, b) => a.tenancy_start < b.tenancy_start ? 1 : -1)[0] || null;
@@ -1113,6 +1133,9 @@ function propertyCard(p, { asOf, year, thisMo }) {
     received: round23(received),
     thisMonth: cur ? { state: cur.state, expected: cur.expected, received: cur.received, needsBackfill: cur.needsBackfill } : null,
     owed,
+    assumedOwed,
+    paidNoAmountMonths: paidNoAmount.length,
+    paidNoAmountValue,
     missedMonths,
     arrears: round23(arrears),
     recent,
@@ -1244,6 +1267,10 @@ function buildAgentReport(properties, { agent, companies = [], asOf = isoToday()
       shortfallYear: round23(cards.reduce((s, c) => s + c.shortfallYear, 0)),
       shortfallTenancy: round23(cards.reduce((s, c) => s + (c.shortfallTenancy || 0), 0)),
       noTenancyStart: cards.filter((c) => c.let && !c.stl && !c.tenancyStart).length,
+      assumedOwed: round23(cards.reduce((s, c) => s + c.assumedOwed, 0)),
+      assumedOwedCount: cards.filter((c) => c.assumedOwed > 0).length,
+      paidNoAmountMonths: cards.reduce((s, c) => s + c.paidNoAmountMonths, 0),
+      paidNoAmountValue: round23(cards.reduce((s, c) => s + c.paidNoAmountValue, 0)),
       ...rollUp(cards)
     }
   };
@@ -1389,12 +1416,15 @@ var parts = (iso) => {
   const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
   return { y, m, d, dow: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
 };
+var isIsoDate = (v) => /^\d{4}-\d{2}-\d{2}/.test(String(v || "")) && !Number.isNaN(Date.parse(String(v).slice(0, 10)));
 var dateShort = (iso) => {
   if (!iso) return "-";
+  if (!isIsoDate(iso)) return String(iso).trim() || "-";
   const p = parts(iso);
   return `${p.d} ${MONTHS[p.m - 1]} ${p.y}`;
 };
 var dateLong = (iso) => {
+  if (!isIsoDate(iso)) return iso ? String(iso).trim() : "-";
   const p = parts(iso);
   return `${DAYS[p.dow]} ${p.d} ${MONTHS_LONG[p.m - 1]} ${p.y}`;
 };
@@ -1651,9 +1681,11 @@ function drawAgentReportPdf(JsPDF, model, { logos = {}, mark = null } = {}) {
   font(6.6, "normal", PALETTE.muted);
   const notes = [
     "Owed = rent still unpaid after its payment window. Due = collected + owed; rent still inside its window is shown under this month.",
-    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full.`
+    `Rent tracking starts 1 Jan ${GO_LIVE_YEAR}. Months marked paid without an amount are counted as paid in full${s.paidNoAmountMonths ? ` (${s.paidNoAmountMonths} months, ${money0(s.paidNoAmountValue)} of rent due)` : ""}.`,
+    `Collection % = rent collected / rent due, 1 Jan to ${dateShort(model.asOf)}, months whose payment window has closed only.`
   ];
   if (s.noTenancyStart) notes.push(`${s.noTenancyStart} let properties have no tenancy start date recorded yet.`);
+  if (s.assumedOwed > 0) notes.push(`${money0(s.assumedOwed)} of the amount owed is on ${s.assumedOwedCount} ${s.assumedOwedCount === 1 ? "property" : "properties"} with no tenancy record, assuming rent from 1 Jan ${GO_LIVE_YEAR} at the listed rent: an estimate until the tenancy is entered.`);
   ensure(notes.length * 3.6 + 4);
   notes.forEach((n) => {
     text(n, M, y + 2);
