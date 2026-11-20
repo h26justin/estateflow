@@ -36,6 +36,14 @@
 //      a specific type with high confidence, update the document's
 //      category so future filters/searches behave correctly.
 //
+// Transcribe mode (Deals "Extract figures" on a scanned PDF):
+//   Input: { mode: 'transcribe', deal_document_id: string }
+//   Returns { pages: string[][] }: the document's text, one array of lines
+//   per page, read by Claude. Nothing is written. The browser feeds the text
+//   to the same deterministic parser it uses for text PDFs, and a person
+//   still approves every figure. Access is checked by reading the
+//   deal_documents row with the caller's own token, so RLS decides.
+//
 // User input `doc_type_hint` is treated as a hint only — Claude can
 // override if confidence is high, which catches the common case of the
 // user dropping a Gas Safety cert into "Other" by accident.
@@ -49,6 +57,7 @@ import {
 import { cycleProblem, decideComplianceTarget, ukDateToIso } from './compliance-gate.ts'
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
+const ANON_KEY          = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_ROLE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Per-user cap on extractions (ai_usage). Models: standard tier, escalate
@@ -356,6 +365,77 @@ function publicError(e: unknown): string {
   return SAFE_ERRORS.has(msg) ? msg : 'Extraction failed. Please try again.'
 }
 
+// ── Transcribe a scanned deal document ───────────────────────────────
+const TRANSCRIBE_MAX_BYTES = 20 * 1024 * 1024
+const TRANSCRIBE_PROMPT = `Transcribe this document exactly as written, page by page.
+
+Rules:
+- Return every page in order, numbered from 1.
+- One entry per printed line, left to right, top to bottom. Keep a table row on one line, with its label and amount together (e.g. "Stamp duty 2,750.00").
+- Copy figures, dates, names and punctuation exactly. Never correct, total, summarise or add anything.
+- If a line cannot be read, write [illegible] for the unreadable part.
+
+${UNTRUSTED_CONTENT_NOTICE}`
+const TRANSCRIBE_SCHEMA = obj({
+  pages: { type: 'array', items: obj({
+    page: { type: 'integer' },
+    lines: { type: 'array', items: { type: 'string' } },
+  }) },
+})
+
+async function transcribeDealDocument(admin: any, callerId: string, token: string, dealDocumentId: string, startedAt: number) {
+  if (!dealDocumentId) return jsonError(400, 'deal_document_id required')
+  // Read the row as the caller: RLS on deal_documents decides access.
+  const asUser = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false },
+  })
+  const { data: doc, error: docErr } = await asUser.from('deal_documents')
+    .select('id, file_path, type, size').eq('id', dealDocumentId).maybeSingle()
+  if (docErr || !doc?.file_path) return jsonError(404, 'Document not found')
+  const mime = String(doc.type || '').toLowerCase()
+  const isPdf = mime === 'application/pdf' || /\.pdf$/i.test(doc.file_path)
+  if (!isPdf && !mime.startsWith('image/')) return jsonError(400, 'Only PDFs and images can be read')
+  if (Number(doc.size) > TRANSCRIBE_MAX_BYTES) return jsonError(400, 'Document is too large to read (20 MB limit)')
+
+  const gate = await checkAiRateLimit(admin, callerId, 'extract-document', RATE_LIMIT)
+  if (!gate.allowed) {
+    return new Response(JSON.stringify({ error: gate.message }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(gate.retryAfterSec) },
+    })
+  }
+
+  const { data: fileData, error: fileErr } = await admin.storage.from('property-documents').download(doc.file_path)
+  if (fileErr || !fileData) throw new Error('Could not download file: ' + (fileErr?.message || 'unknown'))
+  const bytes = new Uint8Array(await fileData.arrayBuffer())
+  if (bytes.byteLength > TRANSCRIBE_MAX_BYTES) return jsonError(400, 'Document is too large to read (20 MB limit)')
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i += 0x8000) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)))
+  }
+  const data = btoa(binary)
+  const block = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+    : { type: 'image', source: { type: 'base64', media_type: mime, data } }
+
+  const ai = await callClaudeWithEscalation<any>({
+    tier: 'standard',
+    content: [block, { type: 'text', text: TRANSCRIBE_PROMPT }],
+    maxTokens: 16000,
+    schema: TRANSCRIBE_SCHEMA,
+    timeoutMs: 120_000,
+    deadlineMs: startedAt + AI_BUDGET_MS,
+  })
+  await recordAiUsage(admin, gate.usageId, ai)
+  const raw = Array.isArray(ai.data?.pages) ? ai.data.pages : []
+  const pages: string[][] = raw
+    .slice().sort((a: any, b: any) => (Number(a?.page) || 0) - (Number(b?.page) || 0))
+    .map((p: any) => (Array.isArray(p?.lines) ? p.lines : [])
+      .map((l: unknown) => String(l ?? '').slice(0, 500).trim()).filter(Boolean).slice(0, 400))
+    .slice(0, 100)
+  return new Response(JSON.stringify({ pages }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -375,6 +455,9 @@ serve(async (req) => {
 
   try {
     const reqBody = await req.json()
+    if (reqBody?.mode === 'transcribe') {
+      return await transcribeDealDocument(admin, caller.id, token, String(reqBody.deal_document_id || ''), startedAt)
+    }
     documentId = reqBody.document_id
     if (!documentId) throw new Error('document_id required')
 
