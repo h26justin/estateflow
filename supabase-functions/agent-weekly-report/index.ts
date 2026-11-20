@@ -32,7 +32,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 // dompurify. Only doc.output('arraybuffer') + drawing APIs are used here.
 import { jsPDF } from 'https://esm.sh/jspdf@4.2.1'
 import { sendGmail } from './gmail.ts'
-import { buildAgentReport, drawAgentReportPdf, agentReportFilename, dateLong } from './report.bundle.js'
+import { buildAgentReport, drawAgentReportPdf, agentReportFilename, dateLong, currentNotes, AGENT_REPORT_INCLUDE_NOTES } from './report.bundle.js'
 import { secretMatches } from './secrets.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -208,6 +208,27 @@ async function sendReport({ to, cc, replyTo, subject, html, filename, pdf }: {
   if (!res.ok) throw new Error(`Resend send failed (${res.status}): ${(await res.text()).slice(0, 200)}`)
 }
 
+// Every arrears note version for these properties, reduced to the current
+// one per property by the same currentNotes() the app uses. Paged so a
+// large portfolio is never silently truncated at PostgREST's row cap.
+async function loadArrearsNotes(admin: any, props: any[]) {
+  const ids = [...new Set(props.map((p: any) => p.id))]
+  const rows: any[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const part = ids.slice(i, i + 100)
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from('arrears_notes')
+        .select('id,property_id,period,reason,status,supersedes,created_at')
+        .in('property_id', part).order('created_at', { ascending: false }).order('id', { ascending: false })
+        .range(from, from + 999)
+      if (error) throw new Error(`arrears_notes: ${error.message}`)
+      rows.push(...(data || []))
+      if (!data || data.length < 1000) break
+    }
+  }
+  return currentNotes(rows)
+}
+
 serve(async (req) => {
   const cronSecret = req.headers.get('x-cron-secret') || ''
   if (!secretMatches(cronSecret, CRON_SECRET)) return new Response('Forbidden', { status: 403 })
@@ -254,7 +275,8 @@ serve(async (req) => {
       const logoUrl = new Map((settings || []).map((r: any) => [r.company_id, r.logo_url]))
       const companies = (cos || []).map((c: any) => ({ ...c, logo_url: logoUrl.get(c.id) || null }))
       const stl = await loadStl(admin, liveProps)
-      const model = buildAgentReport(liveProps, { agent: sch.agent, companies, asOf: now.iso, stl })
+      const notesByProperty = AGENT_REPORT_INCLUDE_NOTES ? await loadArrearsNotes(admin, liveProps) : null
+      const model = buildAgentReport(liveProps, { agent: sch.agent, companies, asOf: now.iso, stl, includeNotes: AGENT_REPORT_INCLUDE_NOTES, notesByProperty })
       if (dryRun) {
         const stlSummary = (model.stl || []).map((b: any) => ({ name: b.name, rooms: b.rooms, of: b.totalRooms, month: { ...b.month, months: undefined }, year: { ...b.year, months: undefined } }))
         results.push({ id: sch.id, summary: model.summary, lines: model.lines.length, stl: stlSummary }); continue

@@ -169,6 +169,14 @@ describe('agent-weekly-report edge function bundle', () => {
   it('is up to date with src/lib (run node scripts/build-agent-report.mjs)', async () => {
     expect(readFileSync(OUT, 'utf8')).toBe(await bundleAgentReport())
   })
+
+  it('exports what index.ts imports for the Reason column, and the switch is on', async () => {
+    const bundle = await import(OUT)
+    expect(typeof bundle.currentNotes).toBe('function')
+    expect(bundle.AGENT_REPORT_INCLUDE_NOTES).toBe(true)
+    const index = readFileSync(OUT.replace('report.bundle.js', 'index.ts'), 'utf8')
+    expect(index).toMatch(/includeNotes: AGENT_REPORT_INCLUDE_NOTES, notesByProperty/)
+  })
 })
 
 describe('report dates', () => {
