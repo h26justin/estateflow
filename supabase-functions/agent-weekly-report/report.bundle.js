@@ -1033,6 +1033,31 @@ var NOTE_STATUSES = Object.freeze([
 ]);
 var NOTE_STATUS_LABEL = Object.freeze(Object.fromEntries(NOTE_STATUSES.map((s) => [s.v, s.l])));
 var NOTE_FIELDS = Object.freeze(["reason", "response", "payment_plan", "next_action", "follow_up_date", "owner", "status"]);
+var newer = (a, b) => a.created_at === b.created_at ? String(a.id) > String(b.id) ? -1 : 1 : a.created_at > b.created_at ? -1 : 1;
+function currentNotes(rows) {
+  const byProp = /* @__PURE__ */ new Map();
+  for (const r of rows || []) {
+    if (!r?.property_id) continue;
+    if (!byProp.has(r.property_id)) byProp.set(r.property_id, []);
+    byProp.get(r.property_id).push(r);
+  }
+  const out = /* @__PURE__ */ new Map();
+  for (const [pid, list] of byProp) {
+    const superseded = new Set(list.map((r) => r.supersedes).filter(Boolean));
+    const heads = list.filter((r) => !superseded.has(r.id)).sort(newer);
+    const current = heads[0] || list.slice().sort(newer)[0];
+    const byId = new Map(list.map((r) => [r.id, r]));
+    const chain = [];
+    const seen = /* @__PURE__ */ new Set([current.id]);
+    for (let r = byId.get(current.supersedes); r && !seen.has(r.id); r = byId.get(r.supersedes)) {
+      seen.add(r.id);
+      chain.push(r);
+    }
+    const rest = list.filter((r) => !seen.has(r.id)).sort(newer);
+    out.set(pid, { current, history: [...chain, ...rest], versions: list.length });
+  }
+  return out;
+}
 function explanationText(note) {
   const t = note?.reason == null ? "" : String(note.reason).trim();
   return t || null;
@@ -1270,6 +1295,7 @@ function groupBuildings(cards) {
   }
   return groups;
 }
+var AGENT_REPORT_INCLUDE_NOTES = true;
 function buildAgentReport(properties, { agent, companies = [], asOf = isoToday(), stl = null, includeNotes = false, notesByProperty = null } = {}) {
   const thisMo = monthKey2(asOf);
   const year = thisMo.year;
@@ -2136,8 +2162,10 @@ function shortCo(name) {
   return String(name || "").replace(/\s+(Property Group|Group|Properties|Limited|Ltd)\.?$/i, "").trim() || name;
 }
 export {
+  AGENT_REPORT_INCLUDE_NOTES,
   agentReportFilename,
   buildAgentReport,
+  currentNotes,
   dateLong,
   drawAgentReportPdf
 };

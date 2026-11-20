@@ -289,6 +289,11 @@ function groupBuildings(cards) {
   return groups
 }
 
+// Whether the agent report (the emailed PDF and the Reports download, which
+// must stay identical) carries the arrears Reason column. Ruled on by Justin,
+// 20 Nov 2026: on. Notes are written knowing agents will read the reason text.
+export const AGENT_REPORT_INCLUDE_NOTES = true
+
 /**
  * Build the report.
  * @param {object[]} properties  fetchProperties shape
