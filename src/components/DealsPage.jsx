@@ -562,7 +562,9 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const companyMatch = useCallback(d => coFilter === 'all' ? true
     : coFilter === '' ? !d.company_id
     : d.company_id === coFilter, [coFilter])
-  const filterSelect = {fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}
+  // width:auto overrides the app-wide `select { width: 100% }` so the filters
+  // sit side by side and wrap, instead of stacking one per row.
+  const filterSelect = {fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px',width:'auto',maxWidth:'100%',flex:'0 1 auto'}
   const listFilters = useMemo(() => ({ company: coFilter, status: statusFilter, attention: attentionFilter, owner: ownerFilter, due: dueFilter, sort: sortBy }),
     [coFilter, statusFilter, attentionFilter, ownerFilter, dueFilter, sortBy])
   const filtered = useMemo(() => {
