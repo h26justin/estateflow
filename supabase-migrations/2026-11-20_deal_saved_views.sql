@@ -1,5 +1,7 @@
--- Saved views on All Deals (Deals brief, "saved views"). NOT YET APPLIED to
--- hqrhqbkqxzllmzhcofrh: apply with Justin's go-ahead before the PR merges.
+-- Saved views on All Deals (Deals brief, "saved views"). APPLIED 20 Nov 2026
+-- to hqrhqbkqxzllmzhcofrh (Justin's go-ahead: "merge all six"), via MCP
+-- apply_migration `deal_saved_views`. Verified live: column jsonb not null
+-- default '[]'; security advisor shows nothing new.
 --
 -- One JSONB array per user on user_profiles, the same pattern as
 -- dashboard_sections / dashboard_widgets: [{ id, name, filters }]. Existing
