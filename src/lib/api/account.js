@@ -130,3 +130,17 @@ export async function saveWidgetPrefs(widgets) {
 export async function saveSectionPrefs(sections) {
   await saveDashboardPref('dashboard_sections', sections)
 }
+
+// Saved views on All Deals (user_profiles.deal_saved_views, JSONB array of
+// { id, name, filters }). Per user, so they follow them across devices.
+export async function fetchDealSavedViews() {
+  const u = (await supabase.auth.getUser()).data.user
+  if (!u) return []
+  const { data, error } = await supabase.from('user_profiles').select('deal_saved_views').eq('user_id', u.id).maybeSingle()
+  if (error) throw error
+  return data?.deal_saved_views || []
+}
+
+export async function saveDealSavedViews(views) {
+  await saveDashboardPref('deal_saved_views', views)
+}

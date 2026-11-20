@@ -74,6 +74,10 @@ export function describeFilters(filters = {}, companies = []) {
   else labels.push(`Company: ${(companies || []).find(c => c.id === companyId)?.name || 'Unknown company'}`)
   const status = f.status || 'all'
   labels.push(`Stage: ${status === 'all' ? 'All stages' : (DEAL_STATUS_LABEL[status] || status)}`)
+  if (f.attention && f.attention !== 'all') labels.push(`Attention: ${f.attention === 'needs' ? 'Needs attention' : (ATTENTION_CFG[f.attention]?.label || f.attention)}`)
+  if (f.owner != null && f.owner !== 'all') labels.push(`Action owner: ${f.owner === '' ? 'None' : f.owner}`)
+  if (f.due && f.due !== 'all') labels.push(`Due: ${{ overdue: 'Action overdue', week: 'Due within 7 days', none: 'No due date' }[f.due] || f.due}`)
+  if (f.view) labels.push(`View: ${String(f.view).slice(0, 60)}`)
   if (f.search && String(f.search).trim()) labels.push(`Search: "${String(f.search).trim()}"`)
   if (f.dealId) labels.push('Single deal')
   return labels
