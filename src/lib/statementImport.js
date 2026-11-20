@@ -210,6 +210,41 @@ function amountOf(line) {
 // ── Review rows ─────────────────────────────────────────────────────────────
 // ctx: { properties, companies, companyId?, aliases, today, knownRefs:Set, existingFees:[{property_id, amount, date, source_ref}] }
 // overrides: { [line_no]: { propertyId, periodStart, periodEnd, amount, include, confirmed, tenancyId } }
+// ── Commission check ───────────────────────────────────────────────────────
+// Compares a statement's management fee line with the agreed rate on the
+// managing agent (estate_agents.fee_percent + vat_treatment). Statements print
+// the rate either before VAT (PNE "Commission 10.00%" with a VAT column) or
+// with VAT folded in (RMS 8.40% = 7% + VAT), so either reading is accepted.
+// With the rent base ("of £500") the fee itself is checked too.
+export const COMMISSION_VAT_RATE = 20
+const COMMISSION_TOLERANCE_PCT = 0.011
+const COMMISSION_TOLERANCE_GBP = 0.05
+
+export function commissionCheck(line, agent) {
+  const agreed = agent?.fee_percent == null || agent.fee_percent === '' ? null : Number(agent.fee_percent)
+  if (agreed == null || !isFinite(agreed)) return { status: 'unknown', message: agent ? `No agreed fee is set for ${agent.name || 'the agent'}` : 'No managing agent set on this property' }
+  const vat = 1 + COMMISSION_VAT_RATE / 100
+  const net = (agent.vat_treatment || 'ex_vat') === 'ex_vat' ? agreed : agreed / vat
+  const gross = net * vat
+  const label = `${agreed.toFixed(2)}% ${(agent.vat_treatment || 'ex_vat') === 'ex_vat' ? '+ VAT' : 'inc. VAT'}`
+  const out = { status: 'ok', agreedLabel: label, expectedNetPct: round2(net), expectedGrossPct: round2(gross) }
+  const stated = line?.fee_pct == null ? null : Number(line.fee_pct)
+  if (stated != null && Math.abs(stated - net) > COMMISSION_TOLERANCE_PCT && Math.abs(stated - gross) > COMMISSION_TOLERANCE_PCT) {
+    return { ...out, status: 'differs', message: `Commission ${stated}% on the statement; agreed ${label} (${agent.name || 'agent'})` }
+  }
+  const basis = line?.fee_basis == null ? null : Number(line.fee_basis)
+  if (basis != null && basis > 0) {
+    const charged = round2((Number(line.fee_amount) || 0) + (Number(line.vat_amount) || 0))
+    const expGross = round2(basis * net / 100 * vat)
+    const expNet = round2(basis * net / 100)
+    out.expectedFee = expGross
+    if (charged > 0 && Math.abs(charged - expGross) > COMMISSION_TOLERANCE_GBP && Math.abs(charged - expNet) > COMMISSION_TOLERANCE_GBP) {
+      return { ...out, status: 'differs', message: `Fee ${gbp(charged)} on rent of ${gbp(basis)}; at the agreed ${label} it would be ${gbp(expGross)}` }
+    }
+  }
+  return out
+}
+
 export function reviewRows(parsed, ctx, overrides = {}) {
   const header = parsed?.header || {}
   const companies = ctx?.companies || []
@@ -293,6 +328,12 @@ export function reviewRows(parsed, ctx, overrides = {}) {
     // planImport has no write path for other income, so it can never be
     // included: say so on the row instead of offering "Checked: import it".
     if (kind === 'other_income') { review = true; reasons.push('Other income is not imported: record it manually (it is not a dated month\'s rent)') }
+    let commission = null
+    if (kind === 'fee' && property) {
+      const agent = (ctx?.agents || []).find(a => a.id === property.managed_by_agent_id) || null
+      commission = commissionCheck(line, agent)
+      if (commission.status === 'differs') { review = true; reasons.push(commission.message) }
+    }
     for (const f of line.flags || []) {
       if (f === 'fee_does_not_match_percentage') { review = true; reasons.push('Fee does not equal the stated percentage') }
       if (f === 'missing_tenant' && kind === 'rent') reasons.push('No tenant name on the line')
@@ -325,7 +366,7 @@ export function reviewRows(parsed, ctx, overrides = {}) {
       deduction: kind === 'deduction' ? round2(line.deduction_amount) : 0,
       target, targetLabel: periodLabel(target), rentDue: position?.expected ?? null, alreadyReceived: position?.received ?? 0,
       legacyAmount: position?.legacyAmount ?? null, ref, status, reasons, include, blocked,
-      confirmed: !!ov.confirmed,
+      confirmed: !!ov.confirmed, commission,
     }
   })
   return { company, rows }

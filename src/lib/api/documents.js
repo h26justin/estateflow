@@ -167,6 +167,28 @@ export const OCR_TYPE_MAP = {
 }
 
 // Trigger OCR extraction for a document. Only works for PDFs and images.
+// Read a scanned deal document (no text layer) with the extract-document
+// edge function's transcribe mode. Returns its text, one array of lines per
+// page. Nothing is stored; the caller parses and a person approves.
+export async function transcribeDealDocument(dealDocumentId) {
+  const session = (await supabase.auth.getSession()).data.session
+  if (!session) throw new Error('Not signed in')
+  const url = supabase.supabaseUrl.replace(/\/$/, '') + '/functions/v1/extract-document'
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.access_token,
+      'apikey': supabase.supabaseKey,
+    },
+    body: JSON.stringify({ mode: 'transcribe', deal_document_id: dealDocumentId }),
+  })
+  let body = null
+  try { body = await res.json() } catch (_) { body = null }
+  if (!res.ok) throw new Error(body?.error || 'Could not read the scan')
+  return Array.isArray(body?.pages) ? body.pages : []
+}
+
 export async function triggerDocumentOCR(documentId) {
   const session = (await supabase.auth.getSession()).data.session
   if (!session) throw new Error('Not signed in')

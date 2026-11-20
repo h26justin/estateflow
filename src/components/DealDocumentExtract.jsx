@@ -14,6 +14,11 @@
 //   - If the category already has a cost line, the person chooses to replace
 //     it or add alongside it. Nothing is overwritten without that choice.
 //   - Reject marks the suggestion rejected and changes nothing else.
+//
+// A scan (no text layer) can be read on request with "Read the scan": the
+// extract-document edge function transcribes it and the same parser runs on
+// that text. Figures read from a scan are capped at medium confidence, carry
+// a warning, and are approved one at a time (no "Approve all valid").
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Modal, Button } from './ui'
 import { useTheme } from '../lib/ThemeContext'
@@ -28,6 +33,8 @@ import {
 } from '../lib/dealDocExtract'
 
 const gbp = n => n == null ? '–' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// Scan-read figures are never shown as high confidence.
+const OCR_MAX_CONFIDENCE = 0.6
 const norm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase()
 
 export function isExtractableDoc(doc) {
@@ -70,11 +77,12 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
   const [conflict, setConflict] = useState(null)  // { row, lines }
   const [active, setActive] = useState(null)      // row id highlighted in the page text
   const [pageNo, setPageNo] = useState(1)
+  const [ocr, setOcr] = useState(false)           // page text came from reading a scan
 
   const hasText = !!pages && pages.some(p => p.length)
 
   // Parse the page text and store what is new as pending suggestions.
-  const extract = useCallback(async (pgs, existing) => {
+  const extract = useCallback(async (pgs, existing, { fromScan = false } = {}) => {
     const out = extractDealDocumentFields(pgs)
     setDocType(out.docType)
     if (!out.hasText) return existing
@@ -82,7 +90,8 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
     if (!fresh.length) return existing
     const inserted = await api.addExtractedFields(fresh.map(s => ({
       deal_id: dealId, document_id: doc.id, field: s.field, value_number: s.value_number,
-      page: s.page, quote: s.quote, confidence: s.confidence,
+      page: s.page, quote: s.quote,
+      confidence: fromScan && s.confidence != null ? Math.min(s.confidence, OCR_MAX_CONFIDENCE) : s.confidence,
     })))
     return [...existing, ...inserted]
   }, [dealId, doc.id])
@@ -116,12 +125,27 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
     return () => { live = false }
   }, [dealId, doc, extract])
 
+  // Read a scan with the edge function, then parse it like any text PDF.
+  async function readScan() {
+    setBusy('ocr')
+    try {
+      const pgs = await api.transcribeDealDocument(doc.id)
+      if (!pgs.some(p => p.length)) throw new Error('No text could be read from this scan')
+      setPages(pgs); setOcr(true); setTextError(null); setPageNo(1)
+      const before = rows.length
+      const all = await extract(pgs, rows, { fromScan: true })
+      setRows(all)
+      showToast(all.length > before ? `Scan read: ${all.length - before} suggestion${all.length - before === 1 ? '' : 's'} to check` : 'Scan read: no new figures found')
+    } catch (e) { showToast(e.message || 'Could not read the scan', 'error') }
+    setBusy(null)
+  }
+
   async function extractAgain() {
     if (!pages) return
     setBusy('extract')
     try {
       const before = rows.length
-      const all = await extract(pages, rows)
+      const all = await extract(pages, rows, { fromScan: ocr })
       setRows(all)
       showToast(all.length > before ? `${all.length - before} new suggestion${all.length - before === 1 ? '' : 's'}` : 'No new figures found')
     } catch (e) { showToast(e.message || 'Could not extract', 'error') }
@@ -200,8 +224,9 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
     setBusy(null)
   }
 
-  const bulk = useMemo(() => bulkApprovable(rows, Object.fromEntries(rows.map(r => [r.id, editOf(r)])), costLines),
-    [rows, edits, costLines]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bulk = useMemo(() => ocr ? { take: [], skipped: rows.filter(r => r.status === 'pending') }
+    : bulkApprovable(rows, Object.fromEntries(rows.map(r => [r.id, editOf(r)])), costLines),
+    [rows, edits, costLines, ocr]) // eslint-disable-line react-hooks/exhaustive-deps
   const mismatch = validation?.status === 'mismatch'
 
   async function approveAllValid() {
@@ -238,7 +263,7 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
         {hasText && <Button variant="secondary" size="sm" loading={busy === 'extract'} disabled={!!busy} onClick={extractAgain}>Extract again</Button>}
         <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
         <Button variant="primary" size="sm" disabled={!!busy || !bulk.take.length || mismatch} loading={busy === 'bulk'}
-          title={mismatch ? 'The figures do not balance: review each one' : undefined} onClick={approveAllValid}>
+          title={ocr ? 'Figures read from a scan are approved one at a time' : mismatch ? 'The figures do not balance: review each one' : undefined} onClick={approveAllValid}>
           Approve all valid{bulk.take.length ? ` (${bulk.take.length})` : ''}
         </Button>
       </>}>
@@ -257,9 +282,12 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
             )}
             {!hasText ? (
               <div role="status" style={{fontFamily:SANS, fontSize:FS.base, color:T.text, lineHeight:1.6}}>
-                <strong>No text found: enter the figures manually.</strong>
+                <strong>No text found in this PDF.</strong>
                 <div style={{color:T.muted, fontSize:FS.sm}}>
-                  {textError || 'This looks like a scan with no text layer.'} Add the figures on the deal's Costs &amp; funding tab.
+                  {textError || 'This looks like a scan with no text layer.'} Read the scan with AI to get suggestions you check one by one, or add the figures on the deal's Costs &amp; funding tab.
+                </div>
+                <div style={{marginTop:10}}>
+                  <Button size="sm" variant="primary" loading={busy === 'ocr'} disabled={!!busy} onClick={readScan}>Read the scan</Button>
                 </div>
               </div>
             ) : (
@@ -275,6 +303,11 @@ export default function DealDocumentExtract({ dealId, doc, onClose, showToast = 
 
           {/* Suggestions */}
           <section aria-label="Suggestions" style={{minWidth:0}}>
+            {ocr && (
+              <div role="note" style={{border:`1px solid ${T.amber}`, color:T.amber, background:T.amber + '14', borderRadius:10, padding:'8px 12px', fontFamily:SANS, fontSize:FS.sm, marginBottom:12}}>
+                Text read from a scan by AI. Check every figure against the original document before approving.
+              </div>
+            )}
             {validation && (
               <div role="status" style={{border:`1px solid ${valColor}`, color:valColor, borderRadius:10, padding:'8px 12px', fontFamily:SANS, fontSize:FS.sm, marginBottom:12}}>
                 {validation.message}

@@ -14,6 +14,7 @@ import { useLoadGuard } from '../lib/useLoadGuard'
 import { isoToday } from '../lib/rentEngine'
 import { aggregateDeals, STATUS_GROUP_LABEL, STATUS_GROUP_DESC, TIME_BUCKETS, TIME_BUCKET_LABEL } from '../lib/dealCashflow'
 import { computeDealMetrics, projectDeal, refinanceScenarios, growthAssumptions } from '../lib/dealMetrics'
+import { sdltBasisLabel, dealSdltDate } from '../lib/sdlt'
 import { useIsMobile } from '../lib/useWindowSize'
 import { SignedPhoto } from '../lib/SignedPhoto'
 import { exportDealPdf } from '../lib/dealPdf'
@@ -1601,7 +1602,7 @@ function DealDetail({ deal, companies, user, showToast, onBack, onSave, onDelete
                 <div>
                   <span style={{fontFamily:SANS,fontSize:FS.base,color:T.text}}>Stamp duty (SDLT)</span>
                   <div style={{fontFamily:mono,fontSize:FS.xs,color:T.muted,marginTop:2}}>
-                    {form.is_additional_property ? 'Standard bands + 5% surcharge (Oct 2024 rates)' : form.is_first_time_buyer ? 'FTB relief: 0% to £300k, 5% to £500k' : 'Standard: 0% to £125k, 2% to £250k, 5% to £925k'}
+                    {sdltBasisLabel(form.purchase_price, { additional: !!form.is_additional_property, firstTimeBuyer: !!form.is_first_time_buyer, date: dealSdltDate(form) })}
                   </div>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>

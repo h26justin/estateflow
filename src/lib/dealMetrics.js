@@ -17,6 +17,7 @@
 // interest-only mortgage type, agent fee ex-VAT, deposit 25%).
 
 import { calcStampDuty, calcMonthlyRepayment } from './api/calculators'
+import { dealSdltDate } from './sdlt'
 
 export const NIGHTS_PER_MONTH = 30.4
 
@@ -44,10 +45,10 @@ export function grossMonthlyRent(d) {
   return num(d.monthly_rent)
 }
 
-/** Stamp duty: the user's override if set, otherwise the SDLT calculator. */
+/** Stamp duty: the user's override if set, otherwise the SDLT calculator at the deal's completion date (lib/sdlt.js). */
 export function stampDuty(d) {
   if (d.stamp_duty_override != null && d.stamp_duty_override !== '') return num(d.stamp_duty_override)
-  return calcStampDuty(num(d.purchase_price), d.is_additional_property, d.is_first_time_buyer)
+  return calcStampDuty(num(d.purchase_price), d.is_additional_property, d.is_first_time_buyer, dealSdltDate(d))
 }
 
 /** Deposit %: the entered value, or DEFAULT_DEPOSIT_PERCENT when blank. */

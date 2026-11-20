@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import {
   parseForImport, reviewRows, planImport, planSummary, statusCounts, targetPeriod, matchCompany,
-  matchTenancy, statementFingerprint, auditLines, legacyRentRef, REVIEW_STATUS,
+  matchTenancy, statementFingerprint, auditLines, legacyRentRef, REVIEW_STATUS, commissionCheck,
 } from '../statementImport'
 
 const fixture = f => readFileSync(new URL('./fixtures/' + f, import.meta.url), 'utf8')
@@ -241,3 +241,47 @@ describe('whole PNE statement against a portfolio', () => {
     expect(audit[0]).toHaveProperty('property_on_statement')
   })
 })
+
+describe('commission check against the agreed agent rate', () => {
+  const PROPERTUNITY = { id: 'ag-p', name: 'Propertunity', fee_percent: 10, vat_treatment: 'ex_vat' }
+  const RMS = { id: 'ag-r', name: 'RMS', fee_percent: 7, vat_treatment: 'ex_vat' }
+
+  it('passes every fee line on the real PNE (12% = 10% + VAT) and RMS (7% + VAT column) statements', () => {
+    const pne = parseForImport(fixture('pne-statement-2026.txt')).lines.filter(l => l.line_type === 'management_fee')
+    expect(pne).toHaveLength(27)
+    expect(pne.every(l => commissionCheck(l, PROPERTUNITY).status === 'ok')).toBe(true)
+    const rms = rmsParsed().lines.find(l => l.line_type === 'management_fee')
+    expect(commissionCheck(rms, RMS)).toMatchObject({ status: 'ok', expectedFee: 50.4 })
+  })
+
+  it('flags a rate that is neither the agreed rate nor the agreed rate with VAT', () => {
+    const r = commissionCheck({ fee_pct: 14, fee_basis: 500, fee_amount: 70, vat_amount: 0 }, PROPERTUNITY)
+    expect(r.status).toBe('differs')
+    expect(r.message).toMatch(/Commission 14% on the statement; agreed 10.00% \+ VAT/)
+  })
+
+  it('flags a fee that does not match the rent base at the agreed rate', () => {
+    const r = commissionCheck({ fee_pct: null, fee_basis: 500, fee_amount: 70, vat_amount: 0 }, PROPERTUNITY)
+    expect(r).toMatchObject({ status: 'differs', expectedFee: 60 })
+    expect(commissionCheck({ fee_pct: null, fee_basis: 500, fee_amount: 50, vat_amount: 10 }, PROPERTUNITY).status).toBe('ok')
+  })
+
+  it('treats an inc. VAT agreed rate correctly, and says when no rate is set', () => {
+    expect(commissionCheck({ fee_pct: 12, fee_basis: 500, fee_amount: 60, vat_amount: 0 }, { name: 'X', fee_percent: 12, vat_treatment: 'inc_vat' }).status).toBe('ok')
+    expect(commissionCheck({ fee_pct: 12 }, { name: 'X', fee_percent: null })).toMatchObject({ status: 'unknown' })
+    expect(commissionCheck({ fee_pct: 12 }, null)).toMatchObject({ status: 'unknown', message: /No managing agent/ })
+  })
+
+  it('puts a differing fee line into review with the reason', () => {
+    const agentProp = jubilee({ managed_by_agent_id: 'ag-r' })
+    const ok = reviewRows(rmsParsed(), { properties: [agentProp], companies: COMPANIES, today: '2026-09-25', agents: [RMS] })
+    const fee = ok.rows.find(r => r.kind === 'fee')
+    expect(fee.commission.status).toBe('ok')
+    expect(fee.reasons.join(' ')).not.toMatch(/agreed/)
+    const wrong = reviewRows(rmsParsed(), { properties: [agentProp], companies: COMPANIES, today: '2026-09-25', agents: [{ ...RMS, fee_percent: 5 }] })
+    const fee2 = wrong.rows.find(r => r.kind === 'fee')
+    expect(fee2.status).toBe(REVIEW_STATUS.NEEDS_REVIEW)
+    expect(fee2.reasons.join(' ')).toMatch(/agreed 5.00% \+ VAT \(RMS\)/)
+  })
+})
+
