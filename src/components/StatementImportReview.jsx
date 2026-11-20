@@ -28,6 +28,13 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
   const [overrides, setOverrides] = useState({})
   const [ctx, setCtx] = useState({ knownRefs: new Set(), existingFees: [] })
   const [ctxLoaded, setCtxLoaded] = useState(false)
+  // Managing agents, for the commission check on fee lines.
+  const [agents, setAgents] = useState([])
+  useEffect(() => {
+    let live = true
+    api.fetchEstateAgents().then(a => { if (live) setAgents(a) }).catch(e => console.error('fetchEstateAgents', e))
+    return () => { live = false }
+  }, [])
   const [previous, setPrevious] = useState([])
   const [companyOverride, setCompanyOverride] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -36,8 +43,8 @@ export default function StatementImportReview({ parsed, file, fileName, sourceDo
   const header = parsed.header
 
   const { company, rows: rawRows } = useMemo(
-    () => reviewRows(parsed, { properties, companies, companyId: companyOverride, aliases, knownRefs: ctx.knownRefs, existingFees: ctx.existingFees }, overrides),
-    [parsed, properties, companies, aliases, ctx, overrides, companyOverride])
+    () => reviewRows(parsed, { properties, companies, companyId: companyOverride, aliases, knownRefs: ctx.knownRefs, existingFees: ctx.existingFees, agents }, overrides),
+    [parsed, properties, companies, aliases, ctx, overrides, companyOverride, agents])
 
   // Read-only companies: rows are shown but cannot be written.
   const rows = rawRows.map(r => r.propertyId && canWriteProperty && !canWriteProperty(r.propertyId)

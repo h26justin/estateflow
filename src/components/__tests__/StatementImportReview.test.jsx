@@ -10,6 +10,7 @@ const commitStatementImport = vi.fn(async () => ({ receipts: 1, bridges: 0, peri
 const findPreviousStatementImports = vi.fn(async () => [])
 vi.mock('../../lib/api', () => ({
   fetchStatementImportContext: vi.fn(async () => ({ knownRefs: new Set(), existingFees: [] })),
+  fetchEstateAgents: vi.fn(async () => []),
   findPreviousStatementImports: (...a) => findPreviousStatementImports(...a),
   commitStatementImport: (...a) => commitStatementImport(...a),
   uploadStatementPdf: vi.fn(async () => ({ id: 'doc1' })),
