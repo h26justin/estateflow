@@ -1,7 +1,7 @@
 // Deals brief §6 screens: the "Costs & funding" tab on a deal, and the
 // company funding dashboard on the Deals landing page. All maths is in
 // src/lib/dealFinance.js; this file only loads, edits and shows it.
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { MONO, FS, SANS } from '../lib/styles'
 import { useTheme } from '../lib/ThemeContext'
 import { useConfirm } from '../lib/ConfirmContext'
@@ -69,9 +69,13 @@ const FUNDING_COLUMNS = {
 function EditableRow({ row, columns, onSave, onDelete, T }) {
   const [draft, setDraft] = useState(row)
   const f = fieldStyle(T)
+  // Send only the fields that changed. Two blurs in quick succession (or
+  // saves queued behind a token refresh) must not carry stale copies of each
+  // other's fields: a whole-row write that lands last would undo the other.
   const save = (next = draft) => {
-    const changed = Object.keys(next).some(k => next[k] !== row[k])
-    if (changed) onSave(next)
+    const diff = {}
+    for (const k of Object.keys(next)) if (k !== 'id' && next[k] !== row[k]) diff[k] = next[k]
+    if (Object.keys(diff).length) onSave({ id: row.id, ...diff })
   }
   const set = (field, value) => setDraft(prev => ({ ...prev, [field]: value }))
   const setAndSave = (field, value) => { const next = { ...draft, [field]: value }; setDraft(next); save(next) }
@@ -153,13 +157,24 @@ export function CostsFundingTab({ deal, showToast, refurbProject = null, group =
   const refurb = useMemo(() => refurbPosition(deal, lines || [], refurbProject), [deal, lines, refurbProject])
   const explain = useMemo(() => explainDeal(deal, lines || [], funding || [], refurbProject), [deal, lines, funding, refurbProject])
 
-  async function save(kind, row) {
+  // Edits to an existing row are partial and run one at a time per row, so
+  // they reach the database in the order they were made.
+  const saveQueue = useRef(new Map())
+  function save(kind, row) {
     const setRows = kind === 'cost' ? setLines : setFunding
     const upsert = kind === 'cost' ? api.upsertDealCostLine : api.upsertDealFunding
-    try {
-      const saved = await upsert(dealId, { ...row, amount: row.amount == null ? 0 : row.amount })
-      setRows(prev => row.id ? prev.map(r => r.id === saved.id ? saved : r) : [...prev, saved])
-    } catch (e) { showToast(e.message || 'Could not save', 'error') }
+    const run = async () => {
+      try {
+        const payload = 'amount' in row ? { ...row, amount: row.amount == null ? 0 : row.amount } : row
+        const saved = await upsert(dealId, payload)
+        setRows(prev => row.id ? prev.map(r => r.id === saved.id ? saved : r) : [...prev, saved])
+      } catch (e) { showToast(e.message || 'Could not save', 'error') }
+    }
+    if (!row.id) return run()
+    const key = `${kind}:${row.id}`
+    const next = (saveQueue.current.get(key) || Promise.resolve()).then(run)
+    saveQueue.current.set(key, next)
+    return next
   }
   async function remove(kind, row) {
     if (!await confirmDialog({ title: kind === 'cost' ? 'Delete this cost line?' : 'Delete this funding row?', body: 'This cannot be undone.', confirmLabel: 'Delete', destructive: true })) return
