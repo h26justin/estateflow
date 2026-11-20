@@ -26,6 +26,7 @@ import ActionMenu from './ActionMenu'
 import { CostsFundingTab, CompanyFundingDashboard, DealExportMenu } from './DealFinance'
 import DealDocumentExtract, { isExtractableDoc } from './DealDocumentExtract'
 import { runDealExport } from '../lib/dealExportRun'
+import { DEFAULT_FILTERS, DUE_OPTIONS, SORT_OPTIONS, matchesFilters, sortDeals, ownerOptions, cleanViews, upsertView, isFiltered } from '../lib/dealViews'
 import { resolveDealGroups, groupParentOptions, wouldCreateLoop, groupBadge } from '../lib/dealGroups'
 import { projectsFromProperties, projectTotals, STAGE_CFG as REFURB_STAGE_CFG } from '../lib/refurbs'
 import { refurbProjectCandidates, propertiesForRefurb, findDuplicateRefurbProject, refurbProjectFieldsFromDeal, dealRefurbBudget } from '../lib/dealRefurbLink'
@@ -357,6 +358,19 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const [copyBusy, setCopyBusy] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
   const [coFilter, setCoFilter] = useState('all')
+  // More list filters and saved views (lib/dealViews.js). Company and stage
+  // keep their own state: the funding cards and cashflow panel use coFilter.
+  const [attentionFilter, setAttentionFilter] = useState('all')
+  const [ownerFilter, setOwnerFilter] = useState('all')
+  const [dueFilter, setDueFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('default')
+  const [savedViews, setSavedViews] = useState([])
+  const [activeViewId, setActiveViewId] = useState('')
+  useEffect(() => {
+    let live = true
+    api.fetchDealSavedViews().then(v => { if (live) setSavedViews(cleanViews(v)) }).catch(() => {})
+    return () => { live = false }
+  }, [])
   const [triggerNewLetting, setTriggerNewLetting] = useState(false)
   // Photo / document counts per deal for the badges on list + pipeline
   // cards. Loaded with the deals and refreshed when the user comes back
@@ -547,10 +561,49 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
   const companyMatch = useCallback(d => coFilter === 'all' ? true
     : coFilter === '' ? !d.company_id
     : d.company_id === coFilter, [coFilter])
-  const filtered = useMemo(() => deals.filter(d => {
-    if (statusFilter !== 'all' && d.status !== statusFilter) return false
-    return companyMatch(d)
-  }), [deals, statusFilter, companyMatch])
+  const filterSelect = {fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}
+  const listFilters = useMemo(() => ({ company: coFilter, status: statusFilter, attention: attentionFilter, owner: ownerFilter, due: dueFilter, sort: sortBy }),
+    [coFilter, statusFilter, attentionFilter, ownerFilter, dueFilter, sortBy])
+  const filtered = useMemo(() => {
+    const today = isoToday()
+    return sortDeals(deals.filter(d => matchesFilters(d, listFilters, today)), listFilters.sort)
+  }, [deals, listFilters])
+  const owners = useMemo(() => ownerOptions(deals), [deals])
+  const activeView = savedViews.find(v => v.id === activeViewId) || null
+  // Leave the view's name showing only while its filters are unchanged.
+  const viewChanged = activeView && JSON.stringify(activeView.filters) !== JSON.stringify({ ...DEFAULT_FILTERS, ...listFilters })
+  function applyFilters(f) {
+    const x = { ...DEFAULT_FILTERS, ...f }
+    setCoFilter(x.company); setStatusFilter(x.status); setAttentionFilter(x.attention)
+    setOwnerFilter(x.owner); setDueFilter(x.due); setSortBy(x.sort)
+  }
+  function chooseView(id) {
+    if (id === '') { setActiveViewId(''); applyFilters(DEFAULT_FILTERS); return }
+    const v = savedViews.find(x => x.id === id)
+    if (v) { setActiveViewId(v.id); applyFilters(v.filters) }
+  }
+  async function saveView() {
+    const name = await confirmDialog({ title: 'Save this view', body: 'Saves the current filters and sort under a name, for you only.',
+      prompt: true, defaultValue: activeView?.name || '', placeholder: 'e.g. My overdue actions', confirmLabel: 'Save view' })
+    if (name == null) return
+    try {
+      const next = upsertView(savedViews, name, listFilters)
+      await api.saveDealSavedViews(next)
+      setSavedViews(next)
+      setActiveViewId(next.find(v => v.name.toLowerCase() === String(name).trim().toLowerCase())?.id || '')
+      showToast('View saved')
+    } catch (e) { showToast(e.message || 'Could not save the view', 'error') }
+  }
+  async function deleteView() {
+    if (!activeView) return
+    if (!await confirmDialog({ title: `Delete the view "${activeView.name}"?`, body: 'Only the saved view is removed; no deals change.', confirmLabel: 'Delete view', destructive: true })) return
+    try {
+      const next = savedViews.filter(v => v.id !== activeView.id)
+      await api.saveDealSavedViews(next)
+      setSavedViews(next); setActiveViewId('')
+      showToast('View deleted')
+    } catch (e) { showToast(e.message || 'Could not delete the view', 'error') }
+  }
   // The Pipeline board shows every stage as a column, so the List tab's
   // status filter doesn't apply there (it silently emptied columns and
   // skewed the tiles). The company filter does, and is shown on both tabs.
@@ -705,18 +758,42 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
       {/* Filters - only show on list view */}
       {dealView === 'list' && <div style={{display:'flex',gap:10,marginBottom:4,flexWrap:'wrap',fontSize:11}}><span style={{fontFamily:SANS,color:T.muted,fontSize:FS.sm,alignSelf:'center'}}>List view · {filtered.length} deals</span></div>}
       <div style={{display:'flex',gap:10,marginBottom:20,flexWrap:'wrap'}}>
-        <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}
-          style={{fontFamily:SANS,fontSize:FS.sm,background:T.surface,border:`1px solid ${T.border}`,color:T.text,borderRadius:8,padding:'7px 12px'}}>
+        <select aria-label="Saved view" value={activeView && !viewChanged ? activeView.id : ''} onChange={e=>chooseView(e.target.value)}
+          style={{...filterSelect,fontWeight:700}}>
+          <option value="">{activeView && viewChanged ? `${activeView.name} (changed)` : 'All deals (no saved view)'}</option>
+          {savedViews.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+        <select aria-label="Stage" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} style={filterSelect}>
           <option value="all">All statuses</option>
           {Object.entries(STATUS_CFG).map(([k,v])=>(<option key={k} value={k}>{v.label}</option>))}
         </select>
+        <select aria-label="Attention" value={attentionFilter} onChange={e=>setAttentionFilter(e.target.value)} style={filterSelect}>
+          <option value="all">Any attention</option>
+          <option value="needs">Needs attention</option>
+          {ATTENTION_STATUSES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
+        </select>
+        <select aria-label="Action owner" value={ownerFilter} onChange={e=>setOwnerFilter(e.target.value)} style={filterSelect}>
+          <option value="all">Any owner</option>
+          <option value="">No owner</option>
+          {owners.map(o => <option key={o} value={o}>{o}</option>)}
+          {ownerFilter !== 'all' && ownerFilter !== '' && !owners.some(o => o.toLowerCase() === ownerFilter.toLowerCase()) && <option value={ownerFilter}>{ownerFilter}</option>}
+        </select>
+        <select aria-label="Action due" value={dueFilter} onChange={e=>setDueFilter(e.target.value)} style={filterSelect}>
+          {DUE_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        <select aria-label="Sort" value={sortBy} onChange={e=>setSortBy(e.target.value)} style={filterSelect}>
+          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>Sort: {o.label}</option>)}
+        </select>
+        <Button variant="secondary" size="sm" onClick={saveView} disabled={!isFiltered(listFilters) && !activeView}>Save view</Button>
+        {activeView && <Button variant="ghost" size="sm" destructive onClick={deleteView}>Delete view</Button>}
+        {isFiltered(listFilters) && <Button variant="ghost" size="sm" onClick={()=>chooseView('')}>Clear</Button>}
         {/* All Deals export (Deals brief §10): the deals listed below, with
             the company and stage filters printed on the output. */}
         {!loading && !loadError && deals.length > 0 && (
           <DealExportMenu deals={filtered} companies={companies} align="left" showToast={showToast} refurbProjects={refurbProjects}
             title={coFilter === 'all' ? 'All deals' : coFilter === '' ? 'Unassigned deals' : (companies.find(c => c.id === coFilter)?.name || 'Deals')}
             scopeLabel={coFilter === 'all' ? 'all deals' : 'filtered deals'}
-            filters={{ companyId: coFilter, status: statusFilter }}/>
+            filters={{ companyId: coFilter, status: statusFilter, attention: attentionFilter, owner: ownerFilter, due: dueFilter, view: activeView && !viewChanged ? activeView.name : null }}/>
         )}
       </div>
 
@@ -730,8 +807,11 @@ export default function DealsPage({ user, companies, properties = [], onConvertT
             </div>
         : filtered.length === 0
           ? <div className="card">
-              <EmptyState icon="target" title="No deals yet" body="Add your first deal to analyse."
-                action={<Button icon="plus" onClick={()=>createNewDeal()} disabled={creatingDeal}>Add deal</Button>}/>
+              {deals.length > 0
+                ? <EmptyState icon="target" title="No deals match these filters" body="Change or clear the filters to see more deals."
+                    action={<Button variant="secondary" onClick={()=>chooseView('')}>Clear filters</Button>}/>
+                : <EmptyState icon="target" title="No deals yet" body="Add your first deal to analyse."
+                    action={<Button icon="plus" onClick={()=>createNewDeal()} disabled={creatingDeal}>Add deal</Button>}/>}
             </div>
           : <div style={{display:'grid',gap:12}}>
               {filtered.map(deal => {
