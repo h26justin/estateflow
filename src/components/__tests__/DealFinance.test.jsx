@@ -43,6 +43,38 @@ describe('CostsFundingTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /How calculated/ }))
     expect(screen.getByText(/Balance due =/)).toBeTruthy()
   })
+  it('saves only changed fields, one save at a time per row', async () => {
+    api.fetchDealCostLines.mockResolvedValueOnce([
+      { id: 'l1', category: 'purchase_price', label: '', amount: 0, state: 'estimate' },
+    ])
+    let releaseFirst
+    const order = []
+    api.upsertDealCostLine
+      .mockImplementationOnce((dealId, row) => new Promise(res => {
+        order.push('first-start')
+        releaseFirst = () => { order.push('first-end'); res({ id: 'l1', category: 'purchase_price', amount: 0, state: 'estimate', label: 'Completion' }) }
+      }))
+      .mockImplementationOnce(async (dealId, row) => {
+        order.push('second-start')
+        return { id: 'l1', category: 'purchase_price', state: 'estimate', label: 'Completion', amount: 1234 }
+      })
+    wrap(<CostsFundingTab deal={{ id: 'd1', purchase_price: 100000 }} showToast={() => {}}/>)
+    const label = await screen.findByPlaceholderText('e.g. Completion statement')
+    fireEvent.change(label, { target: { value: 'Completion' } })
+    fireEvent.blur(label)
+    const amount = screen.getByLabelText('Amount')
+    fireEvent.change(amount, { target: { value: '1234' } })
+    fireEvent.blur(amount)
+
+    await waitFor(() => expect(api.upsertDealCostLine).toHaveBeenCalledTimes(1))
+    // The label save carries no amount, so it can never reset the amount.
+    expect(api.upsertDealCostLine.mock.calls[0][1]).toEqual({ id: 'l1', label: 'Completion' })
+    expect(order).toEqual(['first-start'])  // the amount save waits its turn
+    releaseFirst()
+    await waitFor(() => expect(api.upsertDealCostLine).toHaveBeenCalledTimes(2))
+    expect(api.upsertDealCostLine.mock.calls[1][1]).toMatchObject({ id: 'l1', amount: 1234 })
+    expect(order).toEqual(['first-start', 'first-end', 'second-start'])
+  })
 })
 
 describe('CompanyFundingDashboard', () => {
