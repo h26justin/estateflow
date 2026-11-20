@@ -31,6 +31,7 @@ vi.mock('../../lib/api', () => ({
   fetchDealCostLines: vi.fn(async () => []),
   upsertDealCostLine: vi.fn(async (dealId, row) => ({ id: row.id || 'line-new', deal_id: dealId, ...row })),
   deleteDealCostLine: vi.fn(async () => {}),
+  transcribeDealDocument: vi.fn(async () => PAGES),
 }))
 vi.mock('../../lib/pdfExtract', () => ({ extractPdfPagesFromFile: vi.fn(async () => PAGES) }))
 
@@ -93,7 +94,24 @@ describe('DealDocumentExtract', () => {
   it('says so when a scan has no text', async () => {
     extractPdfPagesFromFile.mockResolvedValueOnce([[]])
     wrap(<DealDocumentExtract dealId="d1" doc={doc} onClose={() => {}}/>)
-    expect(await screen.findByText('No text found: enter the figures manually.')).toBeTruthy()
+    expect(await screen.findByText('No text found in this PDF.')).toBeTruthy()
     expect(api.addExtractedFields).not.toHaveBeenCalled()
+  })
+
+  it('reads a scan only when asked, caps confidence and turns off bulk approval', async () => {
+    extractPdfPagesFromFile.mockResolvedValueOnce([[]])
+    wrap(<DealDocumentExtract dealId="d1" doc={doc} onClose={() => {}} showToast={() => {}}/>)
+    const button = await screen.findByRole('button', { name: 'Read the scan' })
+    expect(api.transcribeDealDocument).not.toHaveBeenCalled()
+    expect(api.addExtractedFields).not.toHaveBeenCalled()
+    fireEvent.click(button)
+    expect(await screen.findByTestId('suggestion-balance_due')).toBeTruthy()
+    expect(api.transcribeDealDocument).toHaveBeenCalledWith('doc1')
+    const inserted = api.addExtractedFields.mock.calls[0][0]
+    expect(inserted.length).toBeGreaterThan(0)
+    expect(inserted.every(r => r.confidence == null || r.confidence <= 0.6)).toBe(true)
+    expect(screen.getByText(/Text read from a scan by AI/)).toBeTruthy()
+    const bulkBtn = screen.getByRole('button', { name: /Approve all valid/ })
+    expect(bulkBtn.disabled).toBe(true)
   })
 })
