@@ -56,6 +56,19 @@ describe('errorReporter', () => {
     expect(inserts).toHaveLength(1)
   })
 
+  it("drops React.lazy's \"reading 'default'\" crash while the stale-chunk reload is in flight", async () => {
+    const { reportClientError, CHUNK_RELOADING_KEY } = await import('../errorReporter')
+    const msg = "Cannot read properties of undefined (reading 'default')"
+    sessionStorage.setItem(CHUNK_RELOADING_KEY, '1')
+    reportClientError({ message: msg, kind: 'boundary' })
+    await flush()
+    expect(inserts).toHaveLength(0)
+    sessionStorage.removeItem(CHUNK_RELOADING_KEY)       // no reload under way: a real fault, reported
+    reportClientError({ message: msg, kind: 'boundary' })
+    await flush()
+    expect(inserts).toHaveLength(1)
+  })
+
   it('never throws, even when the client is broken', async () => {
     const { reportClientError } = await import('../errorReporter')
     const { supabase } = await import('../supabase')

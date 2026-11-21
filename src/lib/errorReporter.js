@@ -25,6 +25,11 @@ const recent = new Map()   // message -> last sent ms
 // and is reported.
 export const CHUNK_RELOADING_KEY = 'ef_chunk_reloading'
 const CHUNK_ERROR = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i
+// main.jsx calls preventDefault() on vite:preloadError before reloading, so the
+// failed import resolves to undefined and React.lazy throws this instead of
+// the fetch error. Same event, so it is dropped under the same flag
+// (nightly audit went AMBER on one of these, 21 Nov 2026).
+const LAZY_UNDEFINED = /Cannot read properties of undefined \(reading 'default'\)|undefined is not an object \(evaluating '[^']*\.default'\)/
 
 function chunkReloadInFlight() {
   try { return sessionStorage.getItem(CHUNK_RELOADING_KEY) === '1' } catch { return false }
@@ -42,7 +47,7 @@ export function reportClientError({ message, stack, kind = 'error', component = 
     const msg = String(message || 'Unknown error').slice(0, 2000)
     // Browser-extension and cross-origin noise adds nothing actionable.
     if (/ResizeObserver loop|Script error\.?$|chrome-extension:\/\//.test(msg)) return
-    if (CHUNK_ERROR.test(msg) && chunkReloadInFlight()) return
+    if ((CHUNK_ERROR.test(msg) || LAZY_UNDEFINED.test(msg)) && chunkReloadInFlight()) return
     const now = Date.now()
     if (sent >= MAX_PER_SESSION) return
     const last = recent.get(msg)
